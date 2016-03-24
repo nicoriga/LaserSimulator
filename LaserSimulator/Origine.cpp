@@ -22,6 +22,7 @@
 #include <pcl/conversions.h>
 #include <pcl/octree/octree.h>
 #include <pcl/common/angles.h>
+#include <pcl/registration/transformation_estimation_svd.h>
 
 using namespace cv;
 using namespace std;
@@ -44,7 +45,7 @@ int scanDirection = DIRECTION_SCAN_AXIS_X;
 float distance_laser_sensor = 600 ; //600
 float laser_aperture = 45.0;
 float laser_inclination = 60.0;
-float delta_z = 600;
+float delta_z = 900; //600
 int default_number_samples = 10000000;
 
 int sensor_pixel_width = 2024;
@@ -649,7 +650,7 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 	float x_sensor_origin = pin_hole.x - (sensor_height) / 2;
 	float y_sensor_origin = pin_hole.y - (sensor_width) / 2;
 
-	// inizializza l'immagine
+	// inizializza l'immagine bianca
 	for (int i = 0; i < sensor_pixel_height; i++)
 		for (int j = 0; j < sensor_pixel_width; j++) {
 			image.at<Vec3b>(i, j)[0] = 255;
@@ -683,7 +684,106 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 	return image_point_added;
 }
 
+void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img) {
+	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
+	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
+	PointXYZ current_point;
 
+	// inizializza l'immagine bianca
+	for (int i = 0; i < sensor_pixel_height; i++)
+		for (int j = 0; j < sensor_pixel_width; j++) {
+			image.at<Vec3b>(i, j)[0] = 255;
+			image.at<Vec3b>(i, j)[1] = 255;
+			image.at<Vec3b>(i, j)[2] = 255;
+		}
+
+	cloud_src->push_back(pin_hole);
+	cloud_src->push_back(laser);
+
+	Correspondences cor(2);
+
+	PointXYZ p;
+	// camera
+	p.x = 0;
+	p.y = 0;
+	p.z = 0;
+	cloud_target->push_back(p);
+
+	Correspondence cor_0;
+	cor_0.index_query = 0;
+	cor_0.index_match = 0;
+	cor[0] = cor_0;
+
+	// laser
+	p.x = 0;
+	p.y = -800;
+	p.z = 0;
+	cloud_target->push_back(p);
+
+	Correspondence cor_1;
+	cor_1.index_query = 1;
+	cor_1.index_match = 1;
+	cor[1] = cor_1;
+
+
+	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
+	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
+	transEst.estimateRigidTransformation(*cloud_src, *cloud_target, trans);
+
+	std::vector<Point3f> points;
+	std::vector<Point2f> output_point;
+	Mat distortioncoeffs(8, 1, CV_64F);
+	Mat cameraMatrix;
+
+	// parametri intrinseci della telecamera
+	cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04;
+	cameraMatrix.at<double>(1, 1) = 4615.51;
+	cameraMatrix.at<double>(0, 2) = 1113.41;
+	cameraMatrix.at<double>(1, 2) = 480.016;
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	for (int i = 0; i < cloudIntersection->size(); i++) {
+		Eigen::Vector4f v_point, v_point_final;
+		v_point[0] = cloudIntersection->points[i].x;
+		v_point[1] = cloudIntersection->points[i].y;
+		v_point[2] = cloudIntersection->points[i].z;
+		v_point[3] = 1;
+		v_point_final = trans * v_point;
+
+		v_point_final[2] = -v_point_final[2];
+
+		Point3f p(v_point_final[0], v_point_final[1], v_point_final[2]);
+
+		points.push_back(p);
+	}
+
+	// camera rotation
+	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
+		0, 1, 0,
+		0, 0, 1);
+	Mat rotatVec;
+	cv::Rodrigues(rotatMat, rotatVec);
+
+	if (cloudIntersection->size() > 0) {
+		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, Mat::zeros(8, 1, CV_64F), output_point);
+		Point2f p2;
+		for (int i = 0; i < output_point.size(); i++) {
+			p2 = output_point.at(i);
+			if ((p2.y >= 0) && (p2.y <= 1088) && (p2.x >= 0) && (p2.x <= 2024))
+			{
+				image.at<Vec3b>(p2.y, p2.x)[0] = 0;
+				image.at<Vec3b>(p2.y, p2.x)[1] = 0;
+				image.at<Vec3b>(p2.y, p2.x)[2] = 0;
+			}
+		}
+
+	}
+
+	*img = image;
+
+}
 
 
 int main(int argc, char** argv)
@@ -692,7 +792,7 @@ int main(int argc, char** argv)
 	PolygonMesh mesh;
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
-	Mat image;
+	Mat image, image2;
 
 	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
 	{
@@ -733,14 +833,26 @@ int main(int argc, char** argv)
 	int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 	cout << "Punti immagine aggiunti: " << image_point_added << endl;
 
+	// Crea immagine usando il metodo di openCV
+	PointXYZ pin_hole_temp, laser_point_temp;
+	pin_hole_temp.x = pin_hole.x;
+	pin_hole_temp.y = pin_hole.y;
+	pin_hole_temp.z = pin_hole.z;
+	laser_point_temp.x = laser_point.x;
+	laser_point_temp.y = laser_point.y;
+	laser_point_temp.z = laser_point.z;
+	getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image2);
+
 	cloud_projection->push_back(pin_hole);
 
 	// disegna contorni sensore
 	drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
 
-	namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
-	imshow("Display window", image); // Show our image inside it.
-	imwrite("out.png", image);
+	cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
+	cv::imshow("Display window", image); // Show our image inside it.
+	cv::imwrite("out1.png", image);
+	cv::imwrite("out2.png", image2);
+
 
 	// Create a PCLVisualizer
 	visualization::PCLVisualizer viewer("Mesh");
