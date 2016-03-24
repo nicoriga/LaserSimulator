@@ -453,6 +453,36 @@ float rayPlaneIntersection(PointXYZRGB start_point, Eigen::Vector3d direction, f
 
 }
 
+int findStartIndex(float* array_min_points, int array_size, float min_point) {
+	int index = 0;
+
+	for (int i = 0; i < array_size; i++)
+	{
+		if (array_min_points[i] > min_point) {
+			index = i - 1;
+			break;
+		}
+	}
+	if (index < 0)
+		index = 0;
+
+	return index;
+}
+
+int findFinalIndex(float* array_min_points, int array_size, float max_point) {
+	int index = 0;
+
+	for (int i = array_size-1; i > 0; i--)
+	{
+		if (array_min_points[i] < max_point) {
+			index = i;
+			break;
+		}
+	}
+
+	return index;
+}
+
 void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB laser, 
 							   const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection)
 {
@@ -476,8 +506,22 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		d2 = 0;
 	}
 
-	#pragma omp parallel for ordered schedule(dynamic)
-	//for (float i = -tan(deg2rad(laser_aperture / 2)); i < tan(deg2rad(laser_aperture / 2)); i += density)
+	Eigen::Vector3d direction_ray_start;
+	direction_ray_start[d1] = -tan(deg2rad(laser_aperture / 2));
+	direction_ray_start[d2] = -tan(deg2rad(90 - laser_inclination));
+	direction_ray_start[2] = -1;
+	float min_polygons_coordinate = rayPlaneIntersection(laser_point, direction_ray_start, min_z, scanDirection);
+	float max_polygons_coordinate = rayPlaneIntersection(laser_point, direction_ray_start, max_z, scanDirection);
+	int start_index = findStartIndex(min_poligon_point, mesh.polygons.size(), min_polygons_coordinate);
+	int final_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
+
+	cout << "min_polygons_coordinate: " << min_polygons_coordinate << endl;
+	cout << "max_polygons_coordinate: " << max_polygons_coordinate << endl;
+	cout << "start_index: " << start_index << endl;
+	cout << "final_index: " << final_index << endl;
+	cout << "Number of Poligon insercted: " << final_index - start_index << endl;
+
+	#pragma omp parallel for //ordered schedule(dynamic)
 	for (int j = 0; j < number_of_line; j++)
 	{
 		PointXYZ tmp;
@@ -499,14 +543,9 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		direction_ray[d2] = -tan(deg2rad(90 - laser_inclination));
 		direction_ray[2] = -1;
 
-		float min_polygons_coordinate = rayPlaneIntersection(laser_point, direction_ray, min_z, scanDirection);
-		float max_polygons_coordinate = rayPlaneIntersection(laser_point, direction_ray, max_z, scanDirection);
-		//cout << "min_polygons_coordinate:" << min_polygons_coordinate << " - ";
-		//cout << "max_polygons_coordinate:" << max_polygons_coordinate << endl;
-
-		for (int k = 0; k < mesh.polygons.size(); k++) 
+		for (int k = start_index; k < final_index; k++)
 		{
-			triangle = mesh.polygons.at(k);
+			triangle = mesh.polygons.at(min_poligon_index[k]);
 			tmp = meshVertices.points[triangle.vertices[0]];
 			vertex1[0] = tmp.x;
 			vertex1[1] = tmp.y;
@@ -536,7 +575,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 			}
 		}
 
-		#pragma omp ordered
+		#pragma omp critical
 		{
 			//drawLine(cloudIntersection, laser_point, Eigen::Vector3f(-tan(deg2rad(90 - laser_inclination)), i, -1), 1500);
 
@@ -662,8 +701,8 @@ int main(int argc, char** argv)
 	}
 	cout << mesh.polygons.size() << " Processing point cloud... " << endl;
 
-	// Trova i punti di min e maz per tutti gli assi della mesh
-	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei polignoni
+	// Trova i punti di min e max per tutti gli assi della mesh
+	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
 	min_poligon_index = new int[mesh.polygons.size()];   // array per salvare l'indice di tali punti
 	initializeMinMaxPoints(mesh);
 
@@ -680,9 +719,7 @@ int main(int argc, char** argv)
 	initializePinHole(scanDirection, 650);
 
 	// cerca i punti di insersezione del raggio laser
-	int intersect_points = 0;
 	findPointsMeshLaserIntersection(mesh, laser_point, 0.001, cloud_intersection, scanDirection);
-	cout << "intersect_points: " << intersect_points << endl;
 
 	// effettua la proiezione dei punti di insersezione
 	sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
@@ -692,14 +729,14 @@ int main(int argc, char** argv)
 
 	//****************** Converto la point cloud in un immagine **********************
 	
-
-	// disegna contorni sensore
-	drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
-
-	cloud_projection->push_back(pin_hole);
 	// crea immagine
 	int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 	cout << "Punti immagine aggiunti: " << image_point_added << endl;
+
+	cloud_projection->push_back(pin_hole);
+
+	// disegna contorni sensore
+	drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
 
 	namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
 	imshow("Display window", image); // Show our image inside it.
