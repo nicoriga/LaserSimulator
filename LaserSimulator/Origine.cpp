@@ -34,9 +34,9 @@ using namespace pcl;
 #define DIRECTION_SCAN_AXIS_Y 1
 
 // MIN MAX POINT
-int min_x, max_x;
-int min_y, max_y;
-int min_z, max_z;
+float min_x, max_x;
+float min_y, max_y;
+float min_z, max_z;
 
 PointXYZRGB laser_point, laser_final_point_left, laser_final_point_right, pin_hole;
 
@@ -441,6 +441,18 @@ int triangle_intersection(const Eigen::Vector3d V1, const Eigen::Vector3d V2, co
 	return 0;
 }
 
+float rayPlaneIntersection(PointXYZRGB start_point, Eigen::Vector3d direction, float plane_coordinate, int scanDirection) {
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	{
+		return direction[1] * (plane_coordinate - start_point.z) / direction[2] + start_point.y;
+	}
+	if (scanDirection == DIRECTION_SCAN_AXIS_X)
+	{
+		return direction[0] * (plane_coordinate - start_point.z) / direction[2] + start_point.x;
+	}
+
+}
+
 void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB laser, 
 							   const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection)
 {
@@ -487,7 +499,11 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		direction_ray[d2] = -tan(deg2rad(90 - laser_inclination));
 		direction_ray[2] = -1;
 
-		
+		float min_polygons_coordinate = rayPlaneIntersection(laser_point, direction_ray, min_z, scanDirection);
+		float max_polygons_coordinate = rayPlaneIntersection(laser_point, direction_ray, max_z, scanDirection);
+		//cout << "min_polygons_coordinate:" << min_polygons_coordinate << " - ";
+		//cout << "max_polygons_coordinate:" << max_polygons_coordinate << endl;
+
 		for (int k = 0; k < mesh.polygons.size(); k++) 
 		{
 			triangle = mesh.polygons.at(k);
@@ -630,6 +646,7 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 
 
 
+
 int main(int argc, char** argv)
 {
 	// Load STL file as a PolygonMesh
@@ -638,7 +655,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
 	Mat image;
 
-	if (io::loadPolygonFileSTL("bin1.stl", mesh) == 0)
+	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
