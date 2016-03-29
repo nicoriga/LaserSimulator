@@ -39,13 +39,14 @@ float min_x, max_x;
 float min_y, max_y;
 float min_z, max_z;
 
-PointXYZRGB laser_point, laser_final_point_left, laser_final_point_right, pin_hole;
+PointXYZRGB laser_point, laser_point_2, laser_final_point_left, laser_final_point_right, pin_hole;
 
 int scanDirection = DIRECTION_SCAN_AXIS_X;
 float distance_laser_sensor = 600 ; //600
 float laser_aperture = 45.0;
 float laser_inclination = 60.0;
-float delta_z = 900; //600
+float delta_z = 600; //600 altezza rispetto all'oggetto
+float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
 int sensor_pixel_width = 2024;
@@ -302,25 +303,37 @@ void initializeLaser(int scanDirection) {
 		laser_point.z = max_z + delta_z;
 		laser_point.x = (max_x + min_x) / 2;
 		laser_point.y = max_y + (laser_point.z - min_z)*tan(deg2rad(90 - laser_inclination));
-		laser_point.r = 255;
-		laser_point.g = 0;
-		laser_point.b = 0;
+
+		laser_point_2.z = max_z + delta_z;
+		laser_point_2.x = (max_x + min_x) / 2;
+		laser_point_2.y = laser_point.y - 2*distance_laser_sensor;
+		
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
 		laser_point.z = max_z + delta_z;
 		laser_point.y = (max_y + min_y) / 2;
 		laser_point.x = max_x + (laser_point.z - min_z)*tan(deg2rad(90 - laser_inclination));
-		laser_point.r = 255;
-		laser_point.g = 0;
-		laser_point.b = 0;
+
+		laser_point_2.z = max_z + delta_z;
+		laser_point_2.y = (max_y + min_y) / 2;
+		laser_point_2.x = laser_point.x - 2 * distance_laser_sensor;
 	}
+
+	laser_point.r = 255;
+	laser_point.g = 0;
+	laser_point.b = 0;
+
+	laser_point_2.r = 255;
+	laser_point_2.g = 0;
+	laser_point_2.b = 0;
 }
 
 void initializePinHole(int scanDirection, int position) {
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		laser_point.y -= position; // solo per test... da rimuovere
+		laser_point.y -= position;
+		laser_point_2.y -= position;
 
 	//calcola valori pin hole
 		pin_hole.x = laser_point.x;
@@ -328,7 +341,8 @@ void initializePinHole(int scanDirection, int position) {
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
-		laser_point.x -= position; // solo per test... da rimuovere
+		laser_point.x -= position;
+		laser_point_2.x -= position;
 
 		pin_hole.y = laser_point.y;
 		pin_hole.x = laser_point.x - distance_laser_sensor;
@@ -493,7 +507,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 	const float MIN_INTERSECTION = VTK_FLOAT_MIN;
 	
 	int number_of_line = (tan(deg2rad(laser_aperture / 2))*2) / density;
-	cout << "Numero linee fascio laser: " << number_of_line << endl;
+	//cout << "Numero linee fascio laser: " << number_of_line << endl;
 
 	int d1, d2;
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
@@ -516,10 +530,10 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 	int start_index = findStartIndex(min_poligon_point, mesh.polygons.size(), min_polygons_coordinate);
 	int final_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
 
-	cout << "min_polygons_coordinate: " << min_polygons_coordinate << endl;
-	cout << "max_polygons_coordinate: " << max_polygons_coordinate << endl;
-	cout << "start_index: " << start_index << endl;
-	cout << "final_index: " << final_index << endl;
+	//cout << "min_polygons_coordinate: " << min_polygons_coordinate << endl;
+	//cout << "max_polygons_coordinate: " << max_polygons_coordinate << endl;
+	//cout << "start_index: " << start_index << endl;
+	//cout << "final_index: " << final_index << endl;
 	cout << "Number of Poligon insercted: " << final_index - start_index << endl;
 
 	#pragma omp parallel for //ordered schedule(dynamic)
@@ -812,46 +826,61 @@ int main(int argc, char** argv)
 	mergesort(min_poligon_point, min_poligon_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
 	delete[] tmp_a, tmp_b; // elimino gli array temporanei
 
+	VideoWriter record_image("movie.avi", CV_FOURCC('M', 'J', 'P', 'G'), 15, Size(2024, 1088));
+
 	// Inizializza il laser
 	initializeLaser(scanDirection);
 
-	// Inizializza il Pin Hole
-	initializePinHole(scanDirection, 650);
+	// lo sposto già un po' più avanti per un bug che interseca tutti i triangoli
+	//initializePinHole(scanDirection, 5.4);
 
-	// cerca i punti di insersezione del raggio laser
-	findPointsMeshLaserIntersection(mesh, laser_point, 0.001, cloud_intersection, scanDirection);
+	float y_pos = 20.4; // 5.4
 
-	// effettua la proiezione dei punti di insersezione
-	sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
-	cout << "Proiezioni " << cloud_projection->points.size() << endl;
-	cout << "Punti veri " << cloud_intersection->points.size() << endl;
+	for (int z = 0; z < 30; z++)
+	{
+		cout << "Z->" << z << " ";
+		// Inizializza il Pin Hole e sposta anche la posizione del laser
+		initializePinHole(scanDirection, y_pos);
+		y_pos += 0.1;
+
+		// cerca i punti di insersezione del raggio laser
+		findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection);
+
+		// effettua la proiezione dei punti di insersezione
+		sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+		//cout << "Proiezioni " << cloud_projection->points.size() << endl;
+		//cout << "Punti veri " << cloud_intersection->points.size() << endl;
 
 
-	//****************** Converto la point cloud in un immagine **********************
-	
-	// crea immagine
-	int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
-	cout << "Punti immagine aggiunti: " << image_point_added << endl;
+		//****************** Converto la point cloud in un immagine **********************
 
-	// Crea immagine usando il metodo di openCV
-	PointXYZ pin_hole_temp, laser_point_temp;
-	pin_hole_temp.x = pin_hole.x;
-	pin_hole_temp.y = pin_hole.y;
-	pin_hole_temp.z = pin_hole.z;
-	laser_point_temp.x = laser_point.x;
-	laser_point_temp.y = laser_point.y;
-	laser_point_temp.z = laser_point.z;
-	getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image2);
+		// crea immagine
+		int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
+		//cout << "Punti immagine aggiunti: " << image_point_added << endl;
 
-	cloud_projection->push_back(pin_hole);
+		// Crea immagine usando il metodo di openCV
+		/*PointXYZ pin_hole_temp, laser_point_temp;
+		pin_hole_temp.x = pin_hole.x;
+		pin_hole_temp.y = pin_hole.y;
+		pin_hole_temp.z = pin_hole.z;
+		laser_point_temp.x = laser_point.x;
+		laser_point_temp.y = laser_point.y;
+		laser_point_temp.z = laser_point.z;
+		getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image2);*/
 
-	// disegna contorni sensore
-	drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
+		//cloud_projection->push_back(pin_hole);
 
-	cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
-	cv::imshow("Display window", image); // Show our image inside it.
-	cv::imwrite("out1.png", image);
-	cv::imwrite("out2.png", image2);
+		// disegna contorni sensore
+		//drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
+
+		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
+		//cv::imshow("Display window", image); // Show our image inside it.
+		//cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
+		record_image << image;
+		//cv::imwrite("out2.png", image2);
+		//cloud_intersection->~PointCloud();
+		//cloud_projection->~PointCloud();
+	}
 
 
 	// Create a PCLVisualizer
