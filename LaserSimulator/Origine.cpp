@@ -47,7 +47,7 @@ int scanDirection = DIRECTION_SCAN_AXIS_X;
 float distance_laser_sensor = 600 ; //600
 float laser_aperture = 45.0;
 float laser_inclination = 60.0;
-float delta_z = 600; //600 altezza rispetto all'oggetto
+float delta_z = 900; //600 altezza rispetto all'oggetto
 float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
@@ -535,7 +535,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		d2 = 1;
 		getPlaneCoefficent(Vect3d(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), Vect3d(0, -tan(deg2rad(laser_aperture / 2)) + 1 * density, -1), plane);
 		
-		drawLine(cloudIntersection, laser, Eigen::Vector3f(-tan(deg2rad(90 - laser_inclination)), -tan(deg2rad(laser_aperture / 2)) + 50*density, -1), 1000);
+		drawLine(cloudIntersection, laser, Eigen::Vector3f(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), 1000);
 
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
@@ -830,10 +830,6 @@ void saveFrame(VideoWriter& videoWriter, Mat& image) {
 	videoWriter << image;
 }
 
-void increment(float* number, float* increment) {
-	*number += *increment;
-}
-
 void generatePointCloudFromImage(Plane plane, Mat image, PointCloud<PointXYZ>::Ptr cloudOut){
 	PointXYZ point;
 
@@ -902,7 +898,7 @@ int main(int argc, char** argv)
 	float position_step;
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
-		position_step = laser_point.x - 120; //- 1;
+		position_step = laser_point.x - 780; //- 1;
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
@@ -913,7 +909,7 @@ int main(int argc, char** argv)
 
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 
-	for (int z = 0; z < 15; z++)
+	for (int z = 0; z < 1; z++)
 	{
 		{
 			cout << "Z->" << z << " ";
@@ -928,7 +924,7 @@ int main(int argc, char** argv)
 			findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, plane);
 
 			// effettua la proiezione dei punti di insersezione
-			sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+			//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
 			//cout << "Proiezioni " << cloud_projection->points.size() << endl;
 			//cout << "Punti veri " << cloud_intersection->points.size() << endl;
 
@@ -936,36 +932,38 @@ int main(int argc, char** argv)
 			//****************** Converto la point cloud in un immagine **********************
 
 			// crea immagine
-			int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
+			//int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 			//cout << "Punti immagine aggiunti: " << image_point_added << endl;
 
-			//generatePointCloudFromImage(plane, image, cloudGenerate);
 
 			// Crea immagine usando il metodo di openCV
-			/*PointXYZ pin_hole_temp, laser_point_temp;
+			PointXYZ pin_hole_temp, laser_point_temp;
 			pin_hole_temp.x = pin_hole.x;
 			pin_hole_temp.y = pin_hole.y;
 			pin_hole_temp.z = pin_hole.z;
 			laser_point_temp.x = laser_point.x;
 			laser_point_temp.y = laser_point.y;
 			laser_point_temp.z = laser_point.z;
-			getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image2);*/
+			getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image);
 
 			//cloud_projection->push_back(pin_hole);
 
 			// disegna contorni sensore
 			//drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
 
-			//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
-			//cv::imshow("Display window", image); // Show our image inside it.
+			cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
+			cv::imshow("Display window", image); // Show our image inside it.
 			//cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
 
+			generatePointCloudFromImage(plane, image, cloudGenerate);
+			cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 		}
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
 		//cloud_intersection->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
+	cout << "Punti cloudGenerate" << cloudGenerate->points.size();
 
 
 	// Create a PCLVisualizer
@@ -978,10 +976,10 @@ int main(int argc, char** argv)
 	viewer.addPointCloud<PointXYZRGB>(cloud_projection, rgb4, "cloudProj");
 	viewer.spin();
 
-	//visualization::PCLVisualizer viewer2("Viewer2");
-	////viewer2.addCoordinateSystem(100, "Viewer2");
-	//viewer2.addPointCloud<PointXYZ>(cloudGenerate, "cloudGen");
-	//viewer2.spin();
+	visualization::PCLVisualizer viewer2("Viewer2");
+	//viewer2.addCoordinateSystem(100, "Viewer2");
+	viewer2.addPointCloud<PointXYZ>(cloudGenerate, "cloudGen");
+	viewer2.spin();
 
 
 	return 0;
