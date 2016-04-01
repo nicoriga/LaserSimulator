@@ -534,20 +534,26 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		d1 = 0;
 		d2 = 1;
 		getPlaneCoefficent(Vect3d(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), Vect3d(0, -tan(deg2rad(laser_aperture / 2)) + 1 * density, -1), plane);
+		
+		drawLine(cloudIntersection, laser, Eigen::Vector3f(-tan(deg2rad(90 - laser_inclination)), -tan(deg2rad(laser_aperture / 2)) + 50*density, -1), 1000);
+
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
 		d1 = 1;
 		d2 = 0;
 		getPlaneCoefficent(Vect3d(-tan(deg2rad(laser_aperture / 2)) + 0 * density, 0, -1), Vect3d(-tan(deg2rad(laser_aperture / 2)) + 1 * density, 0, -1), plane);
+		
+		drawLine(cloudIntersection, laser, Eigen::Vector3f(-tan(deg2rad(laser_aperture / 2)) + 0 * density , 0, -1), 1000);
+
 	}
 
 	Eigen::Vector3d direction_ray_start;
 	direction_ray_start[d1] = -tan(deg2rad(laser_aperture / 2));
 	direction_ray_start[d2] = -tan(deg2rad(90 - laser_inclination));
 	direction_ray_start[2] = -1;
-	float min_polygons_coordinate = rayPlaneLimitIntersection(laser_point, direction_ray_start, min_z, scanDirection);
-	float max_polygons_coordinate = rayPlaneLimitIntersection(laser_point, direction_ray_start, max_z, scanDirection);
+	float min_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, min_z, scanDirection);
+	float max_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, max_z, scanDirection);
 	int start_index = findStartIndex(min_poligon_point, mesh.polygons.size(), min_polygons_coordinate);
 	int final_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
 
@@ -613,7 +619,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 
 		#pragma omp critical
 		{
-			//drawLine(cloudIntersection, laser_point, Eigen::Vector3f(-tan(deg2rad(90 - laser_inclination)), i, -1), 500);
+			//drawLine(cloudIntersection, laser_point, Eigen::Vector3f(-tan(deg2rad(90 - laser_inclination)), i, -1), 1000);
 
 			if (firstIntersection.z > MIN_INTERSECTION)
 				cloudIntersection->push_back(firstIntersection);
@@ -891,23 +897,31 @@ int main(int argc, char** argv)
 	initializeLaser(scanDirection);
 
 	// lo sposto già un po' più avanti per un bug che interseca tutti i triangoli
-	//initializePinHole(scanDirection, 5.4);
 
-	float pos_y = laser_point.y + 800; // 5.4
-	float increment_value = 0.5;
+	// ATTENZIONE: al verso di scansione
+	float position_step;
+	if (scanDirection == DIRECTION_SCAN_AXIS_X)
+	{
+		position_step = laser_point.x - 120; //- 1;
+	}
+	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	{
+		position_step = laser_point.y - 100;
+	}
+
+	float increment_value = 1;
 
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 
-	for (int z = 0; z < 4; z++)
+	for (int z = 0; z < 15; z++)
 	{
 		{
 			cout << "Z->" << z << " ";
-			printf("%f ", pos_y);
+			printf("%f ", position_step);
 
 			// Inizializza il Pin Hole e sposta anche la posizione del laser
-			initializePinHole(scanDirection, pos_y);
-			//y_pos += 10.0f;
-			increment(&pos_y, &increment_value);
+			initializePinHole(scanDirection, position_step);
+			position_step -= increment_value;
 
 			Plane plane;
 			// cerca i punti di insersezione del raggio laser
@@ -925,7 +939,7 @@ int main(int argc, char** argv)
 			int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 			//cout << "Punti immagine aggiunti: " << image_point_added << endl;
 
-			generatePointCloudFromImage(plane, image, cloudGenerate);
+			//generatePointCloudFromImage(plane, image, cloudGenerate);
 
 			// Crea immagine usando il metodo di openCV
 			/*PointXYZ pin_hole_temp, laser_point_temp;
@@ -964,9 +978,10 @@ int main(int argc, char** argv)
 	viewer.addPointCloud<PointXYZRGB>(cloud_projection, rgb4, "cloudProj");
 	viewer.spin();
 
-	visualization::PCLVisualizer viewer2("Viewer2");
-	viewer2.addPointCloud<PointXYZ>(cloudGenerate, "cloudGen");
-	viewer2.spin();
+	//visualization::PCLVisualizer viewer2("Viewer2");
+	////viewer2.addCoordinateSystem(100, "Viewer2");
+	//viewer2.addPointCloud<PointXYZ>(cloudGenerate, "cloudGen");
+	//viewer2.spin();
 
 
 	return 0;
