@@ -518,7 +518,7 @@ int findFinalIndex(float* array_min_points, int array_size, float max_point) {
 }
 
 void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB laser, 
-							   const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane plane)
+							   const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane& plane)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
@@ -773,10 +773,10 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 
 	// parametri intrinseci della telecamera
 	cameraMatrix = Mat::zeros(3, 3, CV_64F);
-	cameraMatrix.at<double>(0, 0) = 4615.04;
-	cameraMatrix.at<double>(1, 1) = 4615.51;
-	cameraMatrix.at<double>(0, 2) = 1113.41;
-	cameraMatrix.at<double>(1, 2) = 480.016;
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
 	cameraMatrix.at<double>(2, 2) = 1;
 
 	for (int i = 0; i < cloudIntersection->size(); i++) {
@@ -829,7 +829,34 @@ void increment(float* number, float* increment) {
 }
 
 void generatePointCloudFromImage(Plane plane, Mat image, PointCloud<PointXYZ>::Ptr cloudOut){
-	// da inserire le equazioni per calcolare i punti in 3D
+	PointXYZ point;
+
+	float Cx, Cy, Fx, Fy; // paramentri della camera
+	Fx = 4615.04; // Fx
+	Fy = 4615.51; // Fy
+	Cx = 1113.41; // Cx
+	Cy = 480.016; // Cy
+
+	for (int i = 0; i < image.rows; i++)
+	{
+		for (int j = 0; j < image.cols; j++)
+		{
+			Vec3b & color = image.at<Vec3b>(i, j);
+			// controlla che sia colorato il pixel dell'immagine
+			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+				float K = (i - Cx) / Fx;
+				float T = (j - Cx) / Fy;
+				float Zc = -plane.C / (plane.C + plane.B * T + plane.A * K);
+				float Xc = K * Zc;
+				float Yc = T * Zc;
+
+				point.x = Xc;
+				point.y = Yc;
+				point.z = Zc;
+				cloudOut->push_back(point);
+			}
+		}
+	}
 }
 
 int main(int argc, char** argv)
@@ -840,7 +867,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
 	Mat image, image2;
 
-	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
+	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
@@ -866,12 +893,12 @@ int main(int argc, char** argv)
 	// lo sposto già un po' più avanti per un bug che interseca tutti i triangoli
 	//initializePinHole(scanDirection, 5.4);
 
-	float pos_y = laser_point.y + 0.1; // 5.4
+	float pos_y = laser_point.y + 800; // 5.4
 	float increment_value = 0.5;
 
-	PointCloud<PointXYZ>::Ptr cloudGenerate;
+	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 
-	for (int z = 0; z < 32; z++)
+	for (int z = 0; z < 4; z++)
 	{
 		{
 			cout << "Z->" << z << " ";
@@ -898,6 +925,8 @@ int main(int argc, char** argv)
 			int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 			//cout << "Punti immagine aggiunti: " << image_point_added << endl;
 
+			generatePointCloudFromImage(plane, image, cloudGenerate);
+
 			// Crea immagine usando il metodo di openCV
 			/*PointXYZ pin_hole_temp, laser_point_temp;
 			pin_hole_temp.x = pin_hole.x;
@@ -917,8 +946,6 @@ int main(int argc, char** argv)
 			//cv::imshow("Display window", image); // Show our image inside it.
 			//cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
 
-			generatePointCloudFromImage(plane, image, cloudGenerate);
-
 		}
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
@@ -935,8 +962,11 @@ int main(int argc, char** argv)
 	viewer.addPointCloud<PointXYZRGB>(cloud_intersection, rgb3, "cloudScan");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_projection);
 	viewer.addPointCloud<PointXYZRGB>(cloud_projection, rgb4, "cloudProj");
-	viewer.addPointCloud<PointXYZ>(cloudGenerate, "cloudGen");
 	viewer.spin();
+
+	visualization::PCLVisualizer viewer2("Viewer2");
+	viewer2.addPointCloud<PointXYZ>(cloudGenerate, "cloudGen");
+	viewer2.spin();
 
 
 	return 0;
