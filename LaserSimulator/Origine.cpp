@@ -903,10 +903,50 @@ void generatePointCloudFromImage(Plane* plane, Mat* image, PointCloud<PointXYZ>:
 				float Xc = K * Zc;
 				float Yc = T * Zc;
 
-				point.x = Xc;
-				point.y = Yc;
-				point.z = Zc;
+				point.x = Xc * 1000;
+				point.y = Yc * 1000;
+				point.z = Zc * 1000;
 				cloudOut->push_back(point);
+
+				/*cout << endl;
+				cout << " Punti cloud generata e traslata x:" << point.x << " y:" << point.y << " z:" << point.z << endl;*/
+			}
+		}
+	}
+}
+
+void generatePointCloudFromImageMauro(Plane* plane, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out) {
+	PointXYZ point;
+
+	float x_sensor_origin = pin_hole.x - (sensor_height) / 2;
+	float y_sensor_origin = pin_hole.y - (sensor_width) / 2;
+	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
+
+	flip(*image, *image, 1); // altrimenti la cloud viene rovescia
+
+							 // Creo la point cloud del sensore a partire dall'immagine
+	for (int i = 0; i < image->rows; i++)
+	{
+		for (int j = 0; j < image->cols; j++)
+		{
+			Vec3b & color = image->at<Vec3b>(i, j);
+			// controlla che sia colorato il pixel dell'immagine
+			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+				// Posiziono i punti dell'immagine nel sensore virtuale
+				point.x = i * PIXEL_DIMENSION + x_sensor_origin;
+				point.y = j * PIXEL_DIMENSION + y_sensor_origin;
+				point.z = pin_hole.z + focal_distance;
+
+				dx = pin_hole.x - point.x;
+				dy = pin_hole.y - point.y;
+				dz = pin_hole.z - point.z;
+
+				// Proietto il punto del sensore sul piano laser passando dal pin hole
+				float t = -(plane->A * point.x + plane->B * point.y + plane->C * point.z + plane->D) / (plane->A * dx + plane->B * dy + plane->C * dz);
+				point.x = dx * t + point.x;
+				point.y = dy * t + point.y;
+				point.z = dz * t + point.z;
+				cloud_out->push_back(point);
 			}
 		}
 	}
@@ -969,7 +1009,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
 
-	for (int z = 0; z < 10; z++)
+	for (int z = 0; z < 20; z++)
 	{
 		{
 			cout << "Z->" << z << " ";
@@ -1019,9 +1059,9 @@ int main(int argc, char** argv)
 
 			cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 
-			generatePointCloudFromImage(&plane, &image, cloudGenerate);
-			//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
+			//generatePointCloudFromImageMauro(&plane, &image, cloudOut);
 
+			generatePointCloudFromImage(&plane, &image, cloudGenerate);
 			traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
 		}
 		//saveFrame(record_image, image);
