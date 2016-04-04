@@ -43,7 +43,7 @@ float min_z, max_z;
 
 PointXYZRGB laser_point, laser_point_2, laser_final_point_left, laser_final_point_right, pin_hole;
 
-int scanDirection = DIRECTION_SCAN_AXIS_Y;
+int scanDirection = DIRECTION_SCAN_AXIS_X;
 float distance_laser_sensor = 600 ; //600
 float laser_aperture = 45.0;
 float laser_inclination = 60.0;
@@ -763,7 +763,7 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 
 	// laser
 	p.x = 0;
-	p.y = -800;
+	p.y = -distance_laser_sensor;
 	p.z = 0;
 	cloud_target->push_back(p);
 
@@ -845,11 +845,8 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	laser_point.y = laserPoint.y;
 	laser_point.z = laserPoint.z;
 
-
 	cloud_src->push_back(pin_hole);
-	cloud_src->push_back(laser_point);
-
-	Correspondences cor(2);
+	//cloud_src->push_back(laser_point);
 
 	PointXYZ p;
 	// camera
@@ -858,22 +855,11 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	p.z = 0;
 	cloud_target->push_back(p);
 
-	Correspondence cor_0;
-	cor_0.index_query = 0;
-	cor_0.index_match = 0;
-	cor[0] = cor_0;
-
 	// laser
 	p.x = 0;
-	p.y = -800;
+	p.y = -distance_laser_sensor;
 	p.z = 0;
-	cloud_target->push_back(p);
-
-	Correspondence cor_1;
-	cor_1.index_query = 1;
-	cor_1.index_match = 1;
-	cor[1] = cor_1;
-
+	//cloud_target->push_back(p);
 
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
