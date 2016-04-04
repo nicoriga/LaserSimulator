@@ -1051,7 +1051,7 @@ int main(int argc, char** argv)
 	viewer.addCoordinateSystem(100, "mesh");
 	viewer.addPolygonMesh(mesh, "mesh");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb3(cloud_intersection);
-	viewer.addPointCloud<PointXYZRGB>(cloud_inters alection, rgb3, "cloudScan");
+	viewer.addPointCloud<PointXYZRGB>(cloud_intersection, rgb3, "cloudScan");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_projection);
 	viewer.addPointCloud<PointXYZRGB>(cloud_projection, rgb4, "cloudProj");
 	viewer.spin();
