@@ -44,15 +44,15 @@ float min_z, max_z;
 PointXYZRGB laser_point, laser_point_2, laser_final_point_left, laser_final_point_right, pin_hole;
 
 int scanDirection = DIRECTION_SCAN_AXIS_X;
-float distance_laser_sensor = 600 ; //600
-float laser_aperture = 45.0;
-float laser_inclination = 60.0;
-float delta_z = 900; //600 altezza rispetto all'oggetto
+float distance_laser_sensor = 600 ; // [500, 800]
+float laser_aperture = 45.0;		// [30, 45]
+float laser_inclination = 60.0;		// [60, 70]
+float delta_z = 900;				// 600 altezza rispetto all'oggetto
 float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
-float camera_fps = 100; // fps
-float scan_speed = 100; // mm/s
+float camera_fps = 100;				// fps  [100, 500]
+float scan_speed = 100;				// mm/s [100, 1000]
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
 float focal_distance = 25;
@@ -467,7 +467,7 @@ int triangle_intersection(const Vect3d V1, const Vect3d V2, const Vect3d V3,
 	return 0;
 }
 
-/// Ritorna la coordinata della direzione di scansione in cui interseca
+// Ritorna la coordinata della direzione di scansione in cui interseca
 float rayPlaneLimitIntersection(PointXYZRGB start_point, Eigen::Vector3d direction, float plane_coordinate, int scanDirection) {
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
@@ -763,19 +763,12 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	cloud_src->push_back(pin_hole);
 	cloud_src->push_back(laser);
 
-	Correspondences cor(2);
-
 	PointXYZ p;
 	// camera
 	p.x = 0;
 	p.y = 0;
 	p.z = 0;
 	cloud_target->push_back(p);
-
-	Correspondence cor_0;
-	cor_0.index_query = 0;
-	cor_0.index_match = 0;
-	cor[0] = cor_0;
 
 	// laser
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
@@ -792,23 +785,16 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	}
 	cloud_target->push_back(p);
 
-	Correspondence cor_1;
-	cor_1.index_query = 1;
-	cor_1.index_match = 1;
-	cor[1] = cor_1;
-
-
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
 	transEst.estimateRigidTransformation(*cloud_src, *cloud_target, trans);
 
 	std::vector<Point3f> points;
 	std::vector<Point2f> output_point;
-	Mat distortioncoeffs(8, 1, CV_64F);
-	Mat cameraMatrix;
+	
 
 	// parametri intrinseci della telecamera
-	cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
 	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
 	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
 	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
@@ -860,7 +846,6 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	}
 
 	*img = image;
-
 }
 
 void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<PointXYZ>::Ptr cloudIn, PointCloud<PointXYZ>::Ptr cloudTarget) {
