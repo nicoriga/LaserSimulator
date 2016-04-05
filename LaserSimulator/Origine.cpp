@@ -1077,10 +1077,10 @@ int main(int argc, char** argv)
 
 			cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 
-			generatePointCloudFromImageMauro(&plane, &image, cloudOut);
+			//generatePointCloudFromImageMauro(&plane, &image, cloudOut);
 
-			//generatePointCloudFromImage(&plane, &image, cloudGenerate);
-			//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
+			generatePointCloudFromImage(&plane, &image, cloudGenerate);
+			traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
 		}
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
