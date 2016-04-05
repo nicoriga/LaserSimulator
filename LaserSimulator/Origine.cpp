@@ -51,6 +51,8 @@ float delta_z = 900; //600 altezza rispetto all'oggetto
 float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
+float camera_fps = 100; // fps
+float scan_speed = 100; // mm/s
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
 float focal_distance = 25;
@@ -1089,7 +1091,8 @@ int main(int argc, char** argv)
 
 	cout << "position_step:" << position_step << endl;
 
-	float increment_value = 1;
+	// Questo valore varia da 0,2 a 10 frame per mm
+	float increment_value = scan_speed / camera_fps;
 
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
