@@ -884,17 +884,32 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 void generatePointCloudFromImage(Plane* plane, Mat* image, PointCloud<PointXYZ>::Ptr cloudOut){
 	PointXYZ point;
 
+	flip(*image, *image, 1); // altrimenti la cloud viene rovescia
+
+	Mat cameraMatrix;
+
+	// parametri intrinseci della telecamera
+	cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	Mat image_undistort;
+	undistort(*image, image_undistort, cameraMatrix, Mat::zeros(8, 1, CV_64F));
+
 	float Cx, Cy, Fx, Fy; // paramentri della camera
 	Fx = 4615.04; // Fx
 	Fy = 4615.51; // Fy
 	Cx = 1113.41; // Cx
 	Cy = 480.016; // Cy
 
-	for (int i = 0; i < image->rows; i++)
+	for (int i = 0; i < image_undistort.rows; i++)
 	{
-		for (int j = 0; j < image->cols; j++)
+		for (int j = 0; j < image_undistort.cols; j++)
 		{
-			Vec3b & color = image->at<Vec3b>(i, j);
+			Vec3b & color = image_undistort.at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
 			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
 				float K = (j - Cx) / Fx;
@@ -903,9 +918,9 @@ void generatePointCloudFromImage(Plane* plane, Mat* image, PointCloud<PointXYZ>:
 				float Xc = K * Zc;
 				float Yc = T * Zc;
 
-				point.x = Xc * 1000;
-				point.y = Yc * 1000;
-				point.z = Zc * 1000;
+				point.x = Xc * 100;
+				point.y = Yc * 100;
+				point.z = Zc * 100;
 				cloudOut->push_back(point);
 
 				/*cout << endl;
@@ -1009,64 +1024,65 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
 
-	for (int z = 0; z < 20; z++)
+	for (int z = 0; z < 10; z++)
 	{
-		{
-			cout << "Z->" << z << " ";
-			printf("%f ", position_step);
 
-			// Inizializza il Pin Hole e sposta anche la posizione del laser
-			initializePinHole(scanDirection, position_step);
-			position_step -= increment_value;
+		cout << "Z->" << z << " ";
+		printf("%f ", position_step);
 
-			cout << "Laser_point x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
+		// Inizializza il Pin Hole e sposta anche la posizione del laser
+		initializePinHole(scanDirection, position_step);
+		position_step -= increment_value;
 
-			Plane plane;
-			// cerca i punti di insersezione del raggio laser
-			findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane);
+		cout << "Laser_point x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
 
-			// effettua la proiezione dei punti di insersezione
-			//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
-			//cout << "Proiezioni " << cloud_projection->points.size() << endl;
-			//cout << "Punti veri " << cloud_intersection->points.size() << endl;
+		Plane plane;
+		// cerca i punti di insersezione del raggio laser
+		findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane);
 
-
-			//****************** Converto la point cloud in un immagine **********************
-
-			// crea immagine
-			//int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
-			//cout << "Punti immagine aggiunti: " << image_point_added << endl;
+		// effettua la proiezione dei punti di insersezione
+		//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+		//cout << "Proiezioni " << cloud_projection->points.size() << endl;
+		//cout << "Punti veri " << cloud_intersection->points.size() << endl;
 
 
-			// Crea immagine usando il metodo di openCV
-			PointXYZ pin_hole_temp, laser_point_temp;
-			pin_hole_temp.x = pin_hole.x;
-			pin_hole_temp.y = pin_hole.y;
-			pin_hole_temp.z = pin_hole.z;
-			laser_point_temp.x = laser_point.x;
-			laser_point_temp.y = laser_point.y;
-			laser_point_temp.z = laser_point.z;
-			getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image);
+		//****************** Converto la point cloud in un immagine **********************
 
-			//cloud_projection->push_back(pin_hole);
+		// crea immagine
+		//int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
+		//cout << "Punti immagine aggiunti: " << image_point_added << endl;
 
-			// disegna contorni sensore
-			//drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
 
-			//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
-			//cv::imshow("Display window", image); // Show our image inside it.
-			//cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
+		// Crea immagine usando il metodo di openCV
+		PointXYZ pin_hole_temp, laser_point_temp;
+		pin_hole_temp.x = pin_hole.x;
+		pin_hole_temp.y = pin_hole.y;
+		pin_hole_temp.z = pin_hole.z;
+		laser_point_temp.x = laser_point.x;
+		laser_point_temp.y = laser_point.y;
+		laser_point_temp.z = laser_point.z;
+		getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image);
 
-			cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
+		//cloud_projection->push_back(pin_hole);
 
-			//generatePointCloudFromImageMauro(&plane, &image, cloudOut);
+		// disegna contorni sensore
+		//drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
 
-			generatePointCloudFromImage(&plane, &image, cloudGenerate);
-			traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
-		}
+		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
+		//cv::imshow("Display window", image); // Show our image inside it.
+		//cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
+
+		cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
+
+		//generatePointCloudFromImageMauro(&plane, &image, cloudOut);
+
+		generatePointCloudFromImage(&plane, &image, cloudGenerate);
+		traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
+
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
-		//cloud_intersection->~PointCloud();
+		cloud_intersection->~PointCloud();
+		cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloudGenerate " << cloudGenerate->points.size();
