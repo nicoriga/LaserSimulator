@@ -759,8 +759,6 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	cloud_src->push_back(pin_hole);
 	cloud_src->push_back(laser);
 
-	Correspondences cor(2);
-
 	PointXYZ p;
 	// camera
 	p.x = 0;
@@ -768,22 +766,11 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	p.z = 0;
 	cloud_target->push_back(p);
 
-	Correspondence cor_0;
-	cor_0.index_query = 0;
-	cor_0.index_match = 0;
-	cor[0] = cor_0;
-
 	// laser
 	p.x = 0;
 	p.y = -distance_laser_sensor;
 	p.z = 0;
 	cloud_target->push_back(p);
-
-	Correspondence cor_1;
-	cor_1.index_query = 1;
-	cor_1.index_match = 1;
-	cor[1] = cor_1;
-
 
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
@@ -791,16 +778,23 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 
 	std::vector<Point3f> points;
 	std::vector<Point2f> output_point;
-	Mat distortioncoeffs(8, 1, CV_64F);
 	Mat cameraMatrix;
 
-	// parametri intrinseci della telecamera
+	// Parametri intrinseci della telecamera
 	cameraMatrix = Mat::zeros(3, 3, CV_64F);
 	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
 	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
 	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
 	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
 	cameraMatrix.at<double>(2, 2) = 1;
+
+	Mat distortion(5, 1, CV_64F);
+	distortion.at<double>(0, 0) = -0.0506472;
+	distortion.at<double>(1, 0) = -1.45132;
+	distortion.at<double>(2, 0) = 0.000868025;
+	distortion.at<double>(3, 0) = 0.00298601;
+	distortion.at<double>(4, 0) = 8.92225;
+
 
 	for (int i = 0; i < cloudIntersection->size(); i++) {
 		Eigen::Vector4f v_point, v_point_final;
@@ -825,11 +819,11 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	cv::Rodrigues(rotatMat, rotatVec);
 
 	if (cloudIntersection->size() > 0) {
-		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, Mat::zeros(8, 1, CV_64F), output_point);
+		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, distortion, output_point);
 		Point2f p2;
 		for (int i = 0; i < output_point.size(); i++) {
 			p2 = output_point.at(i);
-			if ((p2.y >= 0) && (p2.y <= 1088) && (p2.x >= 0) && (p2.x <= 2024))
+			if ((p2.y >= 0) && (p2.y < sensor_pixel_height) && (p2.x >= 0) && (p2.x < sensor_pixel_width))
 			{
 				image.at<Vec3b>(p2.y, p2.x)[0] = 0;
 				image.at<Vec3b>(p2.y, p2.x)[1] = 0;
@@ -840,7 +834,6 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	}
 
 	*img = image;
-
 }
 
 void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<PointXYZ>::Ptr cloudIn, PointCloud<PointXYZ>::Ptr cloudTarget) {
@@ -977,7 +970,7 @@ int main(int argc, char** argv)
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
 	}
-	cout << mesh.polygons.size() << " Processing point cloud... " << endl;
+	//cout << mesh.polygons.size() << " Processing point cloud... " << endl;
 
 	// Trova i punti di min e max per tutti gli assi della mesh
 	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
@@ -1073,7 +1066,7 @@ int main(int argc, char** argv)
 
 			//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
 			//cv::imshow("Display window", image); // Show our image inside it.
-			//cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
+			cv::imwrite("../out" + to_string(z) + ".png", image);
 
 			cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 
@@ -1084,7 +1077,8 @@ int main(int argc, char** argv)
 		}
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
-		//cloud_intersection->~PointCloud();
+		cloud_intersection->~PointCloud();
+		cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloudGenerate " << cloudGenerate->points.size();
