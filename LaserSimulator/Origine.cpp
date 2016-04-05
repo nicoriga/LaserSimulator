@@ -804,6 +804,13 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
 	cameraMatrix.at<double>(2, 2) = 1;
 
+	Mat distortion(5, 1, CV_64F);
+	distortion.at<double>(0, 0) = -0.0506472;
+	distortion.at<double>(1, 0) = -1.45132;
+	distortion.at<double>(2, 0) = 0.000868025;
+	distortion.at<double>(3, 0) = 0.00298601;
+	distortion.at<double>(4, 0) = 8.92225;
+
 	for (int i = 0; i < cloudIntersection->size(); i++) {
 		Eigen::Vector4f v_point, v_point_final;
 		v_point[0] = cloudIntersection->points[i].x;
@@ -827,7 +834,7 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	cv::Rodrigues(rotatMat, rotatVec);
 
 	if (cloudIntersection->size() > 0) {
-		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, Mat::zeros(8, 1, CV_64F), output_point);
+		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, distortion, output_point);
 		Point2f p2;
 		for (int i = 0; i < output_point.size(); i++) {
 			p2 = output_point.at(i);
