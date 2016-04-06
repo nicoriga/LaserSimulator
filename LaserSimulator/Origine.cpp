@@ -905,7 +905,7 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloudOut){
 	PointXYZ point;
 
-	flip(*image, *image, 1); // altrimenti la cloud viene rovescia
+	flip(*image, *image, 0); // altrimenti la cloud viene rovescia
 
 	Mat cameraMatrix;
 
@@ -991,7 +991,7 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 
 	Mat image_undistort;
 	undistort(*image, image_undistort, cameraMatrix, Mat::zeros(8, 1, CV_64F));
-	flip(image_undistort, *image, 1); // altrimenti la cloud viene rovescia
+	flip(image_undistort, *image, 0); // altrimenti la cloud viene rovescia
 
 									  // Creo la point cloud del sensore a partire dall'immagine
 	for (int i = 0; i < image->rows / 2; i++)
@@ -1105,7 +1105,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
 
-	for (int z = 0; z < 100; z++)
+	for (int z = 0; z < 20; z++)
 	{
 
 		cout << "Z->" << z << " ";
