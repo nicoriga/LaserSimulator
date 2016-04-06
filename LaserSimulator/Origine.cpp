@@ -926,9 +926,9 @@ void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, Point
 	Cx = 1113.41; // Cx
 	Cy = 480.016; // Cy
 
-	for (int i = 0; i < image_undistort.rows; i++)
+	for (int i = 0; i < image_undistort.rows/2; i++)
 	{
-		for (int j = 0; j < image_undistort.cols/2; j++)
+		for (int j = 0; j < image_undistort.cols; j++)
 		{
 			Vec3b & color = image_undistort.at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -949,9 +949,9 @@ void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, Point
 			}
 		}
 	}
-	for (int i = 0; i < image_undistort.rows; i++)
+	for (int i = image_undistort.rows / 2; i < image_undistort.rows; i++)
 	{
-		for (int j = image_undistort.cols/2; j < image_undistort.cols; j++)
+		for (int j = 0; j < image_undistort.cols; j++)
 		{
 			Vec3b & color = image_undistort.at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -1124,7 +1124,7 @@ int main(int argc, char** argv)
 		Plane plane1, plane2;
 		// cerca i punti di insersezione del raggio laser
 		findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
-		//findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
+		findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
 		// effettua la proiezione dei punti di insersezione
 		//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
@@ -1181,7 +1181,7 @@ int main(int argc, char** argv)
 		cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
-	cout << "Punti cloudGenerate " << cloudGenerate->points.size();
+	cout << "Punti cloud_test " << cloud_test->points.size();
 
 
 	// Create a PCLVisualizer
