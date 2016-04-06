@@ -1108,7 +1108,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
 
-	for (int z = 0; z < 5; z++)
+	for (int z = 0; z < 20; z++)
 	{
 
 		cout << "Z->" << z << " ";
