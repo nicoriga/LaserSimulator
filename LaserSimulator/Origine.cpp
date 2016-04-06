@@ -34,6 +34,9 @@ using namespace pcl;
 #define DIRECTION_SCAN_AXIS_X 0
 #define DIRECTION_SCAN_AXIS_Y 1
 
+#define LASER_1 -1
+#define LASER_2 1
+
 Eigen::Matrix<double, 3, 1> typedef Vect3d;
 
 // MIN MAX POINT
@@ -47,7 +50,7 @@ int scanDirection = DIRECTION_SCAN_AXIS_X;
 float distance_laser_sensor = 600 ; // [500, 800]
 float laser_aperture = 45.0;		// [30, 45]
 float laser_inclination = 60.0;		// [60, 70]
-float delta_z = 900;				// 600 altezza rispetto all'oggetto
+float delta_z = 800;				// 600 altezza rispetto all'oggetto
 float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
@@ -640,7 +643,8 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 
 		#pragma omp critical
 		{
-			//drawLine(cloudIntersection, laser_point, Eigen::Vector3f(-tan(deg2rad(90 - laser_inclination)), i, -1), 1000);
+		//	drawLine(cloudIntersection, laser, Eigen::Vector3f(laser_number*tan(deg2rad(90 - laser_inclination)), i, -1), 1500);
+
 
 			if (firstIntersection.z > MIN_INTERSECTION)
 				cloudIntersection->push_back(firstIntersection);
@@ -774,12 +778,12 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
 		p.x = 0;
-		p.y = -distance_laser_sensor;
+		p.y = distance_laser_sensor;
 		p.z = 0;
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
-		p.x = -distance_laser_sensor;
+		p.x = distance_laser_sensor;
 		p.y = 0;
 		p.z = 0;
 	}
@@ -971,9 +975,9 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 	flip(image_undistort, *image, 1); // altrimenti la cloud viene rovescia
 
 	// Creo la point cloud del sensore a partire dall'immagine
-	for (int i = 0; i < image->rows/2; i++)
+	for (int i = 0; i < image->rows; i++)
 	{
-		for (int j = 0; j < image->cols; j++)
+		for (int j = 0; j < image->cols/2; j++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -997,9 +1001,9 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 		}
 	}
 
-	for (int i = image->rows/2; i < image->rows; i++)
+	for (int i = 0; i < image->rows/2; i++)
 	{
-		for (int j = 0; j < image->cols; j++)
+		for (int j = image->cols/2; j < image->cols; j++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -1067,7 +1071,7 @@ int main(int argc, char** argv)
 	float position_step;
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
-		position_step = laser_point.x - 980; //- 1;
+		position_step = laser_point.x - 1180; //- 1;
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
@@ -1082,7 +1086,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
 
-	for (int z = 0; z < 30; z++)
+	for (int z = 0; z < 1; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1097,8 +1101,8 @@ int main(int argc, char** argv)
 
 		Plane plane1, plane2;
 		// cerca i punti di insersezione del raggio laser
-		findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, -1);
-		findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, 1);
+		findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
+		findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
 		// effettua la proiezione dei punti di insersezione
 		//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
@@ -1123,6 +1127,9 @@ int main(int argc, char** argv)
 		laser_point_temp.z = laser_point.z;
 		getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image, scanDirection);
 
+		//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+		//drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
+
 		//cloud_projection->push_back(pin_hole);
 
 		// disegna contorni sensore
@@ -1130,11 +1137,11 @@ int main(int argc, char** argv)
 
 		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
 		//cv::imshow("Display window", image); // Show our image inside it.
-		//cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
+		cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 
-		generatePointCloudFromImageMauro(&plane1, &plane2, &image, cloudOut);
+		generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
 
 		//generatePointCloudFromImage(&plane, &image, cloudGenerate);
 		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
@@ -1142,8 +1149,8 @@ int main(int argc, char** argv)
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
 
-		cloud_intersection->~PointCloud();
-		cloudGenerate->~PointCloud();
+		//cloud_intersection->~PointCloud();
+		//cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloudGenerate " << cloudGenerate->points.size();
