@@ -775,13 +775,13 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	cloud_target->push_back(p);
 
 	// laser
-	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
 		p.x = 0;
 		p.y = distance_laser_sensor;
 		p.z = 0;
 	}
-	if (scanDirection == DIRECTION_SCAN_AXIS_X)
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
 		p.x = distance_laser_sensor;
 		p.y = 0;
@@ -1105,8 +1105,10 @@ int main(int argc, char** argv)
 
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
-	for (int z = 0; z < 40; z++)
+
+	for (int z = 0; z < 5; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1122,7 +1124,7 @@ int main(int argc, char** argv)
 		Plane plane1, plane2;
 		// cerca i punti di insersezione del raggio laser
 		findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
-		findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
+		//findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
 		// effettua la proiezione dei punti di insersezione
 		//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
@@ -1163,11 +1165,17 @@ int main(int argc, char** argv)
 
 		//generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
 
-		generatePointCloudFromImage(&plane1, &plane2, &image, cloudGenerate);
+		generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
 		traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
 
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
+
+		for (int i = 0; i < cloud_intersection->size(); i++)
+		{
+			cloud_test->push_back(cloud_intersection->at(i));
+
+		}
 
 		cloud_intersection->~PointCloud();
 		cloudGenerate->~PointCloud();
@@ -1177,18 +1185,20 @@ int main(int argc, char** argv)
 
 
 	// Create a PCLVisualizer
-	visualization::PCLVisualizer viewer("Mesh");
+	/*visualization::PCLVisualizer viewer("Mesh");
 	viewer.addCoordinateSystem(100, "mesh");
 	viewer.addPolygonMesh(mesh, "mesh");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb3(cloud_intersection);
 	viewer.addPointCloud<PointXYZRGB>(cloud_intersection, rgb3, "cloudScan");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_projection);
 	viewer.addPointCloud<PointXYZRGB>(cloud_projection, rgb4, "cloudProj");
-	viewer.spin();
+	viewer.spin();*/
 
 	visualization::PCLVisualizer viewer2("Viewer2");
-	//viewer2.addCoordinateSystem(0.1, "viewer2");
+	viewer2.addCoordinateSystem(0.1, "viewer2");
 	viewer2.addPointCloud<PointXYZ>(cloudOut, "cloudGen");
+	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_test);
+	viewer2.addPointCloud<PointXYZRGB>(cloud_test, rgb4, "cloudTest");
 	viewer2.spin();
 
 
