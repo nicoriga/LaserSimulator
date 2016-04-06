@@ -1077,8 +1077,6 @@ int main(int argc, char** argv)
 	mergesort(min_poligon_point, min_poligon_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
 	delete[] tmp_a, tmp_b; // elimino gli array temporanei
 
-	VideoWriter record_image("movie.avi", CV_FOURCC('M', 'J', 'P', 'G'), 15, Size(2024, 1088));
-
 	// Inizializza il laser
 	initializeLaser(scanDirection);
 
@@ -1162,10 +1160,10 @@ int main(int argc, char** argv)
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 
-		//generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
+		generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
 
-		generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
-		traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
+		//generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
+		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
 
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
@@ -1177,7 +1175,7 @@ int main(int argc, char** argv)
 		}
 
 		cloud_intersection->~PointCloud();
-		cloudGenerate->~PointCloud();
+		cloudGenerate->~PointCloud();  
 		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloud_test " << cloud_test->points.size();
