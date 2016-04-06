@@ -55,7 +55,7 @@ float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
 float camera_fps = 100;				// fps  [100, 500]
-float scan_speed = 100;				// mm/s [100, 1000]
+float scan_speed = 1000;				// mm/s [100, 1000]
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
 float focal_distance = 25;
@@ -484,12 +484,12 @@ float rayPlaneLimitIntersection(PointXYZRGB start_point, Eigen::Vector3d directi
 	return 0;
 }
 
-void getPlaneCoefficent(Vect3d line_1, Vect3d line_2, Plane* plane) {
+void getPlaneCoefficent(PointXYZRGB laser, Vect3d line_1, Vect3d line_2, Plane* plane) {
 	Vect3d plane_normal = line_1.cross(line_2);
 	plane->A = plane_normal[0];
 	plane->B = plane_normal[1];
 	plane->C = plane_normal[2];
-	plane->D = -plane_normal[0] * laser_point.x - plane_normal[1] * laser_point.y - plane_normal[2] * laser_point.z;
+	plane->D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
 }
 
 int findStartIndex(float* array_min_points, int array_size, float min_point) {
@@ -540,7 +540,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		d2 = 1;
 		Vect3d line_1(-tan(deg2rad(laser_aperture / 2)) + 0 * density, laser_number * tan(deg2rad(90 - laser_inclination)), -1);
 		Vect3d line_2(-tan(deg2rad(laser_aperture / 2)) + 10 * density, laser_number * tan(deg2rad(90 - laser_inclination)), -1);
-		getPlaneCoefficent(line_1, line_2, plane);
+		getPlaneCoefficent(laser, line_1, line_2, plane);
 		
 		//drawLine(cloudIntersection, laser, Eigen::Vector3f(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), 1000);
 
@@ -552,7 +552,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		Vect3d line_1(laser_number * tan(deg2rad(90 - laser_inclination)), -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1);
 		Vect3d line_2(laser_number * tan(deg2rad(90 - laser_inclination)), -tan(deg2rad(laser_aperture / 2)) + 1000 * density, -1);
 
-		getPlaneCoefficent(line_1, line_2, plane);
+		getPlaneCoefficent(laser, line_1, line_2, plane);
 		
 		//drawLine(cloudIntersection, laser, Eigen::Vector3f(-tan(deg2rad(laser_aperture / 2)) + 0 * density , 0, -1), 1000);
 
@@ -1108,7 +1108,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
 
-	for (int z = 0; z < 5; z++)
+	for (int z = 0; z < 100; z++)
 	{
 
 		cout << "Z->" << z << " ";

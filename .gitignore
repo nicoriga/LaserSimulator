@@ -3,3 +3,13 @@
 ################################################################################
 
 /LaserSimulator/x64/Debug
+/x64/Debug
+/x64/Release
+/LaserSimulator.VC.db
+/LaserSimulator.VC.VC.opendb
+/LaserSimulator/x64/Release/LaserSimulator.tlog
+/LaserSimulator/movie.avi
+/LaserSimulator/x64/Release/vc140.pdb
+/LaserSimulator/x64/Release/Origine.obj
+/LaserSimulator/x64/Release
+/.vs/LaserSimulator/v14/.suo
