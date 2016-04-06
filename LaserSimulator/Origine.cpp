@@ -55,7 +55,7 @@ float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
 float camera_fps = 100;				// fps  [100, 500]
-float scan_speed = 1000;				// mm/s [100, 1000]
+float scan_speed = 100;				// mm/s [100, 1000]
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
 float focal_distance = 25;
@@ -867,7 +867,7 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	laser_point.z = laserPoint.z;
 
 	cloud_src->push_back(pin_hole);
-	//cloud_src->push_back(laser_point);
+	cloud_src->push_back(laser_point);
 
 	PointXYZ p;
 	// camera
@@ -877,10 +877,10 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	cloud_target->push_back(p);
 
 	// laser
-	p.x = 0;
-	p.y = -distance_laser_sensor;
+	p.x = distance_laser_sensor;
+	p.y = 0;
 	p.z = 0;
-	//cloud_target->push_back(p);
+	cloud_target->push_back(p);
 
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
@@ -991,13 +991,12 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 
 	Mat image_undistort;
 	undistort(*image, image_undistort, cameraMatrix, Mat::zeros(8, 1, CV_64F));
-
 	flip(image_undistort, *image, 1); // altrimenti la cloud viene rovescia
 
-	// Creo la point cloud del sensore a partire dall'immagine
-	for (int i = 0; i < image->rows; i++)
+									  // Creo la point cloud del sensore a partire dall'immagine
+	for (int i = 0; i < image->rows / 2; i++)
 	{
-		for (int j = 0; j < image->cols/2; j++)
+		for (int j = 0; j < image->cols; j++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -1021,9 +1020,9 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 		}
 	}
 
-	for (int i = 0; i < image->rows/2; i++)
+	for (int i = image->rows / 2; i < image->rows; i++)
 	{
-		for (int j = image->cols/2; j < image->cols; j++)
+		for (int j = 0; j < image->cols; j++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
