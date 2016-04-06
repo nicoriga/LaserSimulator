@@ -902,7 +902,7 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	}
 }
 
-void generatePointCloudFromImage(Plane* plane, Mat* image, PointCloud<PointXYZ>::Ptr cloudOut){
+void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloudOut){
 	PointXYZ point;
 
 	flip(*image, *image, 1); // altrimenti la cloud viene rovescia
@@ -928,24 +928,44 @@ void generatePointCloudFromImage(Plane* plane, Mat* image, PointCloud<PointXYZ>:
 
 	for (int i = 0; i < image_undistort.rows; i++)
 	{
-		for (int j = 0; j < image_undistort.cols; j++)
+		for (int j = 0; j < image_undistort.cols/2; j++)
 		{
 			Vec3b & color = image_undistort.at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
 			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
 				float K = (j - Cx) / Fx;
 				float T = (i - Cy) / Fy;
-				float Zc = -plane->C / (plane->C + plane->B * T + plane->A * K);
+				float Zc = -plane1->C / (plane1->C + plane1->B * T + plane1->A * K);
 				float Xc = K * Zc;
 				float Yc = T * Zc;
 
-				point.x = Xc * 100;
-				point.y = Yc * 100;
-				point.z = Zc * 100;
+				point.x = Xc * 1000;
+				point.y = Yc * 1000;
+				point.z = Zc * 1000;
 				cloudOut->push_back(point);
 
 				/*cout << endl;
 				cout << " Punti cloud generata e traslata x:" << point.x << " y:" << point.y << " z:" << point.z << endl;*/
+			}
+		}
+	}
+	for (int i = 0; i < image_undistort.rows; i++)
+	{
+		for (int j = image_undistort.cols/2; j < image_undistort.cols; j++)
+		{
+			Vec3b & color = image_undistort.at<Vec3b>(i, j);
+			// controlla che sia colorato il pixel dell'immagine
+			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+				float K = (j - Cx) / Fx;
+				float T = (i - Cy) / Fy;
+				float Zc = -plane2->C / (plane2->C + plane2->B * T + plane2->A * K);
+				float Xc = K * Zc;
+				float Yc = T * Zc;
+
+				point.x = Xc * 1000;
+				point.y = Yc * 1000;
+				point.z = Zc * 1000;
+				cloudOut->push_back(point);
 			}
 		}
 	}
@@ -1086,7 +1106,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
 
-	for (int z = 0; z < 1; z++)
+	for (int z = 0; z < 40; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1141,16 +1161,16 @@ int main(int argc, char** argv)
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 
-		generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
+		//generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
 
-		//generatePointCloudFromImage(&plane, &image, cloudGenerate);
-		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
+		generatePointCloudFromImage(&plane1, &plane2, &image, cloudGenerate);
+		traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
 
 		//saveFrame(record_image, image);
 		//cv::imwrite("out2.png", image2);
 
-		//cloud_intersection->~PointCloud();
-		//cloudGenerate->~PointCloud();
+		cloud_intersection->~PointCloud();
+		cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloudGenerate " << cloudGenerate->points.size();
