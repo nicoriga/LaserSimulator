@@ -793,8 +793,8 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
 	transEst.estimateRigidTransformation(*cloud_src, *cloud_target, trans);
 
-	std::vector<Point3f> points;
-	std::vector<Point2f> output_point;
+	std::vector<Point3d> points;
+	std::vector<Point2d> output_point;
 	
 
 	// parametri intrinseci della telecamera
@@ -836,14 +836,14 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 
 	if (cloudIntersection->size() > 0) {
 		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, distortion, output_point);
-		Point2f p2;
+		Point2d p2;
 		for (int i = 0; i < output_point.size(); i++) {
 			p2 = output_point.at(i);
 			if ((p2.y >= 0) && (p2.y < sensor_pixel_height) && (p2.x >= 0) && (p2.x < sensor_pixel_width))
 			{
-				image.at<Vec3b>(p2.y, p2.x)[0] = 0;
-				image.at<Vec3b>(p2.y, p2.x)[1] = 0;
-				image.at<Vec3b>(p2.y, p2.x)[2] = 0;
+				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[0] = 0;
+				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[1] = 0;
+				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[2] = 0;
 			}
 		}
 
@@ -867,7 +867,7 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	laser_point.z = laserPoint.z;
 
 	cloud_src->push_back(pin_hole);
-	cloud_src->push_back(laser_point);
+	//cloud_src->push_back(laser_point);
 
 	PointXYZ p;
 	// camera
@@ -880,7 +880,7 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	p.x = distance_laser_sensor;
 	p.y = 0;
 	p.z = 0;
-	cloud_target->push_back(p);
+	//cloud_target->push_back(p);
 
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
@@ -899,6 +899,64 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 		PointXYZ p(v_point_final[0], v_point_final[1], v_point_final[2]);
 
 		cloudTarget->push_back(p);
+	}
+}
+
+void generateImageOldSchool(PointXYZRGB pin_hole, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat* image) {
+	// camera calibration matrix
+	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	
+	// parametri intrinseci della telecamera
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	//camera resolution
+	const int resX = sensor_pixel_height;
+	const int resY = sensor_pixel_width;
+
+	// camera rotation
+	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
+		0, 1, 0,
+		0, 0, 1);
+
+	//camera position
+	Mat eye = (cv::Mat_<double>(3, 1) << pin_hole.x,
+		pin_hole.y,
+		pin_hole.z);
+
+
+	// 3D-point
+	cv::Point3f pt(0, 0, 0);
+
+
+
+	//calculate pixel by old-school way
+
+	Mat trans = (cv::Mat_<double>(3, 4) << 1, 0, 0, -1.0*eye.at<double>(0, 0),
+		0, 1, 0, -1.0*eye.at<double>(1, 0),
+		0, 0, 1, -1.0*eye.at<double>(2, 0));
+
+	Mat projMat = cameraMatrix * (rotatMat * trans);
+
+	
+
+	for (int i = 0; i < cloud_intersection->size(); i++)
+	{
+		Mat ptMat = (cv::Mat_<double>(4, 1) << cloud_intersection->at(i).x, cloud_intersection->at(i).y, cloud_intersection->at(i).z, 1.0);
+		Mat pelMat = projMat * ptMat;
+
+		int x = (int)((pelMat.at<double>(0, 0) / pelMat.at<double>(2, 0))+0.5);
+		int y = (int)((pelMat.at<double>(1, 0) / pelMat.at<double>(2, 0)) + 0.5);
+		
+		if ((y >= 0) && (y < sensor_pixel_height) && (x >= 0) && (x < sensor_pixel_width))
+		{
+			image->at<Vec3b>(y, x)[0] = 0;
+			image->at<Vec3b>(y, x)[1] = 0;
+			image->at<Vec3b>(y, x)[2] = 0;
+		}
 	}
 }
 
@@ -939,9 +997,9 @@ void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, Point
 				float Xc = K * Zc;
 				float Yc = T * Zc;
 
-				point.x = Xc * 1000;
-				point.y = Yc * 1000;
-				point.z = Zc * 1000;
+				point.x = Xc * 100;
+				point.y = Yc * 100;
+				point.z = Zc * 100;
 				cloudOut->push_back(point);
 
 				/*cout << endl;
@@ -962,9 +1020,9 @@ void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, Point
 				float Xc = K * Zc;
 				float Yc = T * Zc;
 
-				point.x = Xc * 1000;
-				point.y = Yc * 1000;
-				point.z = Zc * 1000;
+				point.x = Xc * 100;
+				point.y = Yc * 100;
+				point.z = Zc * 100;
 				cloudOut->push_back(point);
 			}
 		}
@@ -1104,8 +1162,16 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
+	Mat image3(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
+	// inizializza l'immagine bianca
+	for (int i = 0; i < sensor_pixel_height; i++)
+		for (int j = 0; j < sensor_pixel_width; j++) {
+			image3.at<Vec3b>(i, j)[0] = 255;
+			image3.at<Vec3b>(i, j)[1] = 255;
+			image3.at<Vec3b>(i, j)[2] = 255;
+		}
 
-	for (int z = 0; z < 20; z++)
+	for (int z = 0; z < 1; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1146,6 +1212,8 @@ int main(int argc, char** argv)
 		laser_point_temp.z = laser_point.z;
 		getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image, scanDirection);
 
+		generateImageOldSchool(pin_hole, cloud_intersection, &image3);
+		
 		//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
 		//drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 
@@ -1156,7 +1224,8 @@ int main(int argc, char** argv)
 
 		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
 		//cv::imshow("Display window", image); // Show our image inside it.
-		cv::imwrite("../imgOut/out" + to_string(z) + ".png", image);
+		cv::imwrite("../imgOut/out_" + to_string(z) + ".png", image);
+		cv::imwrite("../imgOut/out_2_" + to_string(z) + ".png", image3);
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 
@@ -1176,7 +1245,7 @@ int main(int argc, char** argv)
 
 		cloud_intersection->~PointCloud();
 		cloudGenerate->~PointCloud();  
-		//cloud_projection->~PointCloud();
+		cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloud_test " << cloud_test->points.size();
 
