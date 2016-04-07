@@ -671,7 +671,7 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 	const float MIN_INTERSECTION = VTK_FLOAT_MIN;
 
 	int number_of_line = (tan(deg2rad(laser_aperture / 2)) * 2) / density;
-	//cout << "Numero linee fascio laser: " << number_of_line << endl;
+	//cout << "Numero linee fascio  laser: " << number_of_line << endl;
 
 	int d1, d2;
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
@@ -699,7 +699,7 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 	}
 
 	Eigen::Vector3d direction_ray_start;
-	direction_ray_start[d1] = -tan(deg2rad(laser_aperture / 2));
+	direction_ray_start[d1] = -tan(deg2rad(laser_aperture / 2)); 
 	direction_ray_start[d2] = laser_number * tan(deg2rad(90 - laser_inclination));
 	direction_ray_start[2] = -1;
 	float min_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, min_z, scanDirection);
@@ -707,12 +707,11 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 
 	int start_index, final_index;
 
-	if (laser_number == -1)
+	if (laser_number == LASER_1)
 	{
 		start_index = findStartIndex(min_poligon_point, mesh.polygons.size(), min_polygons_coordinate);
 		final_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
 	}
-
 	else
 	{
 		start_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
@@ -828,7 +827,7 @@ void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRG
 		if (tree.getIntersectedVoxelIndices(Eigen::Vector3f(laser_point.x, laser_point.y, laser_point.z), Eigen::Vector3f(i, -tan(deg2rad(90 - laser_inclination)), -1), indices) > 0) 
 		{
 
-			// preleva solo il primo punto intersecato dalla retta, quello più superficiale
+			// preleva solo il primo punto intersecato dalla retta, quello piÃ¹ superficiale
 			cloud_out->points[indices[0]].r = 0;
 			cloud_out->points[indices[0]].g = 255;
 			cloud_out->points[indices[0]].b = 0;
@@ -865,7 +864,7 @@ void sensorPointProjection(float focal_distance, float sensor_height, float sens
 		p.g = 0;
 		p.b = 0;
 
-		// controllo se il punto è dentro al rettangolo del sensore e se lo è lo aggiungo
+		// controllo se il punto Ã¨ dentro al rettangolo del sensore e se lo Ã¨ lo aggiungo
 		if (p.x < center.x + sensor_height / 2 && p.x > center.x - sensor_height / 2 &&
 			p.y < center.y + sensor_width / 2 && p.y > center.y - sensor_width / 2)
 		{
@@ -1341,7 +1340,7 @@ int main(int argc, char** argv)
 	cout << mesh.polygons.size() << " Processing point cloud... " << endl;
 
 	// Trova i punti di min e max per tutti gli assi della mesh
-	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
+	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti piÃ¹ a sx dei poligoni
 	min_poligon_index = new int[mesh.polygons.size()];   // array per salvare l'indice di tali punti
 	initializeMinMaxPoints(mesh);
 
@@ -1349,9 +1348,9 @@ int main(int argc, char** argv)
 	cout << "min_y:" << min_y << " max_y:" << max_y << endl;
 	cout << "min_z:" << min_z << " max_z:" << max_z << endl;
 
-	// Ordino gli array per una ricerca più efficiente dei poligoni
-	float *tmp_a = new float[mesh.polygons.size()]; // li creo qui fuori perché creandoli ogni volta nella ricorsione
-	int *tmp_b = new int[mesh.polygons.size()];     // c'è un crash dovuto alla ricorsione dell'operatore new
+	// Ordino gli array per una ricerca piÃ¹ efficiente dei poligoni
+	float *tmp_a = new float[mesh.polygons.size()]; // li creo qui fuori perchÃ© creandoli ogni volta nella ricorsione
+	int *tmp_b = new int[mesh.polygons.size()];     // c'Ã¨ un crash dovuto alla ricorsione dell'operatore new
 	mergesort(min_poligon_point, min_poligon_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
 	delete[] tmp_a, tmp_b; // elimino gli array temporanei
 
@@ -1360,7 +1359,7 @@ int main(int argc, char** argv)
 
 	cout << "Laser_point x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
 
-	// lo sposto già un po' più avanti per un bug che interseca tutti i triangoli
+	// lo sposto giÃ  un po' piÃ¹ avanti per un bug che interseca tutti i triangoli
 
 	// ATTENZIONE: al verso di scansione
 	float position_step;
