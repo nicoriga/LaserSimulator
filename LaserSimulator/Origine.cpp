@@ -6,6 +6,9 @@
 *
 */
 
+#define _CRT_SECURE_NO_DEPRECATE
+#define CL_HPP_TARGET_OPENCL_VERSION 200
+
 #include <math.h>
 #include <iostream>
 #include <opencv2/core/core.hpp>
@@ -23,6 +26,7 @@
 #include <pcl/octree/octree.h>
 #include <pcl/common/angles.h>
 #include <pcl/registration/transformation_estimation_svd.h>
+#include <CL\cl2.hpp>
 
 using namespace cv;
 using namespace std;
@@ -73,15 +77,16 @@ struct Plane{
 	float D;
 };
 
-struct Point3D {
+struct Vec3
+{
 	float x;
 	float y;
 	float z;
 };
 struct Triangle {
-	Point3D vertex1;
-	Point3D vertex2;
-	Point3D vertex3;
+	Vec3 vertex1;
+	Vec3 vertex2;
+	Vec3 vertex3;
 };
 
 void merge(float *a, int *b, int low, int high, int mid, float *c, int *d)
@@ -662,6 +667,141 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		}
 	}
 }
+
+int initializeOpenCL(Triangle* triangle_array, Vec3* output_point, int* output_hit, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
+	// Length of vectors
+	unsigned int n = array_lenght;
+
+	// Host input vectors
+	//Triangle* triangle_array;
+	// Host output vector
+	//Vec3* output_point;
+	//int* output_hit;
+
+	// Device input buffers
+	vector<cl::Buffer> mybuffer;
+	mybuffer.push_back(cl::Buffer()); // device_triangle_array
+	mybuffer.push_back(cl::Buffer()); // device_output_point
+	mybuffer.push_back(cl::Buffer()); // device_output_hit
+	
+	// Device output buffer
+	//cl::Buffer device_triangle_array;
+	//cl::Buffer device_output_point;
+	//cl::Buffer device_output_hit;
+
+	// Size, in bytes, of each vector
+	size_t triangles_size = n*sizeof(Triangle);
+	size_t points_size = n*sizeof(Vec3);
+	size_t hits_size = n*sizeof(int);
+
+	// Allocate memory for each vector on host
+	//triangle_array = new Triangle[n];
+	output_point = new Vec3[n];
+	output_hit = new int[n];
+
+	cl_int err = CL_SUCCESS;
+	try {
+
+		// Query platforms
+		std::vector<cl::Platform> platforms;
+		cl::Platform::get(&platforms);
+		if (platforms.size() == 0) {
+			std::cout << "Platform size 0\n";
+			return -1;
+		}
+
+		// Get list of devices on default platform and create context
+		cl_context_properties properties[] =
+		{ CL_CONTEXT_PLATFORM, (cl_context_properties)(platforms[0])(), 0 };
+		cl::Context context(CL_DEVICE_TYPE_GPU, properties);
+		std::vector<cl::Device> devices = context.getInfo<CL_CONTEXT_DEVICES>();
+
+		// Create command queue for first device
+		cl::CommandQueue queue(context, devices[0], 0, &err);
+
+		// Create device memory buffers
+		mybuffer.at(0) = cl::Buffer(context, CL_MEM_READ_ONLY, triangles_size);
+		mybuffer.at(1) = cl::Buffer(context, CL_MEM_READ_ONLY, points_size);
+		mybuffer.at(2) = cl::Buffer(context, CL_MEM_WRITE_ONLY, hits_size);
+
+		// Bind memory buffers
+		queue.enqueueWriteBuffer(mybuffer.at(0), CL_TRUE, 0, triangles_size, triangle_array);
+
+		FILE* programHandle;
+		size_t kernelSourceSize;
+		char *kernelSource;
+		
+		// get size of kernel source
+		programHandle = fopen("IntersectionTriangle.cl", "rb");
+		fseek(programHandle, 0, SEEK_END);
+		kernelSourceSize = ftell(programHandle);
+		rewind(programHandle);
+
+		// read kernel source into buffer
+		kernelSource = (char*)malloc(kernelSourceSize + 1);
+		kernelSource[kernelSourceSize] = '\0';
+		fread(kernelSource, sizeof(char), kernelSourceSize, programHandle);
+		fclose(programHandle);
+
+		//Build kernel from source string
+		//cl::Program source(kernelSource);
+		cl::Program program_ = cl::Program(context, kernelSource);
+		program_.build(devices);
+
+		free(kernelSource);
+
+		// Create kernel object
+		cl::Kernel kernel(program_, "RayTriangleIntersection", &err);
+
+		// Bind kernel arguments to kernel
+		kernel.setArg(0, mybuffer.at(0));
+		kernel.setArg(1, mybuffer.at(1));
+		kernel.setArg(2, mybuffer.at(2));
+		kernel.setArg(3, n);
+		kernel.setArg(4, ray_origin);
+		kernel.setArg(5, ray_direction);
+
+		// Number of work items in each local work group
+		cl::NDRange localSize(64);
+		// Number of total work items - localSize must be devisor
+		cl::NDRange globalSize((int)(ceil(n / (float)64) * 64));
+
+		// Enqueue kernel
+		cl::Event event;
+		queue.enqueueNDRangeKernel(
+			kernel,
+			cl::NullRange,
+			globalSize,
+			localSize,
+			NULL,
+			&event);
+
+		// Block until kernel completion
+		event.wait();
+
+		// Read back device_output_point, device_output_hit
+		queue.enqueueReadBuffer(mybuffer.at(1), CL_TRUE, 0, points_size, output_point);
+		queue.enqueueReadBuffer(mybuffer.at(2), CL_TRUE, 0, hits_size, output_hit);
+	}
+	catch (...) {
+		cout << "Errore OpenCL " << endl;
+
+		return -1;
+
+	}
+
+
+	// Release host memory
+	//delete(triangle_array);
+	//delete(output_point);
+	//delete(output_hit);
+
+	//device_output_hit.setDestructorCallback(;
+	mybuffer.clear();
+
+	return 0;
+}
+
 void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXYZRGB laser,
 	const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, double laser_number)
 {
@@ -707,7 +847,7 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 
 	int start_index, final_index;
 
-	if (laser_number == LASER_1)
+	if (laser_number == -1)
 	{
 		start_index = findStartIndex(min_poligon_point, mesh.polygons.size(), min_polygons_coordinate);
 		final_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
@@ -730,26 +870,39 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 		PointXYZ tmp;
 		Vertices triangle;
 		Vect3d vertex1, vertex2, vertex3;
-		Vect3d intersection_point, origin_ray, direction_ray;
+		Vect3d intersection_point;
+		Vec3 ray_origin, ray_direction;
 		float out;
 		PointXYZRGB firstIntersection;
 
-		origin_ray[0] = laser.x;
-		origin_ray[1] = laser.y;
-		origin_ray[2] = laser.z;
+		ray_origin.x = laser.x;
+		ray_origin.y = laser.y;
+		ray_origin.z = laser.z;
 
 		float i = -tan(deg2rad(laser_aperture / 2)) + j*density;
 
 		firstIntersection.z = MIN_INTERSECTION;
 
-		direction_ray[d1] = i;
-		direction_ray[d2] = laser_number * tan(deg2rad(90 - laser_inclination));
-		direction_ray[2] = -1;
+		if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+			ray_direction.x = i;
+		else
+			ray_direction.y = i;
+		if (scanDirection == DIRECTION_SCAN_AXIS_X)
+			ray_direction.x = laser_number * tan(deg2rad(90 - laser_inclination));
+		else
+			ray_direction.y = laser_number * tan(deg2rad(90 - laser_inclination));
 
-		Triangle* triangles = new Triangle[final_index - start_index];
-		for (int k = start_index; k < final_index; k++)
+		ray_direction.z = -1;
+
+		int diff = final_index - start_index;
+		//cout << "final_index - start_index: " << diff << endl;
+
+		Triangle* triangles = new Triangle[diff];
+		Vec3* output_points = new Vec3[diff];
+		int* output_hits = new int[diff];
+		for (int k = 0; k < diff; k++)
 		{
-			Point3D v1, v2, v3;
+			Vec3 v1, v2, v3;
 
 			triangle = mesh.polygons.at(min_poligon_index[k]);
 			tmp = meshVertices.points[triangle.vertices[0]];
@@ -772,27 +925,15 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 			triangles[k].vertex3 = v2;
 		}
 
-		for (int k = start_index; k < final_index; k++)
+		initializeOpenCL(triangles, output_points, output_hits, diff, ray_origin, ray_direction);
+
+		for (int h = 0; h < diff; h++)
 		{
-			triangle = mesh.polygons.at(min_poligon_index[k]);
-			tmp = meshVertices.points[triangle.vertices[0]];
-			vertex1[0] = tmp.x;
-			vertex1[1] = tmp.y;
-			vertex1[2] = tmp.z;
-
-			tmp = meshVertices.points[triangle.vertices[1]];
-			vertex2[0] = tmp.x;
-			vertex2[1] = tmp.y;
-			vertex2[2] = tmp.z;
-
-			tmp = meshVertices.points[triangle.vertices[2]];
-			vertex3[0] = tmp.x;
-			vertex3[1] = tmp.y;
-			vertex3[2] = tmp.z;
-
-			if (triangle_intersection(vertex1, vertex2, vertex3, origin_ray, direction_ray, &out, intersection_point) != 0)
+			if (output_hits[h] == 1)
 			{
-				if (intersection_point[2] >= firstIntersection.z)
+				cout << "hit point:" << output_points[h].x << "," << output_points[h].y << "," << output_points[h].z << endl;
+
+				if (output_points[h].z >= firstIntersection.z)
 				{
 
 					firstIntersection.x = intersection_point[0];
@@ -803,17 +944,16 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 					firstIntersection.b = 0;
 
 				}
+
+				if (output_points[h].z > MIN_INTERSECTION)
+					cloudIntersection->push_back(firstIntersection);
 			}
 		}
 
-//#pragma omp critical
-		{
-			//	drawLine(cloudIntersection, laser, Eigen::Vector3f(laser_number*tan(deg2rad(90 - laser_inclination)), i, -1), 1500);
+		delete(triangles);
+		delete(output_points);
+		delete(output_hits);
 
-
-			if (firstIntersection.z > MIN_INTERSECTION)
-				cloudIntersection->push_back(firstIntersection);
-		}
 	}
 }
 
@@ -1405,8 +1545,8 @@ int main(int argc, char** argv)
 
 		Plane plane1, plane2;
 		// cerca i punti di insersezione del raggio laser
-		findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
-		findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
+		findPointsMeshLaserIntersectionOpenCL(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
+		findPointsMeshLaserIntersectionOpenCL(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
 		//****************** Converto la point cloud in un immagine **********************
 

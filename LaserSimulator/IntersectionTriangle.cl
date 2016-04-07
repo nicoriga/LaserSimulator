@@ -1,24 +1,17 @@
 #define EPSILON 0.000001
 
-struct Point3D
-{
-	float x;
-	float y;
-	float z;
-};
-
-struct Triangle
-{ 
-	Point3D vertex1;
-	Point3D vertex2;
-	Point3D vertex3;
-};
-
 struct Vec3
 {
 	float x;	
 	float y;	
 	float z;	
+};
+
+struct Triangle
+{ 
+	Vec3 vertex1;
+	Vec3 vertex2;
+	Vec3 vertex3;
 };
 
 float DOT( Vec3 v1, Vec3 v2 ) { return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z; }
@@ -52,7 +45,6 @@ Vec3 CROSS(Vec3 a, Vec3 b )
 }
 
 Vec3 MUL(Vec3 v,float f){ 
-	Vec3 v;
 	v.x = v.x * f;
 	v.y = v.y * f;
 	v.z = v.z * f;
@@ -104,7 +96,7 @@ int triangle_intersection( const Vec3   V1,  // Triangle vertices
   if(t > EPSILON) { //ray intersection
     //*out = t;
 
-	*int_point = &ADD(O, MUL(t,D));
+	int_point = &ADD(O, MUL(D, t));
 
     return 1;
   }
@@ -114,20 +106,21 @@ int triangle_intersection( const Vec3   V1,  // Triangle vertices
 }
 
 
-__kernel void prefilter_norm(__global unsigned char *input, __global unsigned char *output,  int rows, int cols){
+__kernel void RayTriangleIntersection(__global Triangle *input, 
+									  __global Vec3* output_point,  
+									  __global int* output_hit, 
+									  int num_vertices, 
+									  Vec3 ray_origin, 
+									  Vec3 ray_direction)
+{
 	int k = get_global_id(0);
 
-	Vec3 intersection_point;
+	if(k < num_vertices)
+	{ 
+		Triangle* triangle = &input[k];
+		Vec3* intersection_point = &output_point[k];
 
-	if (triangle_intersection(vertex1, vertex2, vertex3, origin_ray, direction_ray, &out, intersection_point) != 0)
-		{
-			if (intersection_point[2] >= firstIntersection.z)
-			{
+		output_hit[k] = triangle_intersection(triangle->vertex1, triangle->vertex2, triangle->vertex3, ray_origin, ray_direction, intersection_point);
 
-				firstIntersection.x = intersection_point[0];
-				firstIntersection.y = intersection_point[1];
-				firstIntersection.z = intersection_point[2];
-				//dsfgsdfgs
-			}
-		}
+	}
 }
