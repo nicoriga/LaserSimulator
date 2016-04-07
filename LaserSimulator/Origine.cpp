@@ -2,7 +2,7 @@
 * computePointCloud.cpp
 * Created on: 10/12/2015
 * Last Update: 21/12/2015
-* Author: Nicola Rigato 1110346
+* Author: Nicola Rigato 1110346 
 *
 */
 
