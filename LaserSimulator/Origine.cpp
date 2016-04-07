@@ -2,7 +2,7 @@
 * computePointCloud.cpp
 * Created on: 10/12/2015
 * Last Update: 21/12/2015
-* Author: Nicola Rigato 1110346 
+* Author: Nicola Rigato 1110346
 *
 */
 
@@ -828,7 +828,7 @@ void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRG
 		if (tree.getIntersectedVoxelIndices(Eigen::Vector3f(laser_point.x, laser_point.y, laser_point.z), Eigen::Vector3f(i, -tan(deg2rad(90 - laser_inclination)), -1), indices) > 0) 
 		{
 
-			// preleva solo il primo punto intersecato dalla retta, quello più superficiale
+			// preleva solo il primo punto intersecato dalla retta, quello piÃ¹ superficiale
 			cloud_out->points[indices[0]].r = 0;
 			cloud_out->points[indices[0]].g = 255;
 			cloud_out->points[indices[0]].b = 0;
@@ -865,7 +865,7 @@ void sensorPointProjection(float focal_distance, float sensor_height, float sens
 		p.g = 0;
 		p.b = 0;
 
-		// controllo se il punto è dentro al rettangolo del sensore e se lo è lo aggiungo
+		// controllo se il punto Ã¨ dentro al rettangolo del sensore e se lo Ã¨ lo aggiungo
 		if (p.x < center.x + sensor_height / 2 && p.x > center.x - sensor_height / 2 &&
 			p.y < center.y + sensor_width / 2 && p.y > center.y - sensor_width / 2)
 		{
@@ -997,8 +997,8 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
 		0, 1, 0,
 		0, 0, 1);
-	Mat rotatVec;
-	cv::Rodrigues(rotatMat, rotatVec);
+	Mat rotatVec = (cv::Mat_<double>(3, 1) << 0, 0, 0);
+	//cv::Rodrigues(rotatMat, rotatVec);
 
 	if (cloudIntersection->size() > 0) {
 		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, distortion, output_point);
@@ -1331,7 +1331,7 @@ int main(int argc, char** argv)
 	PolygonMesh mesh;
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
-	Mat image, image2;
+	Mat image, image2, image4;
 
 	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
 	{
@@ -1341,7 +1341,7 @@ int main(int argc, char** argv)
 	cout << mesh.polygons.size() << " Processing point cloud... " << endl;
 
 	// Trova i punti di min e max per tutti gli assi della mesh
-	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
+	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti piÃ¹ a sx dei poligoni
 	min_poligon_index = new int[mesh.polygons.size()];   // array per salvare l'indice di tali punti
 	initializeMinMaxPoints(mesh);
 
@@ -1349,9 +1349,9 @@ int main(int argc, char** argv)
 	cout << "min_y:" << min_y << " max_y:" << max_y << endl;
 	cout << "min_z:" << min_z << " max_z:" << max_z << endl;
 
-	// Ordino gli array per una ricerca più efficiente dei poligoni
-	float *tmp_a = new float[mesh.polygons.size()]; // li creo qui fuori perché creandoli ogni volta nella ricorsione
-	int *tmp_b = new int[mesh.polygons.size()];     // c'è un crash dovuto alla ricorsione dell'operatore new
+	// Ordino gli array per una ricerca piÃ¹ efficiente dei poligoni
+	float *tmp_a = new float[mesh.polygons.size()]; // li creo qui fuori perchÃ© creandoli ogni volta nella ricorsione
+	int *tmp_b = new int[mesh.polygons.size()];     // c'Ã¨ un crash dovuto alla ricorsione dell'operatore new
 	mergesort(min_poligon_point, min_poligon_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
 	delete[] tmp_a, tmp_b; // elimino gli array temporanei
 
@@ -1360,7 +1360,7 @@ int main(int argc, char** argv)
 
 	cout << "Laser_point x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
 
-	// lo sposto già un po' più avanti per un bug che interseca tutti i triangoli
+	// lo sposto giÃ  un po' piÃ¹ avanti per un bug che interseca tutti i triangoli
 
 	// ATTENZIONE: al verso di scansione
 	float position_step;
@@ -1391,7 +1391,7 @@ int main(int argc, char** argv)
 			image3.at<Vec3b>(i, j)[2] = 255;
 		}
 
-	for (int z = 0; z < 1; z++)
+	for (int z = 0; z < 100; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1426,9 +1426,9 @@ int main(int argc, char** argv)
 		laser_point_temp.z = laser_point.z;
 		//getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image, scanDirection);
 
-		getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image, scanDirection);
+		//getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image4, scanDirection);
 
-		generateImageOldSchool(pin_hole, cloud_intersection, &image3);
+		//generateImageOldSchool(pin_hole, cloud_intersection, &image3);
 		
 		sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
 		drawLaserImage(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_projection);
@@ -1440,13 +1440,14 @@ int main(int argc, char** argv)
 
 		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
 		//cv::imshow("Display window", image); // Show our image inside it.
-		cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
+		/*cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
 		cv::imwrite("../imgOut/out_2_" + to_string(z) + ".png", image2);
 		cv::imwrite("../imgOut/out_3_" + to_string(z) + ".png", image3);
+		cv::imwrite("../imgOut/out_4_" + to_string(z) + ".png", image4);*/
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
-
-		generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
+		flip(image2, image2, 0);
+		generatePointCloudFromImageMauro(&plane2, &plane1, &image2, cloudOut);
 
 		//generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
 		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
