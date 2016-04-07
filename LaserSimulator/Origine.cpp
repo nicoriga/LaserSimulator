@@ -997,8 +997,8 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
 		0, 1, 0,
 		0, 0, 1);
-	Mat rotatVec;
-	cv::Rodrigues(rotatMat, rotatVec);
+	Mat rotatVec = (cv::Mat_<double>(3, 1) << 0, 0, 0);
+	//cv::Rodrigues(rotatMat, rotatVec);
 
 	if (cloudIntersection->size() > 0) {
 		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, distortion, output_point);
@@ -1331,7 +1331,7 @@ int main(int argc, char** argv)
 	PolygonMesh mesh;
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
-	Mat image, image2;
+	Mat image, image2, image4;
 
 	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
 	{
@@ -1391,7 +1391,7 @@ int main(int argc, char** argv)
 			image3.at<Vec3b>(i, j)[2] = 255;
 		}
 
-	for (int z = 0; z < 1; z++)
+	for (int z = 0; z < 100; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1426,9 +1426,9 @@ int main(int argc, char** argv)
 		laser_point_temp.z = laser_point.z;
 		//getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image, scanDirection);
 
-		getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image, scanDirection);
+		//getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image4, scanDirection);
 
-		generateImageOldSchool(pin_hole, cloud_intersection, &image3);
+		//generateImageOldSchool(pin_hole, cloud_intersection, &image3);
 		
 		sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
 		drawLaserImage(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_projection);
@@ -1440,13 +1440,14 @@ int main(int argc, char** argv)
 
 		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
 		//cv::imshow("Display window", image); // Show our image inside it.
-		cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
+		/*cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
 		cv::imwrite("../imgOut/out_2_" + to_string(z) + ".png", image2);
 		cv::imwrite("../imgOut/out_3_" + to_string(z) + ".png", image3);
+		cv::imwrite("../imgOut/out_4_" + to_string(z) + ".png", image4);*/
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
-
-		generatePointCloudFromImageMauro(&plane2, &plane1, &image, cloudOut);
+		flip(image2, image2, 0);
+		generatePointCloudFromImageMauro(&plane2, &plane1, &image2, cloudOut);
 
 		//generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
 		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
