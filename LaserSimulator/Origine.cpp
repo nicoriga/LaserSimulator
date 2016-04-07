@@ -723,7 +723,7 @@ void findPointsMeshLaserIntersectionOpenCL(const PolygonMesh mesh, const PointXY
 	//cout << "max_polygons_coordinate: " << max_polygons_coordinate << endl;
 	//cout << "start_index: " << start_index << endl;
 	//cout << "final_index: " << final_index << endl;
-	cout << "Number of Poligon insercted: " << final_index - start_index << endl;
+	cout << "Number of Poligon intersected: " << final_index - start_index << endl;
 
 //#pragma omp parallel for //ordered schedule(dynamic)
 	for (int j = 0; j < number_of_line; j++)
@@ -1391,7 +1391,7 @@ int main(int argc, char** argv)
 			image3.at<Vec3b>(i, j)[2] = 255;
 		}
 
-	for (int z = 0; z < 100; z++)
+	for (int z = 0; z < 10; z++)
 	{
 
 		cout << "Z->" << z << " ";
