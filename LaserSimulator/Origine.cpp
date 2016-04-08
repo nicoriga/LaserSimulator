@@ -51,7 +51,7 @@ float distance_laser_sensor = 600 ; // [500, 800]
 float laser_aperture = 45.0;		// [30, 45]
 float laser_inclination = 60.0;		// [60, 70]
 float delta_z = 800;				// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.001;
+float RAY_DENSITY = 0.008;          // 0.001
 int default_number_samples = 10000000;
 
 float camera_fps = 100;				// fps  [100, 500]
@@ -1015,11 +1015,13 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 		Point2d p2;
 		for (int i = 0; i < output_point.size(); i++) {
 			p2 = output_point.at(i);
-			if ((p2.y >= 0) && (p2.y < sensor_pixel_height) && (p2.x >= 0) && (p2.x < sensor_pixel_width))
+			p2.x += 0.5;
+			p2.y += 0.5;
+			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
 			{
-				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[0] = 0;
-				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[1] = 0;
-				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[2] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[2] = 0;
 			}
 		}
 
@@ -1077,17 +1079,26 @@ void getCameraFrameShift(const PointXYZ pin_hole, const PointXYZ laser,PointClou
 		Point2d p2;
 		for (int i = 0; i < output_points.size(); i++) {
 			p2 = output_points.at(i);
+			p2.x += 0.5;
+			p2.y += 0.5;
 			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
 			{
-				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[0] = 0;
-				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[1] = 0;
-				image.at<Vec3b>((int)(p2.y + 0.5), (int)(p2.x + 0.5))[2] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[2] = 0;
 			}
 		}
 
 	}
 
 	*img = image;
+}
+
+void getCameraFrameMauro(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection) {
+	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
+	sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+	drawLaserImage(pin_hole, image_out, sensor_pixel_height, sensor_pixel_width, cloud_projection);
+	cloud_projection->~PointCloud();
 }
 
 void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<PointXYZ>::Ptr cloudIn, PointCloud<PointXYZ>::Ptr cloudTarget) {
@@ -1389,7 +1400,7 @@ int main(int argc, char** argv)
 	float increment_value = scan_speed / camera_fps;
 
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
-	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
 	Mat image3(sensor_pixel_width, sensor_pixel_height, CV_8UC3);
@@ -1437,30 +1448,31 @@ int main(int argc, char** argv)
 		laser_point_temp_2.x = laser_point_2.x;
 		laser_point_temp_2.y = laser_point_2.y;
 		laser_point_temp_2.z = laser_point_2.z;
+
 		//getCameraFrame(pin_hole_temp, laser_point_temp, laser_point_temp_2, cloud_intersection, &image, scanDirection);
+		
+		//sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+		//drawLaserImage(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_projection);
+		getCameraFrameMauro(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
+
+		//generateImageOldSchool(pin_hole, cloud_intersection, &image3);
 
 		//getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image4, scanDirection);
 
-		//generateImageOldSchool(pin_hole, cloud_intersection, &image3);
-		
-		sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
-		drawLaserImage(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_projection);
-
 		//cloud_projection->push_back(pin_hole);
-
 		// disegna contorni sensore
 		//drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
-
 		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
 		//cv::imshow("Display window", image); // Show our image inside it.
-		/*cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
-		cv::imwrite("../imgOut/out_2_" + to_string(z) + ".png", image2);
-		cv::imwrite("../imgOut/out_3_" + to_string(z) + ".png", image3);
-		cv::imwrite("../imgOut/out_4_" + to_string(z) + ".png", image4);*/
+
+		//cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
+		//cv::imwrite("../imgOut/out_2_" + to_string(z) + ".png", image2);
+		//cv::imwrite("../imgOut/out_3_" + to_string(z) + ".png", image3);
+		//cv::imwrite("../imgOut/out_4_" + to_string(z) + ".png", image4);*/
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 		flip(image2, image2, 0);
-		generatePointCloudFromImageMauro(&plane2, &plane1, &image2, cloudOut);
+		generatePointCloudFromImageMauro(&plane2, &plane1, &image2, cloud_out);
 
 		//generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
 		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
@@ -1476,7 +1488,7 @@ int main(int argc, char** argv)
 
 		cloud_intersection->~PointCloud();
 		cloudGenerate->~PointCloud();  
-		cloud_projection->~PointCloud();
+		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloud_test " << cloud_test->points.size();
 
@@ -1493,7 +1505,7 @@ int main(int argc, char** argv)
 
 	visualization::PCLVisualizer viewer2("Viewer2");
 	viewer2.addCoordinateSystem(0.1, "viewer2");
-	viewer2.addPointCloud<PointXYZ>(cloudOut, "cloudGen");
+	viewer2.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_test);
 	viewer2.addPointCloud<PointXYZRGB>(cloud_test, rgb4, "cloudTest");
 	//viewer2.addPolygonMesh(mesh, "mesh");
