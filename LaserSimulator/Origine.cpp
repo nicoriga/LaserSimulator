@@ -1483,6 +1483,7 @@ int main(int argc, char** argv)
 	viewer2.addPointCloud<PointXYZ>(cloudOut, "cloudGen");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_test);
 	viewer2.addPointCloud<PointXYZRGB>(cloud_test, rgb4, "cloudTest");
+	//viewer2.addPolygonMesh(mesh, "mesh");
 	viewer2.spin();
 
 
