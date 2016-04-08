@@ -916,7 +916,7 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 	return image_point_added;
 }
 
-void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
+void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2,PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
 	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
@@ -931,29 +931,39 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<Poi
 		}
 
 	cloud_src->push_back(pin_hole);
-	cloud_src->push_back(laser);
+	cloud_src->push_back(laser_1);
+	cloud_src->push_back(laser_2);
 
-	PointXYZ p;
+	PointXYZ c, p1, p2;
 	// camera
-	p.x = 0;
-	p.y = 0;
-	p.z = 0;
-	cloud_target->push_back(p);
+	c.x = 0;
+	c.y = 0;
+	c.z = 0;
+	cloud_target->push_back(c);
 
 	// laser
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
-		p.x = 0;
-		p.y = distance_laser_sensor;
-		p.z = 0;
+		p1.x = 0;
+		p1.y = distance_laser_sensor;
+		p1.z = 0;
+
+		p2.x = 0;
+		p2.y = -distance_laser_sensor;
+		p2.z = 0;
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		p.x = distance_laser_sensor;
-		p.y = 0;
-		p.z = 0;
+		p1.x = distance_laser_sensor;
+		p1.y = 0;
+		p1.z = 0;
+
+		p2.x = -distance_laser_sensor;
+		p2.y = 0;
+		p2.z = 0;
 	}
-	cloud_target->push_back(p);
+	cloud_target->push_back(p1);
+	cloud_target->push_back(p2);
 
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
@@ -1417,14 +1427,17 @@ int main(int argc, char** argv)
 
 
 		// Crea immagine usando il metodo di openCV
-		PointXYZ pin_hole_temp, laser_point_temp;
+		PointXYZ pin_hole_temp, laser_point_temp, laser_point_temp_2;
 		pin_hole_temp.x = pin_hole.x;
 		pin_hole_temp.y = pin_hole.y;
 		pin_hole_temp.z = pin_hole.z;
 		laser_point_temp.x = laser_point.x;
 		laser_point_temp.y = laser_point.y;
 		laser_point_temp.z = laser_point.z;
-		//getCameraFrame(pin_hole_temp, laser_point_temp, cloud_intersection, &image, scanDirection);
+		laser_point_temp_2.x = laser_point_2.x;
+		laser_point_temp_2.y = laser_point_2.y;
+		laser_point_temp_2.z = laser_point_2.z;
+		//getCameraFrame(pin_hole_temp, laser_point_temp, laser_point_temp_2, cloud_intersection, &image, scanDirection);
 
 		//getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image4, scanDirection);
 
