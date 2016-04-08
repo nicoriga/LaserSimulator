@@ -1,22 +1,22 @@
-#define EPSILON 0.000001
+#define EPSILON 0.000001f
 
-struct Vec3
+typedef struct 
 {
 	float x;	
 	float y;	
 	float z;	
-};
+} Vec3;
 
-struct Triangle
+typedef struct 
 { 
 	Vec3 vertex1;
 	Vec3 vertex2;
 	Vec3 vertex3;
-};
+} Triangle;
 
 float DOT( Vec3 v1, Vec3 v2 ) { return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z; }
 
-Vec3 SUB(Vec3 v1, Vec3 v2 ) 
+Vec3 SUB( Vec3 v1, Vec3 v2 ) 
 { 
 	Vec3 v;
 	v.x = v1.x - v2.x;
@@ -52,15 +52,15 @@ Vec3 MUL(Vec3 v,float f){
 
 }
 
-int triangle_intersection( const Vec3   V1,  // Triangle vertices
-                           const Vec3   V2,
-                           const Vec3   V3,
-                           const Vec3    O,  //Ray origin
-                           const Vec3    D,  //Ray direction
-                                 Vec3* int_point )
+inline int triangle_intersection( Vec3   V1,  // Triangle vertices
+                           Vec3   V2,
+                           Vec3   V3,
+                           Vec3    O,  //Ray origin
+                           Vec3    D,  //Ray direction
+                           __global Vec3* int_point )
 {
-  Vec3 e1, e2;  //Edge1, Edge2
-  Vec3 P, Q, T;
+Vec3 e1, e2;  //Edge1, Edge2
+Vec3 P, Q, T;
   float det, inv_det, u, v;
   float t;
 
@@ -96,7 +96,7 @@ int triangle_intersection( const Vec3   V1,  // Triangle vertices
   if(t > EPSILON) { //ray intersection
     //*out = t;
 
-	int_point = &ADD(O, MUL(D, t));
+	*int_point = ADD(O, MUL(D, t));
 
     return 1;
   }
@@ -117,10 +117,9 @@ __kernel void RayTriangleIntersection(__global Triangle *input,
 
 	if(k < num_vertices)
 	{ 
-		Triangle* triangle = &input[k];
-		Vec3* intersection_point = &output_point[k];
+		Triangle triangle = input[k];
 
-		output_hit[k] = triangle_intersection(triangle->vertex1, triangle->vertex2, triangle->vertex3, ray_origin, ray_direction, intersection_point);
+		output_hit[k] = triangle_intersection(triangle.vertex1, triangle.vertex2, triangle.vertex3, ray_origin, ray_direction, &output_point[k]);
 
 	}
 }
