@@ -1,10 +1,11 @@
 #define EPSILON 0.000001f
+#define X 0
+#define Y 1
+#define Z 2
 
 typedef struct 
 {
-	float x;	
-	float y;	
-	float z;	
+	float points[3];	
 } Vec3;
 
 typedef struct 
@@ -14,23 +15,23 @@ typedef struct
 	Vec3 vertex3;
 } Triangle;
 
-float DOT( Vec3 v1, Vec3 v2 ) { return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z; }
+float DOT( Vec3 v1, Vec3 v2 ) { return v1.points[X]* v2.points[X] + v1.points[Y] * v2.points[Y] + v1.points[Z] * v2.points[Z]; }
 
 Vec3 SUB( Vec3 v1, Vec3 v2 ) 
 { 
 	Vec3 v;
-	v.x = v1.x - v2.x;
-	v.y = v1.y - v2.y;
-	v.z = v1.z - v2.z; 
+	v.points[X] = v1.points[X] - v2.points[X];
+	v.points[Y] = v1.points[Y] - v2.points[Y];
+	v.points[Z] = v1.points[Z] - v2.points[Z]; 
 	return v;
 }
 
 Vec3 ADD(Vec3 v1, Vec3 v2 ) 
 { 
 	Vec3 v;
-	v.x = v1.x + v2.x;
-	v.y = v1.y + v2.y;
-	v.z = v1.z + v2.z; 
+	v.points[X] = v1.points[X] + v2.points[X];
+	v.points[Y] = v1.points[Y] + v2.points[Y];
+	v.points[Z] = v1.points[Z] + v2.points[Z]; 
 	return v;
 }
 
@@ -38,16 +39,16 @@ Vec3 ADD(Vec3 v1, Vec3 v2 )
 Vec3 CROSS(Vec3 a, Vec3 b ) 
 { 
 	Vec3 v;
-	v.x = a.y * b.z - a.z * b.y;
-	v.y = a.z * b.x - a.x * b.z;
-	v.z = a.x * b.y - a.y * b.x; 
+	v.points[X] = a.points[Y] * b.points[Z] - a.points[Z] * b.points[Y];
+	v.points[Y] = a.points[Z] * b.points[X] - a.points[X] * b.points[Z];
+	v.points[Z] = a.points[X] * b.points[Y] - a.points[Y] * b.points[X]; 
 	return v;
 }
 
 Vec3 MUL(Vec3 v,float f){ 
-	v.x = v.x * f;
-	v.y = v.y * f;
-	v.z = v.z * f;
+	v.points[X] = v.points[X] * f;
+	v.points[Y] = v.points[Y] * f;
+	v.points[Z] = v.points[Z] * f;
 	return v;
 
 }
@@ -113,13 +114,17 @@ __kernel void RayTriangleIntersection(__global Triangle *input,
 									  Vec3 ray_origin, 
 									  Vec3 ray_direction)
 {
+#define RUN 128
 	int k = get_global_id(0);
 
 	if(k < num_vertices)
 	{ 
-		Triangle triangle = input[k];
+		int j;
+		int l = k * RUN;
 
-		output_hit[k] = triangle_intersection(triangle.vertex1, triangle.vertex2, triangle.vertex3, ray_origin, ray_direction, &output_point[k]);
+		for(j = 0; j<RUN && (l+j)<num_vertices; ++j){
+			output_hit[l + j] = triangle_intersection(input[l + j].vertex1, input[l + j].vertex2, input[l + j].vertex3, ray_origin, ray_direction, &output_point[l + j]);
 
+		}
 	}
 }
