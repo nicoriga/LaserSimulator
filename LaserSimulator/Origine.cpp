@@ -98,6 +98,12 @@ struct Triangle {
 	Vec3 vertex3;
 };
 
+struct Triangle3f {
+	cl_float3 vertex1;
+	cl_float3 vertex2;
+	cl_float3 vertex3;
+};
+
 
 struct OpenCLDATA {
 	cl::Buffer device_triangle_array;
@@ -936,7 +942,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 	return 0;
 }
 
-inline int computeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, Vec3* output_points, int* output_hits, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
+inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, int* output_hits, int start_index, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
 
 	//high_resolution_clock::time_point start;
 	//start = high_resolution_clock::now();
@@ -968,16 +974,17 @@ inline int computeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, Vec3*
 	kernel.setArg(0, openCLData->device_triangle_array);
 	kernel.setArg(1, device_output_points);
 	kernel.setArg(2, device_output_hits);
-	kernel.setArg(3, array_lenght);
-	kernel.setArg(4, ray_origin);
-	kernel.setArg(5, ray_direction);
+	kernel.setArg(3, start_index);
+	kernel.setArg(4, array_lenght);
+	kernel.setArg(5, ray_origin);
+	kernel.setArg(6, ray_direction);
 
 	// Number of work items in each local work group
 #define LOCAL_SIZE 128
 	cl::NDRange localSize(LOCAL_SIZE, 1, 1);
 	float m64 = 64;
 	// Number of total work items - localSize must be devisor
-	int global_size = (int)(ceilf((array_lenght/128) / LOCAL_SIZE) * LOCAL_SIZE);
+	int global_size = (int)(ceilf((array_lenght/256) / LOCAL_SIZE) * LOCAL_SIZE);
 	//cout << "global_size " << global_size << endl;
 	cl::NDRange globalSize(global_size, 1, 1);
 
@@ -1102,11 +1109,11 @@ inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triang
 		int diff = final_index - start_index;
 		//cout << "final_index - start_index: " << diff << endl;
 
-		Triangle* triangles = all_triangles + start_index;
+		//Triangle* triangles = all_triangles + start_index;
 		//Vec3* output_points = new Vec3[diff];
 		//int* output_hits = new int[diff];
 
-		computeOpenCL(openCLData, triangles, output_points, output_hits, diff, ray_origin, ray_direction);
+		computeOpenCL(openCLData, output_points, output_hits, start_index, diff, ray_origin, ray_direction);
 		//initializeOpenCL_backup(triangles, output_points, output_hits, diff, ray_origin, ray_direction);
 		
 		/*for (int k = 0; k < diff; k++)
@@ -1154,222 +1161,6 @@ inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triang
 		//cout << "Total time cycle ray intersection OpenCL:" << timer3.count() * 1000 << endl;
 	}
 }
-
-inline void findPointsMeshLaserIntersectionGPUandCPU(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, int* output_hits,
-	const PolygonMesh mesh, const PointXYZRGB laser,
-	const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, double laser_number)
-{
-	PointCloud<PointXYZ> meshVertices;
-	fromPCLPointCloud2(mesh.cloud, meshVertices);
-
-	const float MIN_INTERSECTION = VTK_FLOAT_MIN;
-
-	int number_of_line = (DIRECTION_TAN_LASER_APERTURE * 2) / density;
-	//cout << "Numero linee fascio  laser: " << number_of_line << endl;
-
-	int d1, d2;
-	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
-	{
-		d1 = 0;
-		d2 = 1;
-		Vect3d line_1(-DIRECTION_TAN_LASER_APERTURE + 0 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
-		Vect3d line_2(-DIRECTION_TAN_LASER_APERTURE + 10 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
-		getPlaneCoefficent(laser, line_1, line_2, plane);
-
-		//drawLine(cloudIntersection, laser, Eigen::Vector3f(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), 1000);
-
-	}
-	if (scanDirection == DIRECTION_SCAN_AXIS_X)
-	{
-		d1 = 1;
-		d2 = 0;
-		Vect3d line_1(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 0 * density, -1);
-		Vect3d line_2(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 1000 * density, -1);
-
-		getPlaneCoefficent(laser, line_1, line_2, plane);
-
-		//drawLine(cloudIntersection, laser, Eigen::Vector3f(-tan(deg2rad(laser_aperture / 2)) + 0 * density , 0, -1), 1000);
-
-	}
-
-	Eigen::Vector3d direction_ray_start;
-	direction_ray_start[d1] = -DIRECTION_TAN_LASER_APERTURE;
-	direction_ray_start[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
-	direction_ray_start[2] = -1;
-	float min_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, min_z, scanDirection);
-	float max_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, max_z, scanDirection);
-
-	int start_index, final_index;
-
-	if (laser_number == -1)
-	{
-		start_index = findStartIndex(min_poligon_point, mesh.polygons.size(), min_polygons_coordinate);
-		final_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
-	}
-	else
-	{
-		start_index = findFinalIndex(min_poligon_point, mesh.polygons.size(), max_polygons_coordinate);
-		final_index = findStartIndex(min_poligon_point, mesh.polygons.size(), min_polygons_coordinate);
-	}
-
-	cout << "Number of Poligon insercted: " << final_index - start_index << endl;
-	omp_set_nested(1);
-#pragma omp parallel for
-	for (int tj = 0; tj < 2; ++tj) {
-		if(tj == 0)
-			for (int j = 0; j < number_of_line/3; j++)
-		{
-			//high_resolution_clock::time_point start;
-			//start = high_resolution_clock::now();
-
-			PointXYZ tmp;
-			Vertices triangle;
-			Vect3d vertex1, vertex2, vertex3;
-			Vect3d intersection_point;
-			Vec3 ray_origin, ray_direction;
-			float out;
-			PointXYZRGB firstIntersection;
-
-			ray_origin.points[X] = laser.x;
-			ray_origin.points[Y] = laser.y;
-			ray_origin.points[Z] = laser.z;
-
-			float i = -DIRECTION_TAN_LASER_APERTURE + j*density;
-
-			firstIntersection.z = MIN_INTERSECTION;
-
-			if (scanDirection == DIRECTION_SCAN_AXIS_Y)
-				ray_direction.points[X] = i;
-			else
-				ray_direction.points[Y] = i;
-			if (scanDirection == DIRECTION_SCAN_AXIS_X)
-				ray_direction.points[X] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
-			else
-				ray_direction.points[Y] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
-
-			ray_direction.points[Z] = -1;
-
-			int diff = final_index - start_index;
-			//cout << "final_index - start_index: " << diff << endl;
-
-			Triangle* triangles = all_triangles + start_index;
-			//Vec3* output_points = new Vec3[diff];
-			//int* output_hits = new int[diff];
-
-			computeOpenCL(openCLData, triangles, output_points, output_hits, diff, ray_origin, ray_direction);
-
-			for (int h = 0; h < diff; h++)
-			{
-				if (output_hits[h] == 1)
-				{
-					//++hit_number;
-
-					if (output_points[h].points[Z] >= firstIntersection.z)
-					{
-						//cout << "hit point:" << output_points[h].x << "," << output_points[h].y << "," << output_points[h].z << endl;
-
-						firstIntersection.x = output_points[h].points[X];
-						firstIntersection.y = output_points[h].points[Y];
-						firstIntersection.z = output_points[h].points[Z];
-						firstIntersection.r = 255;
-						firstIntersection.g = 0;
-						firstIntersection.b = 0;
-
-					}
-
-				}
-			}
-
-			if (firstIntersection.z > MIN_INTERSECTION)
-				cloudIntersection->push_back(firstIntersection);
-
-
-			//delete(triangles);
-			//delete(output_points);
-			//delete(output_hits);
-
-			//duration<double> timer3 = high_resolution_clock::now() - start;
-			//cout << "Total time cycle ray intersection OpenCL:" << timer3.count() * 1000 << endl;
-		}
-
-		if(tj == 1)
-	#pragma omp parallel for 
-			for (int j = number_of_line/3 + 1; j < number_of_line; j++)
-		{
-			//high_resolution_clock::time_point start;
-			//start = high_resolution_clock::now();
-
-			PointXYZ tmp;
-			Vertices triangle;
-			Vect3d vertex1, vertex2, vertex3;
-			Vect3d intersection_point, origin_ray, direction_ray;
-			float out;
-			PointXYZRGB firstIntersection;
-
-			origin_ray[0] = laser.x;
-			origin_ray[1] = laser.y;
-			origin_ray[2] = laser.z;
-
-			float i = -DIRECTION_TAN_LASER_APERTURE + j*density;
-
-			firstIntersection.z = MIN_INTERSECTION;
-
-			direction_ray[d1] = i;
-			direction_ray[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
-			direction_ray[2] = -1;
-
-
-
-			for (int k = start_index; k < final_index; k++)
-			{
-				//triangle = mesh.polygons.at(min_poligon_index[k]);
-				tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[0]];
-				vertex1[0] = tmp.x;
-				vertex1[1] = tmp.y;
-				vertex1[2] = tmp.z;
-
-				tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[1]];;
-				vertex2[0] = tmp.x;
-				vertex2[1] = tmp.y;
-				vertex2[2] = tmp.z;
-
-				tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[2]];;
-				vertex3[0] = tmp.x;
-				vertex3[1] = tmp.y;
-				vertex3[2] = tmp.z;
-
-				if (triangle_intersection(vertex1, vertex2, vertex3, origin_ray, direction_ray, &out, intersection_point) != 0)
-				{
-					if (intersection_point[2] >= firstIntersection.z)
-					{
-
-						firstIntersection.x = intersection_point[0];
-						firstIntersection.y = intersection_point[1];
-						firstIntersection.z = intersection_point[2];
-						firstIntersection.r = 255;
-						firstIntersection.g = 0;
-						firstIntersection.b = 0;
-
-					}
-				}
-			}
-
-#pragma omp critical
-			{
-				//	drawLine(cloudIntersection, laser, Eigen::Vector3f(laser_number*tan(deg2rad(90 - laser_inclination)), i, -1), 1500);
-
-
-				if (firstIntersection.z > MIN_INTERSECTION)
-					cloudIntersection->push_back(firstIntersection);
-			}
-
-			//duration<double> timer = high_resolution_clock::now() - start;
-			//cout << "Total time cycle ray intersection:" << timer.count() * 1000 << endl;
-		}
-
-	}
-}
-
 
 void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRGB> tree, PointCloud<PointXYZRGB>::Ptr cloud_scan, 
 						PointCloud<PointXYZRGB>::Ptr cloud_out, int intersect_points) {

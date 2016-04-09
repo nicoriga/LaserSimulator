@@ -110,19 +110,20 @@ Vec3 P, Q, T;
 __kernel void RayTriangleIntersection(__global Triangle *input, 
 									  __global Vec3* output_point,  
 									  __global int* output_hit, 
-									  int num_vertices, 
+									  int start_index,
+									  int num_triangle, 
 									  Vec3 ray_origin, 
 									  Vec3 ray_direction)
 {
-#define RUN 128
+#define RUN 256
 	int k = get_global_id(0);
 
-	if(k < num_vertices)
+	if(k < num_triangle)
 	{ 
 		int j;
-		int l = k * RUN;
+		int l = k * RUN + start_index;
 
-		for(j = 0; j<RUN && (l+j)<num_vertices; ++j){
+		for(j = 0; j<RUN && (l+j)<num_triangle; ++j){
 			output_hit[l + j] = triangle_intersection(input[l + j].vertex1, input[l + j].vertex2, input[l + j].vertex3, ray_origin, ray_direction, &output_point[l + j]);
 
 		}
