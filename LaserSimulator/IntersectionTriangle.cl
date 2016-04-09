@@ -109,7 +109,7 @@ Vec3 P, Q, T;
 
 __kernel void RayTriangleIntersection(__global Triangle *input, 
 									  __global Vec3* output_point,  
-									  __global int* output_hit, 
+									  __global uchar* output_hit, 
 									  int start_index,
 									  int num_triangle, 
 									  Vec3 ray_origin, 

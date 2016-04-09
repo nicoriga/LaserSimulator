@@ -107,15 +107,16 @@ struct Triangle3f {
 
 struct OpenCLDATA {
 	cl::Buffer device_triangle_array;
-	/*cl::Buffer device_output_points;
+	cl::Buffer device_output_points;
 	cl::Buffer device_output_hits;
 
 	size_t triangles_size;
 	size_t points_size;
-	size_t hits_size;*/
+	size_t hits_size;
 
 	cl::Context context;
 	cl::CommandQueue queue;
+	cl::Kernel kernel;
 	cl::Program program_;
 
 	std::vector<cl::Device> devices;
@@ -922,14 +923,25 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		free(kernelSource);
 
 		// Size, in bytes, of each vector
-		size_t triangles_size = array_lenght*sizeof(Triangle);
+		openCLData->triangles_size = array_lenght*sizeof(Triangle);
+		openCLData->points_size = array_lenght*sizeof(Vec3);
+		openCLData->hits_size = array_lenght*sizeof(uchar);
 
 		// Create device memory buffers
-		openCLData->device_triangle_array = cl::Buffer(openCLData->context, CL_MEM_READ_ONLY, triangles_size);
+		openCLData->device_triangle_array = cl::Buffer(openCLData->context, CL_MEM_READ_ONLY, openCLData->triangles_size);
+		openCLData->device_output_points = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, openCLData->points_size);
+		openCLData->device_output_hits = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, openCLData->hits_size);
 
 		// Bind memory buffers
-		openCLData->queue.enqueueWriteBuffer(openCLData->device_triangle_array, CL_TRUE, 0, triangles_size, triangle_array);
+		openCLData->queue.enqueueWriteBuffer(openCLData->device_triangle_array, CL_TRUE, 0, openCLData->triangles_size, triangle_array);
 
+		// Create kernel object
+		openCLData->kernel = cl::Kernel(openCLData->program_, "RayTriangleIntersection", &err);
+
+		// Bind kernel arguments to kernel
+		openCLData->kernel.setArg(0, openCLData->device_triangle_array);
+		openCLData->kernel.setArg(1, openCLData->device_output_points);
+		openCLData->kernel.setArg(2, openCLData->device_output_hits);
 
 	}
 	catch (...) {
@@ -942,7 +954,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 	return 0;
 }
 
-inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, int* output_hits, int start_index, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
+inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
 
 	//high_resolution_clock::time_point start;
 	//start = high_resolution_clock::now();
@@ -951,33 +963,27 @@ inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, int* outpu
 
 	// Device output buffer
 	//cl::Buffer device_triangle_array;
-	cl::Buffer device_output_points;
-	cl::Buffer device_output_hits;
+	//cl::Buffer device_output_points;
+	//cl::Buffer device_output_hits;
 
 	// Size, in bytes, of each vector
 	//size_t triangles_size = array_lenght*sizeof(Triangle);
-	size_t points_size = array_lenght*sizeof(Vec3);
-	size_t hits_size = array_lenght*sizeof(int);
+	//size_t points_size = array_lenght*sizeof(Vec3);
+	//size_t hits_size = array_lenght*sizeof(int);
 
 	// Create device memory buffers
 	//device_triangle_array = cl::Buffer(openCLData->context, CL_MEM_READ_ONLY, triangles_size);
-	device_output_points = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, points_size);
-	device_output_hits = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, hits_size);
+	//device_output_points = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, points_size);
+	//device_output_hits = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, hits_size);
 
 	// Bind memory buffers
 	//openCLData->queue.enqueueWriteBuffer(device_triangle_array, CL_TRUE, 0, triangles_size, triangle_array);
 
-	// Create kernel object
-	cl::Kernel kernel(openCLData->program_, "RayTriangleIntersection", &err);
-
-	// Bind kernel arguments to kernel
-	kernel.setArg(0, openCLData->device_triangle_array);
-	kernel.setArg(1, device_output_points);
-	kernel.setArg(2, device_output_hits);
-	kernel.setArg(3, start_index);
-	kernel.setArg(4, array_lenght);
-	kernel.setArg(5, ray_origin);
-	kernel.setArg(6, ray_direction);
+	
+	openCLData->kernel.setArg(3, start_index);
+	openCLData->kernel.setArg(4, array_lenght);
+	openCLData->kernel.setArg(5, ray_origin);
+	openCLData->kernel.setArg(6, ray_direction);
 
 	// Number of work items in each local work group
 #define LOCAL_SIZE 128
@@ -991,7 +997,7 @@ inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, int* outpu
 	// Enqueue kernel
 	cl::Event event;
 	openCLData->queue.enqueueNDRangeKernel(
-		kernel,
+		openCLData->kernel,
 		cl::NullRange,
 		globalSize,
 		localSize,
@@ -1002,8 +1008,8 @@ inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, int* outpu
 	event.wait();
 
 	// Read back device_output_point, device_output_hit
-	openCLData->queue.enqueueReadBuffer(device_output_points, CL_TRUE, 0, points_size, output_points);
-	openCLData->queue.enqueueReadBuffer(device_output_hits, CL_TRUE, 0, hits_size, output_hits);
+	openCLData->queue.enqueueReadBuffer(openCLData->device_output_points, CL_TRUE, 0, openCLData->points_size, output_points);
+	openCLData->queue.enqueueReadBuffer(openCLData->device_output_hits, CL_TRUE, 0, openCLData->hits_size, output_hits);
 
 	//duration<double> timer = high_resolution_clock::now() - start;
 	//cout << "Buffer output copied OpenCL:" << timer.count() * 1000 << endl;
@@ -1011,7 +1017,7 @@ inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, int* outpu
 	return 0;
 }
 
-inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, int* output_hits,
+inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
 	const PolygonMesh mesh, const PointXYZRGB laser,
 	const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, double laser_number)
 {
@@ -1126,7 +1132,7 @@ inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triang
 
 		//int hit_number = 0;
 		//cout << endl;
-		for (int h = 0; h < diff; h++)
+		for (int h = start_index; h < final_index; h++)
 		{
 			if (output_hits[h] == 1)
 			{
@@ -1438,11 +1444,13 @@ int main(int argc, char** argv)
 		}
 
 	// OpenCL Loading
-	all_triangles = new Triangle[mesh.polygons.size()];
-	Vec3* output_points = new Vec3[mesh.polygons.size()];
-	int* output_hits = new int[mesh.polygons.size()];
+	int array_size_64 = (int)(ceilf(mesh.polygons.size() / 64) * 64);
+	int size_array = mesh.polygons.size();
+	all_triangles = new Triangle[size_array];
+	Vec3* output_points = new Vec3[size_array];
+	uchar* output_hits = new uchar[size_array];
 	prepareDataForOpenCL(mesh, all_triangles);
-	initializeOpenCL(&openCLData, all_triangles, mesh.polygons.size());
+	initializeOpenCL(&openCLData, all_triangles, size_array);
 
 	for (int z = 0; z < 1; z++)
 	{
@@ -1465,6 +1473,9 @@ int main(int argc, char** argv)
 		// cerca i punti di insersezione del raggio laser
 		//findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 
+		//findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
+		//findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
+
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 		//findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
@@ -1475,6 +1486,7 @@ int main(int argc, char** argv)
 
 		getCameraFrameMauro(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
 
+		flip(image2, image2, 0);
 		generatePointCloudFromImageMauro(&plane2, &plane1, &image2, cloudOut);
 
 
