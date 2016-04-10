@@ -3,6 +3,10 @@
 #define Y 1
 #define Z 2
 
+#define RUN 256
+#define HIT 1
+#define MISS 0
+
 typedef struct 
 {
 	float points[3];	
@@ -58,7 +62,7 @@ inline int triangle_intersection( Vec3   V1,  // Triangle vertices
                            Vec3   V3,
                            Vec3    O,  //Ray origin
                            Vec3    D,  //Ray direction
-                           __global Vec3* int_point )
+                           Vec3* hit_point )
 {
 Vec3 e1, e2;  //Edge1, Edge2
 Vec3 P, Q, T;
@@ -97,7 +101,7 @@ Vec3 P, Q, T;
   if(t > EPSILON) { //ray intersection
     //*out = t;
 
-	*int_point = ADD(O, MUL(D, t));
+	*hit_point = ADD(O, MUL(D, t));
 
     return 1;
   }
@@ -115,19 +119,41 @@ __kernel void RayTriangleIntersection(__global Triangle *input,
 									  Vec3 ray_origin, 
 									  Vec3 ray_direction)
 {
-#define RUN 256
 	int k = get_global_id(0);
 
 	if(k < num_triangle)
 	{ 
+		output_hit[k] = MISS;
+
+		Vec3 local_hit_point, hight_hit_point;
+		uchar local_hit = MISS;
 		int j,t;
 		int l = k * RUN + start_index;
 		int final_index = num_triangle+start_index;
 
-		for(j = 0; j<RUN && (l + j) < final_index; ++j){
+		for(j = 0; j<RUN && (l + j) < final_index; ++j)
+		{
 			t = l + j;
-			output_hit[t] = triangle_intersection(input[t].vertex1, input[t].vertex2, input[t].vertex3, ray_origin, ray_direction, &output_point[t]);
 
+			if(triangle_intersection(input[t].vertex1, input[t].vertex2, input[t].vertex3, ray_origin, ray_direction, &local_hit_point))
+			{
+				if (local_hit == MISS || local_hit_point.points[Z] >= hight_hit_point.points[Z])
+				{
+					local_hit = HIT;
+					
+					hight_hit_point.points[X] = local_hit_point.points[X];
+					hight_hit_point.points[Y] = local_hit_point.points[Y];
+					hight_hit_point.points[Z] = local_hit_point.points[Z];
+				}
+			}
+		}
+
+		if(local_hit == HIT)
+		{
+			output_hit[k] = HIT;
+			output_point[k].points[X] = hight_hit_point.points[X];
+			output_point[k].points[Y] = hight_hit_point.points[Y];
+			output_point[k].points[Z] = hight_hit_point.points[Z];
 		}
 	}
 }
