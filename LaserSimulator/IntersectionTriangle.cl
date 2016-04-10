@@ -120,11 +120,13 @@ __kernel void RayTriangleIntersection(__global Triangle *input,
 
 	if(k < num_triangle)
 	{ 
-		int j;
+		int j,t;
 		int l = k * RUN + start_index;
+		int final_index = num_triangle+start_index;
 
-		for(j = 0; j<RUN && (l+j)<num_triangle; ++j){
-			output_hit[l + j] = triangle_intersection(input[l + j].vertex1, input[l + j].vertex2, input[l + j].vertex3, ray_origin, ray_direction, &output_point[l + j]);
+		for(j = 0; j<RUN && (l + j) < final_index; ++j){
+			t = l + j;
+			output_hit[t] = triangle_intersection(input[t].vertex1, input[t].vertex2, input[t].vertex3, ray_origin, ray_direction, &output_point[t]);
 
 		}
 	}
