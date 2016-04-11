@@ -74,7 +74,7 @@ float camera_fps = 100;				// fps  [100, 500]
 float scan_speed = 100;				// mm/s [100, 1000]
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
-float focal_distance = 25;
+float focal_length = 25;
 
 float sensor_width = sensor_pixel_width * PIXEL_DIMENSION;
 float sensor_height = sensor_pixel_height * PIXEL_DIMENSION;
@@ -1310,7 +1310,7 @@ void getCameraFrameShift(const PointXYZ pin_hole, const PointXYZ laser,PointClou
 
 void getCameraFrameMauro(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection) {
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
-	sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+	sensorPointProjection(focal_length, sensor_height, sensor_width, cloud_intersection, cloud_projection);
 	drawLaserImage(pin_hole, image_out, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 	cloud_projection->~PointCloud();
 }
@@ -1529,7 +1529,7 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
 					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
 				}
-				point.z = pin_hole.z + focal_distance;
+				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;
 				dy = pin_hole.y - point.y;
@@ -1561,7 +1561,7 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
 					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
 				}
-				point.z = pin_hole.z + focal_distance;
+				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;
 				dy = pin_hole.y - point.y;
@@ -1581,6 +1581,10 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection) {
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 
+	float sensor_width = sensor_pixel_width * PIXEL_DIMENSION;
+	float sensor_height = sensor_pixel_height * PIXEL_DIMENSION;
+	float x_sensor_origin, y_sensor_origin;
+
 	// parametri intrinseci della telecamera
 	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
 	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
@@ -1592,10 +1596,14 @@ void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel
 	float delta_x = ((sensor_pixel_width / 2) - cameraMatrix.at<double>(0, 2)) * PIXEL_DIMENSION;
 	float delta_y = ((sensor_pixel_height / 2) - cameraMatrix.at<double>(1, 2)) * PIXEL_DIMENSION;
 
+	float focal_length_x = cameraMatrix.at<double>(0, 0) * sensor_width / sensor_pixel_width;
+	float focal_length_y = cameraMatrix.at<double>(1, 1) * sensor_height / sensor_pixel_height;
+	focal_length = (focal_length_x + focal_length_y) / 2;
+
 	PointXYZRGB tmp, p, center;
 	center.x = pin_hole.x - delta_x;
 	center.y = pin_hole.y - delta_y;
-	center.z = pin_hole.z + focal_distance;
+	center.z = pin_hole.z + focal_length;
 
 	for (int i = 0; i < cloud_intersection->points.size(); i++)
 	{
@@ -1630,9 +1638,7 @@ void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel
 
 	int image_point_added = 0;
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
-	float sensor_width = sensor_pixel_width * PIXEL_DIMENSION;
-	float sensor_height = sensor_pixel_height * PIXEL_DIMENSION;
-	float x_sensor_origin, y_sensor_origin;
+	
 
 	// inizializza l'immagine bianca
 	for (int i = 0; i < sensor_pixel_height; i++)
@@ -1750,7 +1756,7 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
 					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
 				}
-				point.z = pin_hole.z + focal_distance;
+				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;
 				dy = pin_hole.y - point.y;
@@ -1782,7 +1788,7 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
 					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
 				}
-				point.z = pin_hole.z + focal_distance;
+				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;
 				dy = pin_hole.y - point.y;
