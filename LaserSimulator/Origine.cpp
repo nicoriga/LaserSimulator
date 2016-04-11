@@ -63,11 +63,11 @@ float min_z, max_z;
 PointXYZRGB laser_point, laser_point_2, laser_final_point_left, laser_final_point_right, pin_hole;
 
 int scanDirection = DIRECTION_SCAN_AXIS_Y;
-float distance_laser_sensor = 600 ; // [500, 800]
+float distance_laser_sensor = 600; // [500, 800]
 float laser_aperture = 45.0;		// [30, 45]
 float laser_inclination = 60.0;		// [60, 70]
 float delta_z = 800;				// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.001;          // 0.001
+float RAY_DENSITY = 0.001;
 int default_number_samples = 10000000;
 
 float camera_fps = 100;				// fps  [100, 500]
@@ -91,7 +91,6 @@ struct Plane {
 	float C;
 	float D;
 };
-
 struct Vec3
 {
 	float points[3];
@@ -101,13 +100,6 @@ struct Triangle {
 	Vec3 vertex2;
 	Vec3 vertex3;
 };
-
-struct Triangle3f {
-	cl_float3 vertex1;
-	cl_float3 vertex2;
-	cl_float3 vertex3;
-};
-
 struct OpenCLDATA {
 	cl::Buffer device_triangle_array;
 	cl::Buffer device_output_points;
@@ -180,7 +172,7 @@ void mergesort(float *a, int* b, int low, int high, float *tmp_a, int *tmp_b)
 }
 
 float dist(float x1, float y1, float z1, float x2, float y2, float z2) {
-	return sqrt(exp2f(x2-x1) + exp2f(y2-y1) + exp2f(z2-z1));
+	return sqrt(exp2f(x2 - x1) + exp2f(y2 - y1) + exp2f(z2 - z1));
 }
 
 PointXYZRGB mediumPoint(PointXYZRGB point_1, PointXYZRGB point_2) {
@@ -374,7 +366,7 @@ void initializeLaser(int scanDirection) {
 		laser_point_2.z = laser_point.z;
 		laser_point_2.x = laser_point.x;
 		laser_point_2.y = laser_point.y - 2 * distance_laser_sensor;
-		
+
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
@@ -402,7 +394,7 @@ void initializePinHole(int scanDirection, float position) {
 		laser_point.y = position;
 		laser_point_2.y = position - 2 * distance_laser_sensor;
 
-	//calcola valori pin hole
+		//calcola valori pin hole
 		pin_hole.x = laser_point.x;
 		pin_hole.y = laser_point.y - distance_laser_sensor;
 	}
@@ -413,7 +405,7 @@ void initializePinHole(int scanDirection, float position) {
 
 		pin_hole.y = laser_point.y;
 		pin_hole.x = laser_point.x - distance_laser_sensor;
-		
+
 	}
 
 	pin_hole.z = laser_point.z;
@@ -423,7 +415,7 @@ void initializePinHole(int scanDirection, float position) {
 }
 
 void addLaserPoint(PointCloud<PointXYZRGB>::Ptr cloud, int scanDirection) {
-	
+
 	initializeLaser(scanDirection);
 	cloud->points.push_back(laser_point);
 
@@ -443,7 +435,7 @@ void addLaserPoint(PointCloud<PointXYZRGB>::Ptr cloud, int scanDirection) {
 	laser_final_point_right.b = 0;
 	cloud->points.push_back(laser_final_point_right);
 
-	int num_replicate_point = 50 ;
+	int num_replicate_point = 50;
 	addIntermediatePoint(cloud, laser_point, laser_final_point_left, num_replicate_point, 255, 0, 0);
 	addIntermediatePoint(cloud, laser_point, laser_final_point_right, num_replicate_point, 255, 0, 0);
 	addIntermediatePoint(cloud, laser_final_point_left, laser_final_point_right, num_replicate_point, 255, 0, 0);
@@ -461,7 +453,7 @@ Vec3f directionVector(PointXYZRGB source_point, PointXYZRGB destination_point) {
 }
 
 int triangle_intersection(const Vect3d V1, const Vect3d V2, const Vect3d V3,
-						  const Vect3d O, const Vect3d D, float* out, Vect3d &intPoint)
+	const Vect3d O, const Vect3d D, float* out, Vect3d &intPoint)
 {
 	Vect3d e1, e2;  //Edge1, Edge2
 	Vect3d P, Q, T;
@@ -533,7 +525,7 @@ float rayPlaneLimitIntersection(PointXYZRGB start_point, Eigen::Vector3d directi
 	{
 		return direction[0] * (plane_coordinate - start_point.z) / direction[2] + start_point.x;
 	}
-	
+
 	return 0;
 }
 
@@ -564,7 +556,7 @@ int findStartIndex(float* array_min_points, int array_size, float min_point) {
 int findFinalIndex(float* array_min_points, int array_size, float max_point) {
 	int index = 0;
 
-	for (int i = array_size-1; i > 0; i--)
+	for (int i = array_size - 1; i > 0; i--)
 	{
 		if (array_min_points[i] < max_point) {
 			index = i;
@@ -575,15 +567,15 @@ int findFinalIndex(float* array_min_points, int array_size, float max_point) {
 	return index;
 }
 
-void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB laser, 
-							   const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, double laser_number)
+void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB laser,
+	const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, double laser_number)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
 
 	const float MIN_INTERSECTION = VTK_FLOAT_MIN;
-	
-	int number_of_line = (tan(deg2rad(laser_aperture / 2))*2) / density;
+
+	int number_of_line = (DIRECTION_TAN_LASER_APERTURE * 2) / density;
 	//cout << "Numero linee fascio laser: " << number_of_line << endl;
 
 	int d1, d2;
@@ -591,10 +583,10 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 	{
 		d1 = 0;
 		d2 = 1;
-		Vect3d line_1(-tan(deg2rad(laser_aperture / 2)) + 0 * density, laser_number * tan(deg2rad(90 - laser_inclination)), -1);
-		Vect3d line_2(-tan(deg2rad(laser_aperture / 2)) + 10 * density, laser_number * tan(deg2rad(90 - laser_inclination)), -1);
+		Vect3d line_1(-DIRECTION_TAN_LASER_APERTURE + 0 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
+		Vect3d line_2(-DIRECTION_TAN_LASER_APERTURE + 10 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
 		getPlaneCoefficent(laser, line_1, line_2, plane);
-		
+
 		//drawLine(cloudIntersection, laser, Eigen::Vector3f(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), 1000);
 
 	}
@@ -602,18 +594,18 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 	{
 		d1 = 1;
 		d2 = 0;
-		Vect3d line_1(laser_number * tan(deg2rad(90 - laser_inclination)), -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1);
-		Vect3d line_2(laser_number * tan(deg2rad(90 - laser_inclination)), -tan(deg2rad(laser_aperture / 2)) + 1000 * density, -1);
+		Vect3d line_1(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 0 * density, -1);
+		Vect3d line_2(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 1000 * density, -1);
 
 		getPlaneCoefficent(laser, line_1, line_2, plane);
-		
+
 		//drawLine(cloudIntersection, laser, Eigen::Vector3f(-tan(deg2rad(laser_aperture / 2)) + 0 * density , 0, -1), 1000);
 
 	}
 
 	Eigen::Vector3d direction_ray_start;
-	direction_ray_start[d1] = -tan(deg2rad(laser_aperture / 2));
-	direction_ray_start[d2] = laser_number * tan(deg2rad(90 - laser_inclination));
+	direction_ray_start[d1] = -DIRECTION_TAN_LASER_APERTURE;
+	direction_ray_start[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
 	direction_ray_start[2] = -1;
 	float min_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, min_z, scanDirection);
 	float max_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, max_z, scanDirection);
@@ -638,9 +630,12 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 	//cout << "final_index: " << final_index << endl;
 	cout << "Number of Poligon insercted: " << final_index - start_index << endl;
 
-	#pragma omp parallel for //ordered schedule(dynamic)
+#pragma omp parallel for //ordered schedule(dynamic)
 	for (int j = 0; j < number_of_line; j++)
 	{
+		//high_resolution_clock::time_point start;
+		//start = high_resolution_clock::now();
+
 		PointXYZ tmp;
 		Vertices triangle;
 		Vect3d vertex1, vertex2, vertex3;
@@ -652,28 +647,30 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 		origin_ray[1] = laser.y;
 		origin_ray[2] = laser.z;
 
-		float i = -tan(deg2rad(laser_aperture / 2)) + j*density;
+		float i = -DIRECTION_TAN_LASER_APERTURE + j*density;
 
 		firstIntersection.z = MIN_INTERSECTION;
 
 		direction_ray[d1] = i;
-		direction_ray[d2] = laser_number * tan(deg2rad(90 - laser_inclination));
+		direction_ray[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
 		direction_ray[2] = -1;
+
+
 
 		for (int k = start_index; k < final_index; k++)
 		{
-			triangle = mesh.polygons.at(min_poligon_index[k]);
-			tmp = meshVertices.points[triangle.vertices[0]];
+			//triangle = mesh.polygons.at(min_poligon_index[k]);
+			tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[0]];
 			vertex1[0] = tmp.x;
 			vertex1[1] = tmp.y;
 			vertex1[2] = tmp.z;
 
-			tmp = meshVertices.points[triangle.vertices[1]];
+			tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[1]];;
 			vertex2[0] = tmp.x;
 			vertex2[1] = tmp.y;
 			vertex2[2] = tmp.z;
 
-			tmp = meshVertices.points[triangle.vertices[2]];
+			tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[2]];;
 			vertex3[0] = tmp.x;
 			vertex3[1] = tmp.y;
 			vertex3[2] = tmp.z;
@@ -694,17 +691,17 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 			}
 		}
 
-		#pragma omp critical
+#pragma omp critical
 		{
-			/*
-			if (scanDirection == DIRECTION_SCAN_AXIS_X)
-				drawLine(cloudIntersection, laser, Eigen::Vector3f(laser_number*tan(deg2rad(90 - laser_inclination)), i, -1), 1500);
-			if (scanDirection == DIRECTION_SCAN_AXIS_Y)
-				drawLine(cloudIntersection, laser, Eigen::Vector3f(i, laser_number*tan(deg2rad(90 - laser_inclination)), -1), 1500);
-			*/
+			//	drawLine(cloudIntersection, laser, Eigen::Vector3f(laser_number*tan(deg2rad(90 - laser_inclination)), i, -1), 1500);
+
+
 			if (firstIntersection.z > MIN_INTERSECTION)
 				cloudIntersection->push_back(firstIntersection);
 		}
+
+		//duration<double> timer = high_resolution_clock::now() - start;
+		//cout << "Total time cycle ray intersection:" << timer.count() * 1000 << endl;
 	}
 }
 
@@ -749,8 +746,8 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 
 		// Get list of devices on default platform and create context
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
-		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);  
-		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
+		openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+		//openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
 
 		// Create command queue for first device
@@ -773,7 +770,6 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		fclose(programHandle);
 
 		//Build kernel from source string
-		//cl::Program source(kernelSource);
 		openCLData->program_ = cl::Program(openCLData->context, kernelSource);
 		openCLData->program_.build(openCLData->devices);
 
@@ -998,14 +994,14 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 	}
 }
 
-void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRGB> tree, PointCloud<PointXYZRGB>::Ptr cloud_scan, 
-						PointCloud<PointXYZRGB>::Ptr cloud_out, int intersect_points) {
+void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRGB> tree, PointCloud<PointXYZRGB>::Ptr cloud_scan,
+	PointCloud<PointXYZRGB>::Ptr cloud_out, int intersect_points) {
 	vector<int> indices;
 	intersect_points = 0;
 
 	for (float i = -tan(deg2rad(laser_aperture / 2)); i < tan(deg2rad(laser_aperture / 2)); i += 0.0001)
 	{
-		if (tree.getIntersectedVoxelIndices(Eigen::Vector3f(laser_point.x, laser_point.y, laser_point.z), Eigen::Vector3f(i, -tan(deg2rad(90 - laser_inclination)), -1), indices) > 0) 
+		if (tree.getIntersectedVoxelIndices(Eigen::Vector3f(laser_point.x, laser_point.y, laser_point.z), Eigen::Vector3f(i, -tan(deg2rad(90 - laser_inclination)), -1), indices) > 0)
 		{
 
 			// preleva solo il primo punto intersecato dalla retta, quello più superficiale
@@ -1076,7 +1072,7 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 			image.at<Vec3b>(i, j)[0] = 255;
 			image.at<Vec3b>(i, j)[1] = 255;
 			image.at<Vec3b>(i, j)[2] = 255;
-	}
+		}
 
 	if (scanDirection == DIRECTION_SCAN_AXIS_X) {
 		x_sensor_origin = pin_hole.x - (sensor_height) / 2;
@@ -1130,7 +1126,7 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 	return image_point_added;
 }
 
-void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2,PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
+void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
 	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
@@ -1185,7 +1181,7 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 
 	std::vector<Point3d> points;
 	std::vector<Point2d> output_point;
-	
+
 
 	// parametri intrinseci della telecamera
 	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
@@ -1244,7 +1240,7 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 	*img = image;
 }
 
-void getCameraFrameShift(const PointXYZ pin_hole, const PointXYZ laser,PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
+void getCameraFrameShift(const PointXYZ pin_hole, const PointXYZ laser, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
 	std::vector<Point3d> points;
 	std::vector<Point2d> output_points;
@@ -1347,7 +1343,7 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
-	transEst.estimateRigidTransformation(*cloud_target,*cloud_src, trans);
+	transEst.estimateRigidTransformation(*cloud_target, *cloud_src, trans);
 
 	for (int i = 0; i < cloudIn->size(); i++) {
 		Eigen::Vector4f v_point, v_point_final;
@@ -1365,57 +1361,7 @@ void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<Point
 	}
 }
 
-void generateImageOldSchool(PointXYZRGB pin_hole, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat* image) {
-	// camera calibration matrix
-	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
-	
-	// parametri intrinseci della telecamera
-	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
-	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
-	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
-	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
-	cameraMatrix.at<double>(2, 2) = 1;
-
-	//camera resolution
-	const int resX = image->rows;
-	const int resY = image->cols;
-
-	// camera rotation
-	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
-		0, 1, 0,
-		0, 0, 1);
-
-	//camera position
-	Mat eye = (cv::Mat_<double>(3, 1) << pin_hole.x,
-		pin_hole.y,
-		pin_hole.z);
-
-	//calculate pixel by old-school way
-
-	Mat trans = (cv::Mat_<double>(3, 4) << 1, 0, 0, -1.0*eye.at<double>(0, 0),
-		0, 1, 0, -1.0*eye.at<double>(1, 0),
-		0, 0, 1, -1.0*eye.at<double>(2, 0));
-
-	Mat projMat = cameraMatrix * (rotatMat * trans);
-
-	for (int i = 0; i < cloud_intersection->size(); i++)
-	{
-		Mat ptMat = (cv::Mat_<double>(4, 1) << cloud_intersection->at(i).x, cloud_intersection->at(i).y, cloud_intersection->at(i).z, 1.0);
-		Mat pelMat = projMat * ptMat;
-
-		int x = (int)((pelMat.at<double>(0, 0) / pelMat.at<double>(2, 0)) + 0.5);
-		int y = (int)((pelMat.at<double>(1, 0) / pelMat.at<double>(2, 0)) + 0.5);
-		
-		if ((y >= 0) && (y < resY) && (x >= 0) && (x < resX))
-		{
-			image->at<Vec3b>(y, x)[0] = 0;
-			image->at<Vec3b>(y, x)[1] = 0;
-			image->at<Vec3b>(y, x)[2] = 0;
-		}
-	}
-}
-
-void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloudOut){
+void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloudOut) {
 	PointXYZ point;
 
 	flip(*image, *image, 0); // altrimenti la cloud viene rovescia
@@ -1439,7 +1385,7 @@ void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, Point
 	Cx = 1113.41; // Cx
 	Cy = 480.016; // Cy
 
-	for (int i = 0; i < image_undistort.rows/2; i++)
+	for (int i = 0; i < image_undistort.rows / 2; i++)
 	{
 		for (int j = 0; j < image_undistort.cols; j++)
 		{
@@ -1512,7 +1458,7 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 	undistort(*image, image_undistort, cameraMatrix, Mat::zeros(8, 1, CV_64F));
 	flip(image_undistort, *image, 0); // altrimenti la cloud viene rovescia
 
-	// Creo la point cloud del sensore a partire dall'immagine
+									  // Creo la point cloud del sensore a partire dall'immagine
 	for (int i = 0; i < image->rows / 2; i++)
 	{
 		for (int j = 0; j < image->cols; j++)
@@ -1638,7 +1584,7 @@ void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel
 
 	int image_point_added = 0;
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
-	
+
 
 	// inizializza l'immagine bianca
 	for (int i = 0; i < sensor_pixel_height; i++)
@@ -1811,7 +1757,7 @@ int main(int argc, char** argv)
 	PolygonMesh mesh;
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
-	Mat image, image2, image4;
+	Mat image;
 	OpenCLDATA openCLData;
 	Triangle* all_triangles;
 
@@ -1850,12 +1796,12 @@ int main(int argc, char** argv)
 	{
 		position_step = laser_point.x - 1180; //- 1;
 	}
-	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
 		position_step = laser_point.y - 1180;
 	}
 
-	cout << "position_step:" << position_step << endl; 
+	cout << "position_step:" << position_step << endl;
 
 	// Questo valore varia da 0,2 a 10 frame per mm
 	float increment_value = scan_speed / camera_fps;
@@ -1864,16 +1810,7 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
-	Mat image3(sensor_pixel_width, sensor_pixel_height, CV_8UC3);
-	// inizializza l'immagine bianca
-	for (int i = 0; i < image3.rows; i++)
-		for (int j = 0; j < image3.cols; j++) {
-			image3.at<Vec3b>(i, j)[0] = 255;
-			image3.at<Vec3b>(i, j)[1] = 255;
-			image3.at<Vec3b>(i, j)[2] = 255;
-		}
-
-	// OpenCL Loading
+	//************************ OpenCL Loading ***************************//
 	int array_size_hits = (int)(ceil(mesh.polygons.size() / (float)RUN));
 	int size_array = mesh.polygons.size();
 	all_triangles = new Triangle[size_array];
@@ -1886,7 +1823,7 @@ int main(int argc, char** argv)
 	{
 
 		cout << "Z->" << z << " ";
-		printf("%f ", position_step);
+		cout << "position_step: " << position_step << endl;
 
 		// Inizializza il Pin Hole e sposta anche la posizione del laser
 		initializePinHole(scanDirection, position_step);
@@ -1899,7 +1836,7 @@ int main(int argc, char** argv)
 
 		high_resolution_clock::time_point start;
 		start = high_resolution_clock::now();
-		
+
 		// cerca i punti di insersezione del raggio laser
 		//findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 		//findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
@@ -1910,54 +1847,20 @@ int main(int argc, char** argv)
 		duration<double> timer2 = high_resolution_clock::now() - start;
 		cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
 
-
 		//****************** Converto la point cloud in un immagine **********************
 
-		// crea immagine
-		//int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
-		//cout << "Punti immagine aggiunti: " << image_point_added << endl;
-
-
-		// Crea immagine usando il metodo di openCV
-		PointXYZ pin_hole_temp, laser_point_temp, laser_point_temp_2;
-		pin_hole_temp.x = pin_hole.x;
-		pin_hole_temp.y = pin_hole.y;
-		pin_hole_temp.z = pin_hole.z;
-		laser_point_temp.x = laser_point.x;
-		laser_point_temp.y = laser_point.y;
-		laser_point_temp.z = laser_point.z;
-		laser_point_temp_2.x = laser_point_2.x;
-		laser_point_temp_2.y = laser_point_2.y;
-		laser_point_temp_2.z = laser_point_2.z;
-
 		//getCameraFrame(pin_hole_temp, laser_point_temp, laser_point_temp_2, cloud_intersection, &image, scanDirection);
-		
-		getCameraFrameMauro2(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
 
-		//generateImageOldSchool(pin_hole, cloud_intersection, &image3);
-
-		//getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image4, scanDirection);
-
-		//cloud_projection->push_back(pin_hole);
-		// disegna contorni sensore
-		//drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
-		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
-		//cv::imshow("Display window", image); // Show our image inside it.
+		getCameraFrameMauro2(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
 
 		//cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
-		//cv::imwrite("../imgOut/out_2_" + to_string(z) + ".png", image2);
-		//cv::imwrite("../imgOut/out_3_" + to_string(z) + ".png", image3);
-		//cv::imwrite("../imgOut/out_4_" + to_string(z) + ".png", image4);*/
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
-		flip(image2, image2, 0);
-		generatePointCloudFromImageMauro2(&plane2, &plane1, &image2, cloud_out);
+		flip(image, image, 0);
+		generatePointCloudFromImageMauro2(&plane2, &plane1, &image, cloud_out);
 
 		//generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
 		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
-
-		//saveFrame(record_image, image);
-		//cv::imwrite("out2.png", image2);
 
 		for (int i = 0; i < cloud_intersection->size(); i++)
 		{
@@ -1966,29 +1869,20 @@ int main(int argc, char** argv)
 		}
 
 		cloud_intersection->~PointCloud();
-		cloudGenerate->~PointCloud();  
+		cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
-
 	cout << "Punti cloud_test " << cloud_test->points.size();
 
-	// Create a PCLVisualizer
-	/*visualization::PCLVisualizer viewer("Mesh");
-	viewer.addCoordinateSystem(100, "mesh");
-	viewer.addPolygonMesh(mesh, "mesh");
-	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb3(cloud_intersection);
-	viewer.addPointCloud<PointXYZRGB>(cloud_intersection, rgb3, "cloudScan");
-	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_projection);
-	viewer.addPointCloud<PointXYZRGB>(cloud_projection, rgb4, "cloudProj");
-	viewer.spin();*/
 
-	visualization::PCLVisualizer viewer2("Viewer2");
-	viewer2.addCoordinateSystem(100, "viewer2");
-	viewer2.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
+	// Create a PCLVisualizer
+
+	visualization::PCLVisualizer viewer("viewer");
+	viewer.addCoordinateSystem(0.1, "viewer");
+	viewer.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_test);
-	viewer2.addPointCloud<PointXYZRGB>(cloud_test, rgb4, "cloudTest");
-	//viewer2.addPolygonMesh(mesh, "mesh");
-	viewer2.spin();
+	viewer.addPointCloud<PointXYZRGB>(cloud_test, rgb4, "cloudTest");
+	viewer.spin();
 
 
 	return 0;
