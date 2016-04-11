@@ -28,6 +28,7 @@
 #include <pcl/common/angles.h>
 #include <pcl/registration/transformation_estimation_svd.h>
 #include <CL\cl2.hpp>
+#include <thread>
 
 using namespace cv;
 using namespace std;
@@ -734,7 +735,6 @@ void prepareDataForOpenCL(const PolygonMesh mesh, Triangle* triangles) {
 	}
 }
 
-
 int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array_lenght, int array_size_hits) {
 
 	cl_int err = CL_SUCCESS;
@@ -811,7 +811,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 	return 0;
 }
 
-inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
+int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
 
 	//high_resolution_clock::time_point start;
 	//start = high_resolution_clock::now();
@@ -854,7 +854,7 @@ inline int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* out
 	return 0;
 }
 
-inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
+void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
 	const PolygonMesh mesh, const PointXYZRGB laser,
 	const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, double laser_number)
 {
@@ -997,7 +997,6 @@ inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triang
 		//cout << "Total time cycle ray intersection OpenCL:" << timer3.count() * 1000 << endl;
 	}
 }
-
 
 void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRGB> tree, PointCloud<PointXYZRGB>::Ptr cloud_scan, 
 						PointCloud<PointXYZRGB>::Ptr cloud_out, int intersect_points) {
@@ -1877,9 +1876,6 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	high_resolution_clock::time_point start;
-	start = high_resolution_clock::now();
-
 	for (int z = 0; z < 1; z++)
 	{
 
@@ -1894,12 +1890,19 @@ int main(int argc, char** argv)
 		cout << "Laser_point 2 x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
 
 		Plane plane1, plane2;
+
+		high_resolution_clock::time_point start;
+		start = high_resolution_clock::now();
+		
 		// cerca i punti di insersezione del raggio laser
 		//findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 		//findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
+
+		duration<double> timer2 = high_resolution_clock::now() - start;
+		cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
 
 
 		//****************** Converto la point cloud in un immagine **********************
@@ -1960,8 +1963,6 @@ int main(int argc, char** argv)
 		cloudGenerate->~PointCloud();  
 		//cloud_projection->~PointCloud();
 	}
-	duration<double> timer2 = high_resolution_clock::now() - start;
-	cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
 
 	cout << "Punti cloud_test " << cloud_test->points.size();
 
