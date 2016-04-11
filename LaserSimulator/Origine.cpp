@@ -62,7 +62,7 @@ float min_z, max_z;
 
 PointXYZRGB laser_point, laser_point_2, laser_final_point_left, laser_final_point_right, pin_hole;
 
-int scanDirection = DIRECTION_SCAN_AXIS_X;
+int scanDirection = DIRECTION_SCAN_AXIS_Y;
 float distance_laser_sensor = 600 ; // [500, 800]
 float laser_aperture = 45.0;		// [30, 45]
 float laser_inclination = 60.0;		// [60, 70]
@@ -74,7 +74,7 @@ float camera_fps = 100;				// fps  [100, 500]
 float scan_speed = 100;				// mm/s [100, 1000]
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
-float focal_distance = 25;
+float focal_length = 25;
 
 float sensor_width = sensor_pixel_width * PIXEL_DIMENSION;
 float sensor_height = sensor_pixel_height * PIXEL_DIMENSION;
@@ -1145,6 +1145,32 @@ inline void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triang
 	}
 }
 
+void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRGB> tree, PointCloud<PointXYZRGB>::Ptr cloud_scan,
+	PointCloud<PointXYZRGB>::Ptr cloud_out, int intersect_points) {
+	vector<int> indices;
+	intersect_points = 0;
+
+	for (float i = -tan(deg2rad(laser_aperture / 2)); i < tan(deg2rad(laser_aperture / 2)); i += 0.0001)
+	{
+		if (tree.getIntersectedVoxelIndices(Eigen::Vector3f(laser_point.x, laser_point.y, laser_point.z), Eigen::Vector3f(i, -tan(deg2rad(90 - laser_inclination)), -1), indices) > 0)
+		{
+
+			// preleva solo il primo punto intersecato dalla retta, quello più superficiale
+			cloud_out->points[indices[0]].r = 0;
+			cloud_out->points[indices[0]].g = 255;
+			cloud_out->points[indices[0]].b = 0;
+			cloud_scan->points.push_back(cloud_out->points[indices[0]]);
+			intersect_points++;
+			//}
+		}
+		drawLine(cloud_scan, laser_point, Eigen::Vector3f(i, -tan(deg2rad(90 - laser_inclination)), -1), 500);
+
+	}
+
+	cloud_scan->height = cloud_scan->points.size();
+	cloud_scan->width = 1;
+}
+
 void sensorPointProjection(float focal_distance, float sensor_height, float sensor_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection, PointCloud<PointXYZRGB>::Ptr cloud_projection)
 {
 	PointXYZRGB tmp, p, center;
@@ -1251,11 +1277,358 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 	return image_point_added;
 }
 
+void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
+	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
+	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
+	PointXYZ current_point;
+
+	// inizializza l'immagine bianca
+	for (int i = 0; i < sensor_pixel_height; i++)
+		for (int j = 0; j < sensor_pixel_width; j++) {
+			image.at<Vec3b>(i, j)[0] = 255;
+			image.at<Vec3b>(i, j)[1] = 255;
+			image.at<Vec3b>(i, j)[2] = 255;
+		}
+
+	cloud_src->push_back(pin_hole);
+	cloud_src->push_back(laser_1);
+	cloud_src->push_back(laser_2);
+
+	PointXYZ c, p1, p2;
+	// camera
+	c.x = 0;
+	c.y = 0;
+	c.z = 0;
+	cloud_target->push_back(c);
+
+	// laser
+	if (scanDirection == DIRECTION_SCAN_AXIS_X)
+	{
+		p1.x = 0;
+		p1.y = distance_laser_sensor;
+		p1.z = 0;
+
+		p2.x = 0;
+		p2.y = -distance_laser_sensor;
+		p2.z = 0;
+	}
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	{
+		p1.x = distance_laser_sensor;
+		p1.y = 0;
+		p1.z = 0;
+
+		p2.x = -distance_laser_sensor;
+		p2.y = 0;
+		p2.z = 0;
+	}
+	cloud_target->push_back(p1);
+	cloud_target->push_back(p2);
+
+	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
+	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
+	transEst.estimateRigidTransformation(*cloud_src, *cloud_target, trans);
+
+	std::vector<Point3d> points;
+	std::vector<Point2d> output_point;
+
+
+	// parametri intrinseci della telecamera
+	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	Mat distortion(5, 1, CV_64F);
+	distortion.at<double>(0, 0) = -0.0506472;
+	distortion.at<double>(1, 0) = -1.45132;
+	distortion.at<double>(2, 0) = 0.000868025;
+	distortion.at<double>(3, 0) = 0.00298601;
+	distortion.at<double>(4, 0) = 8.92225;
+
+	for (int i = 0; i < cloudIntersection->size(); i++) {
+		Eigen::Vector4f v_point, v_point_final;
+		v_point[0] = cloudIntersection->points[i].x;
+		v_point[1] = cloudIntersection->points[i].y;
+		v_point[2] = cloudIntersection->points[i].z;
+		v_point[3] = 1;
+		v_point_final = trans * v_point;
+
+		v_point_final[2] = -v_point_final[2];
+
+		Point3f p(v_point_final[0], v_point_final[1], v_point_final[2]);
+
+		points.push_back(p);
+	}
+
+	// camera rotation
+	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
+		0, 1, 0,
+		0, 0, 1);
+	Mat rotatVec = (cv::Mat_<double>(3, 1) << 0, 0, 0);
+	//cv::Rodrigues(rotatMat, rotatVec);
+
+	if (cloudIntersection->size() > 0) {
+		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, distortion, output_point);
+		Point2d p2;
+		for (int i = 0; i < output_point.size(); i++) {
+			p2 = output_point.at(i);
+			p2.x += 0.5;
+			p2.y += 0.5;
+			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
+			{
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[2] = 0;
+			}
+		}
+
+	}
+
+	*img = image;
+}
+
+void getCameraFrameShift(const PointXYZ pin_hole, const PointXYZ laser, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
+	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
+	std::vector<Point3d> points;
+	std::vector<Point2d> output_points;
+	PointXYZ current_point;
+
+	// inizializza l'immagine bianca
+	for (int i = 0; i < image.rows; i++)
+		for (int j = 0; j < image.cols; j++) {
+			image.at<Vec3b>(i, j)[0] = 255;
+			image.at<Vec3b>(i, j)[1] = 255;
+			image.at<Vec3b>(i, j)[2] = 255;
+		}
+
+
+	// parametri intrinseci della telecamera
+	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	Mat distortion(5, 1, CV_64F);
+	distortion.at<double>(0, 0) = -0.0506472;
+	distortion.at<double>(1, 0) = -1.45132;
+	distortion.at<double>(2, 0) = 0.000868025;
+	distortion.at<double>(3, 0) = 0.00298601;
+	distortion.at<double>(4, 0) = 8.92225;
+
+	for (int i = 0; i < cloudIntersection->size(); i++) {
+		Point3f p(cloudIntersection->points[i].x, cloudIntersection->points[i].y, cloudIntersection->points[i].z);
+		points.push_back(p);
+	}
+
+	// camera rotation
+	Mat rotatMat = (cv::Mat_<double>(3, 3) << 0, 0, -1,
+		-1, 0, 0,
+		0, 1, 0);
+	Mat rotatVec;
+	cv::Rodrigues(rotatMat, rotatVec);
+
+	Mat translate = (cv::Mat_<double>(3, 1) << pin_hole.x, pin_hole.y, pin_hole.z);
+
+	if (cloudIntersection->size() > 0) {
+		projectPoints(points, rotatVec, translate, cameraMatrix, distortion, output_points);
+		Point2d p2;
+		for (int i = 0; i < output_points.size(); i++) {
+			p2 = output_points.at(i);
+			p2.x += 0.5;
+			p2.y += 0.5;
+			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
+			{
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
+				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[2] = 0;
+			}
+		}
+
+	}
+
+	*img = image;
+}
+
 void getCameraFrameMauro(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection) {
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
-	sensorPointProjection(focal_distance, sensor_height, sensor_width, cloud_intersection, cloud_projection);
+	sensorPointProjection(focal_length, sensor_height, sensor_width, cloud_intersection, cloud_projection);
 	drawLaserImage(pin_hole, image_out, sensor_pixel_height, sensor_pixel_width, cloud_projection);
 	cloud_projection->~PointCloud();
+}
+
+void traslateCloud(PointXYZRGB pinHole, PointXYZRGB laserPoint, PointCloud<PointXYZ>::Ptr cloudIn, PointCloud<PointXYZ>::Ptr cloudTarget) {
+	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
+	PointXYZ current_point;
+
+	PointXYZ pin_hole, laser_point;
+	pin_hole.x = pinHole.x;
+	pin_hole.y = pinHole.y;
+	pin_hole.z = pinHole.z;
+
+	laser_point.x = laserPoint.x;
+	laser_point.y = laserPoint.y;
+	laser_point.z = laserPoint.z;
+
+	cloud_src->push_back(pin_hole);
+	//cloud_src->push_back(laser_point);
+
+	PointXYZ p;
+	// camera
+	p.x = 0;
+	p.y = 0;
+	p.z = 0;
+	cloud_target->push_back(p);
+
+	// laser
+	p.x = distance_laser_sensor;
+	p.y = 0;
+	p.z = 0;
+	//cloud_target->push_back(p);
+
+	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  transEst;
+	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
+	transEst.estimateRigidTransformation(*cloud_target, *cloud_src, trans);
+
+	for (int i = 0; i < cloudIn->size(); i++) {
+		Eigen::Vector4f v_point, v_point_final;
+		v_point[0] = cloudIn->points[i].x;
+		v_point[1] = cloudIn->points[i].y;
+		v_point[2] = cloudIn->points[i].z;
+		v_point[3] = 1;
+		v_point_final = trans * v_point;
+
+		v_point_final[2] = -v_point_final[2];
+
+		PointXYZ p(v_point_final[0], v_point_final[1], v_point_final[2]);
+
+		cloudTarget->push_back(p);
+	}
+}
+
+void generateImageOldSchool(PointXYZRGB pin_hole, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat* image) {
+	// camera calibration matrix
+	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
+
+	// parametri intrinseci della telecamera
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	//camera resolution
+	const int resX = image->rows;
+	const int resY = image->cols;
+
+	// camera rotation
+	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
+		0, 1, 0,
+		0, 0, 1);
+
+	//camera position
+	Mat eye = (cv::Mat_<double>(3, 1) << pin_hole.x,
+		pin_hole.y,
+		pin_hole.z);
+
+	//calculate pixel by old-school way
+
+	Mat trans = (cv::Mat_<double>(3, 4) << 1, 0, 0, -1.0*eye.at<double>(0, 0),
+		0, 1, 0, -1.0*eye.at<double>(1, 0),
+		0, 0, 1, -1.0*eye.at<double>(2, 0));
+
+	Mat projMat = cameraMatrix * (rotatMat * trans);
+
+	for (int i = 0; i < cloud_intersection->size(); i++)
+	{
+		Mat ptMat = (cv::Mat_<double>(4, 1) << cloud_intersection->at(i).x, cloud_intersection->at(i).y, cloud_intersection->at(i).z, 1.0);
+		Mat pelMat = projMat * ptMat;
+
+		int x = (int)((pelMat.at<double>(0, 0) / pelMat.at<double>(2, 0)) + 0.5);
+		int y = (int)((pelMat.at<double>(1, 0) / pelMat.at<double>(2, 0)) + 0.5);
+
+		if ((y >= 0) && (y < resY) && (x >= 0) && (x < resX))
+		{
+			image->at<Vec3b>(y, x)[0] = 0;
+			image->at<Vec3b>(y, x)[1] = 0;
+			image->at<Vec3b>(y, x)[2] = 0;
+		}
+	}
+}
+
+void generatePointCloudFromImage(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloudOut) {
+	PointXYZ point;
+
+	flip(*image, *image, 0); // altrimenti la cloud viene rovescia
+
+	Mat cameraMatrix;
+
+	// parametri intrinseci della telecamera
+	cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	Mat image_undistort;
+	undistort(*image, image_undistort, cameraMatrix, Mat::zeros(8, 1, CV_64F));
+
+	float Cx, Cy, Fx, Fy; // paramentri della camera
+	Fx = 4615.04; // Fx
+	Fy = 4615.51; // Fy
+	Cx = 1113.41; // Cx
+	Cy = 480.016; // Cy
+
+	for (int i = 0; i < image_undistort.rows / 2; i++)
+	{
+		for (int j = 0; j < image_undistort.cols; j++)
+		{
+			Vec3b & color = image_undistort.at<Vec3b>(i, j);
+			// controlla che sia colorato il pixel dell'immagine
+			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+				float K = (j - Cx) / Fx;
+				float T = (i - Cy) / Fy;
+				float Zc = -plane1->C / (plane1->C + plane1->B * T + plane1->A * K);
+				float Xc = K * Zc;
+				float Yc = T * Zc;
+
+				point.x = Xc * 100;
+				point.y = Yc * 100;
+				point.z = Zc * 100;
+				cloudOut->push_back(point);
+
+				/*cout << endl;
+				cout << " Punti cloud generata e traslata x:" << point.x << " y:" << point.y << " z:" << point.z << endl;*/
+			}
+		}
+	}
+	for (int i = image_undistort.rows / 2; i < image_undistort.rows; i++)
+	{
+		for (int j = 0; j < image_undistort.cols; j++)
+		{
+			Vec3b & color = image_undistort.at<Vec3b>(i, j);
+			// controlla che sia colorato il pixel dell'immagine
+			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+				float K = (j - Cx) / Fx;
+				float T = (i - Cy) / Fy;
+				float Zc = -plane2->C / (plane2->C + plane2->B * T + plane2->A * K);
+				float Xc = K * Zc;
+				float Yc = T * Zc;
+
+				point.x = Xc * 100;
+				point.y = Yc * 100;
+				point.z = Zc * 100;
+				cloudOut->push_back(point);
+			}
+		}
+	}
 }
 
 void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out) {
@@ -1303,7 +1676,7 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
 					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
 				}
-				point.z = pin_hole.z + focal_distance;
+				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;
 				dy = pin_hole.y - point.y;
@@ -1335,7 +1708,234 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
 					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
 				}
-				point.z = pin_hole.z + focal_distance;
+				point.z = pin_hole.z + focal_length;
+
+				dx = pin_hole.x - point.x;
+				dy = pin_hole.y - point.y;
+				dz = pin_hole.z - point.z;
+
+				// Proietto il punto del sensore sul piano laser passando dal pin hole
+				float t = -(plane2->A * point.x + plane2->B * point.y + plane2->C * point.z + plane2->D) / (plane2->A * dx + plane2->B * dy + plane2->C * dz);
+				point.x = dx * t + point.x;
+				point.y = dy * t + point.y;
+				point.z = dz * t + point.z;
+				cloud_out->push_back(point);
+			}
+		}
+	}
+}
+
+void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection) {
+	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
+
+	float sensor_width = sensor_pixel_width * PIXEL_DIMENSION;
+	float sensor_height = sensor_pixel_height * PIXEL_DIMENSION;
+	float x_sensor_origin, y_sensor_origin;
+
+	// parametri intrinseci della telecamera
+	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	float delta_x = ((sensor_pixel_width / 2) - cameraMatrix.at<double>(0, 2)) * PIXEL_DIMENSION;
+	float delta_y = ((sensor_pixel_height / 2) - cameraMatrix.at<double>(1, 2)) * PIXEL_DIMENSION;
+
+	float focal_length_x = cameraMatrix.at<double>(0, 0) * sensor_width / sensor_pixel_width;
+	float focal_length_y = cameraMatrix.at<double>(1, 1) * sensor_height / sensor_pixel_height;
+	focal_length = (focal_length_x + focal_length_y) / 2;
+
+	PointXYZRGB tmp, p, center;
+	center.x = pin_hole.x - delta_x;
+	center.y = pin_hole.y - delta_y;
+	center.z = pin_hole.z + focal_length;
+
+	for (int i = 0; i < cloud_intersection->points.size(); i++)
+	{
+		tmp.x = cloud_intersection->points[i].x;
+		tmp.y = cloud_intersection->points[i].y;
+		tmp.z = cloud_intersection->points[i].z;
+
+		// calcolo le coordinate della proiezione sul piano z = pin_hole.z + distanza focale
+		p.x = (pin_hole.x - tmp.x) * (center.z - tmp.z) / (pin_hole.z - tmp.z) + tmp.x;
+		p.y = (pin_hole.y - tmp.y) * (center.z - tmp.z) / (pin_hole.z - tmp.z) + tmp.y;
+		p.z = center.z;
+		p.r = 255;
+		p.g = 0;
+		p.b = 0;
+
+		// controllo se il punto Ã¨ dentro al rettangolo del sensore e se lo Ã¨ lo aggiungo
+		if (scanDirection == DIRECTION_SCAN_AXIS_X) {
+			if (p.x < center.x + sensor_height / 2 && p.x > center.x - sensor_height / 2 &&
+				p.y < center.y + sensor_width / 2 && p.y > center.y - sensor_width / 2)
+			{
+				cloud_projection->push_back(p);
+			}
+		}
+		if (scanDirection == DIRECTION_SCAN_AXIS_Y) {
+			if (p.x < center.x + sensor_width / 2 && p.x > center.x - sensor_width / 2 &&
+				p.y < center.y + sensor_height / 2 && p.y > center.y - sensor_height / 2)
+			{
+				cloud_projection->push_back(p);
+			}
+		}
+	}
+
+	int image_point_added = 0;
+	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
+
+
+	// inizializza l'immagine bianca
+	for (int i = 0; i < sensor_pixel_height; i++)
+		for (int j = 0; j < sensor_pixel_width; j++) {
+			image.at<Vec3b>(i, j)[0] = 255;
+			image.at<Vec3b>(i, j)[1] = 255;
+			image.at<Vec3b>(i, j)[2] = 255;
+		}
+
+	if (scanDirection == DIRECTION_SCAN_AXIS_X) {
+		x_sensor_origin = pin_hole.x - (sensor_height) / 2;
+		y_sensor_origin = pin_hole.y - (sensor_width) / 2;
+
+		for (int i = 0; i < cloud_projection->points.size(); i++)
+		{
+			float x, y;
+			x = cloud_projection->points[i].x;
+			y = cloud_projection->points[i].y;
+
+			int x_pos = ((x - x_sensor_origin) / PIXEL_DIMENSION);
+			int y_pos = ((y - y_sensor_origin) / PIXEL_DIMENSION);
+
+			if (x_pos >= 0 && x_pos < sensor_pixel_height && y_pos >= 0 && y_pos < sensor_pixel_width) {
+
+				Vec3b & color = image.at<Vec3b>(x_pos, y_pos);
+				color[0] = 0;
+				color[1] = 0;
+				color[2] = 0;
+				image_point_added++;
+			}
+		}
+	}
+
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y) {
+		x_sensor_origin = pin_hole.x + (sensor_width) / 2 - delta_x;
+		y_sensor_origin = pin_hole.y - (sensor_height) / 2 - delta_y;
+
+		for (int i = 0; i < cloud_projection->points.size(); i++)
+		{
+			float x, y;
+			x = cloud_projection->points[i].x;
+			y = cloud_projection->points[i].y;
+
+			int y_pos = ((x_sensor_origin - x) / PIXEL_DIMENSION);
+			int x_pos = ((y - y_sensor_origin) / PIXEL_DIMENSION);
+
+			if (x_pos >= 0 && x_pos < sensor_pixel_height && y_pos >= 0 && y_pos < sensor_pixel_width) {
+
+				Vec3b & color = image.at<Vec3b>(x_pos, y_pos);
+				color[0] = 0;
+				color[1] = 0;
+				color[2] = 0;
+				image_point_added++;
+			}
+		}
+	}
+	*image_out = image;
+	cloud_projection->~PointCloud();
+}
+
+void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out) {
+	PointXYZ point;
+	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
+	float x_sensor_origin, y_sensor_origin;
+
+	Mat cameraMatrix;
+	// parametri intrinseci della telecamera
+	cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	float delta_x = ((sensor_pixel_width / 2) - cameraMatrix.at<double>(0, 2)) * PIXEL_DIMENSION;
+	float delta_y = ((sensor_pixel_height / 2) - cameraMatrix.at<double>(1, 2)) * PIXEL_DIMENSION;
+
+	if (scanDirection == DIRECTION_SCAN_AXIS_X) {
+		x_sensor_origin = pin_hole.x - (sensor_height) / 2 - delta_x;
+		y_sensor_origin = pin_hole.y - (sensor_width) / 2 - delta_y;
+	}
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y) {
+		x_sensor_origin = pin_hole.x + (sensor_width) / 2 - delta_x;
+		y_sensor_origin = pin_hole.y - (sensor_height) / 2 - delta_y;
+	}
+
+
+
+	// parametri intrinseci della telecamera
+	cameraMatrix = Mat::zeros(3, 3, CV_64F);
+	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+	cameraMatrix.at<double>(2, 2) = 1;
+
+	Mat image_undistort;
+	undistort(*image, image_undistort, cameraMatrix, Mat::zeros(5, 1, CV_64F));
+	flip(image_undistort, *image, 0); // altrimenti la cloud viene rovescia
+
+									  // Creo la point cloud del sensore a partire dall'immagine
+	for (int i = 0; i < image->rows / 2; i++)
+	{
+		for (int j = 0; j < image->cols; j++)
+		{
+			Vec3b & color = image->at<Vec3b>(i, j);
+			// controlla che sia colorato il pixel dell'immagine
+			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+				// Posiziono i punti dell'immagine nel sensore virtuale
+				if (scanDirection == DIRECTION_SCAN_AXIS_X) {
+					point.x = i * PIXEL_DIMENSION + x_sensor_origin;
+					point.y = j * PIXEL_DIMENSION + y_sensor_origin;
+				}
+				if (scanDirection == DIRECTION_SCAN_AXIS_Y) {
+					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
+					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
+				}
+				point.z = pin_hole.z + focal_length;
+
+				dx = pin_hole.x - point.x;
+				dy = pin_hole.y - point.y;
+				dz = pin_hole.z - point.z;
+
+				// Proietto il punto del sensore sul piano laser passando dal pin hole
+				float t = -(plane1->A * point.x + plane1->B * point.y + plane1->C * point.z + plane1->D) / (plane1->A * dx + plane1->B * dy + plane1->C * dz);
+				point.x = dx * t + point.x;
+				point.y = dy * t + point.y;
+				point.z = dz * t + point.z;
+				cloud_out->push_back(point);
+			}
+		}
+	}
+
+	for (int i = image->rows / 2; i < image->rows; i++)
+	{
+		for (int j = 0; j < image->cols; j++)
+		{
+			Vec3b & color = image->at<Vec3b>(i, j);
+			// controlla che sia colorato il pixel dell'immagine
+			if (color[0] == 0 && color[1] == 0 && color[2] == 0) {
+				// Posiziono i punti dell'immagine nel sensore virtuale
+				if (scanDirection == DIRECTION_SCAN_AXIS_X) {
+					point.x = i * PIXEL_DIMENSION + x_sensor_origin;
+					point.y = j * PIXEL_DIMENSION + y_sensor_origin;
+				}
+				if (scanDirection == DIRECTION_SCAN_AXIS_Y) {
+					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
+					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
+				}
+				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;
 				dy = pin_hole.y - point.y;
@@ -1399,7 +1999,7 @@ int main(int argc, char** argv)
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		position_step = laser_point.y - 550;
+		position_step = laser_point.y - 1180;
 	}
 
 	cout << "position_step:" << position_step << endl;
@@ -1408,7 +2008,7 @@ int main(int argc, char** argv)
 	float increment_value = scan_speed / camera_fps;
 
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
-	PointCloud<PointXYZ>::Ptr cloudOut(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
 	Mat image3(sensor_pixel_width, sensor_pixel_height, CV_8UC3);
@@ -1459,20 +2059,62 @@ int main(int argc, char** argv)
 
 		//****************** Converto la point cloud in un immagine **********************
 
-		getCameraFrameMauro(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
 
+		// crea immagine
+		//int image_point_added = drawLaserImage(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_projection);
+		//cout << "Punti immagine aggiunti: " << image_point_added << endl;
+
+
+		// Crea immagine usando il metodo di openCV
+		PointXYZ pin_hole_temp, laser_point_temp, laser_point_temp_2;
+		pin_hole_temp.x = pin_hole.x;
+		pin_hole_temp.y = pin_hole.y;
+		pin_hole_temp.z = pin_hole.z;
+		laser_point_temp.x = laser_point.x;
+		laser_point_temp.y = laser_point.y;
+		laser_point_temp.z = laser_point.z;
+		laser_point_temp_2.x = laser_point_2.x;
+		laser_point_temp_2.y = laser_point_2.y;
+		laser_point_temp_2.z = laser_point_2.z;
+
+		//getCameraFrame(pin_hole_temp, laser_point_temp, laser_point_temp_2, cloud_intersection, &image, scanDirection);
+
+		getCameraFrameMauro2(pin_hole, &image2, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
+
+		//generateImageOldSchool(pin_hole, cloud_intersection, &image3);
+
+		//getCameraFrameShift(pin_hole_temp, laser_point_temp, cloud_intersection, &image4, scanDirection);
+
+		//cloud_projection->push_back(pin_hole);
+		// disegna contorni sensore
+		//drawSensor(pin_hole, focal_distance, sensor_width, sensor_height, cloud_projection);
+		//cv::namedWindow("Display window", WINDOW_NORMAL); // Create a window for display.
+		//cv::imshow("Display window", image); // Show our image inside it.
+
+		//cv::imwrite("../imgOut/out_1_" + to_string(z) + ".png", image);
+		//cv::imwrite("../imgOut/out_2_" + to_string(z) + ".png", image2);
+		//cv::imwrite("../imgOut/out_3_" + to_string(z) + ".png", image3);
+		//cv::imwrite("../imgOut/out_4_" + to_string(z) + ".png", image4);*/
+
+		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 		flip(image2, image2, 0);
-		generatePointCloudFromImageMauro(&plane2, &plane1, &image2, cloudOut);
+		generatePointCloudFromImageMauro2(&plane2, &plane1, &image2, cloud_out);
 
+		//generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
+		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
+
+		//saveFrame(record_image, image);
+		//cv::imwrite("out2.png", image2);
 
 		for (int i = 0; i < cloud_intersection->size(); i++)
 		{
 			cloud_test->push_back(cloud_intersection->at(i));
+
 		}
 
 		cloud_intersection->~PointCloud();
-		cloudGenerate->~PointCloud();  
-		cloud_projection->~PointCloud();
+		cloudGenerate->~PointCloud();
+		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloud_test " << cloud_test->points.size();
 
@@ -1489,7 +2131,7 @@ int main(int argc, char** argv)
 
 	visualization::PCLVisualizer viewer2("Viewer2");
 	viewer2.addCoordinateSystem(0.1, "viewer2");
-	viewer2.addPointCloud<PointXYZ>(cloudOut, "cloudGen");
+	viewer2.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_test);
 	viewer2.addPointCloud<PointXYZRGB>(cloud_test, rgb4, "cloudTest");
 	viewer2.spin();
