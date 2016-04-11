@@ -58,11 +58,11 @@ Vec3 MUL(Vec3 v,float f){
 }
 
 inline int triangle_intersection( Vec3   V1,  // Triangle vertices
-                           Vec3   V2,
-                           Vec3   V3,
-                           Vec3    O,  //Ray origin
-                           Vec3    D,  //Ray direction
-                           Vec3* hit_point )
+						   Vec3   V2,
+						   Vec3   V3,
+						   Vec3    O,  //Ray origin
+						   Vec3    D,  //Ray direction
+						   Vec3* hit_point )
 {
 Vec3 e1, e2;  //Edge1, Edge2
 Vec3 P, Q, T;
@@ -99,11 +99,11 @@ Vec3 P, Q, T;
   t = DOT(e2, Q) * inv_det;
 
   if(t > EPSILON) { //ray intersection
-    //*out = t;
+	//*out = t;
 
 	*hit_point = ADD(O, MUL(D, t));
 
-    return 1;
+	return 1;
   }
 
   // No hit, no win
