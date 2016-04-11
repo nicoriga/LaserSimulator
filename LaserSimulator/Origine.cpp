@@ -749,7 +749,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 
 		// Get list of devices on default platform and create context
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
-		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);  
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
 
