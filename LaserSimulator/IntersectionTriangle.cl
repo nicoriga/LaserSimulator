@@ -157,4 +157,3 @@ __kernel void RayTriangleIntersection(__global Triangle *input,
 		}
 	}
 }
-
