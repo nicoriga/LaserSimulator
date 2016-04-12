@@ -40,7 +40,7 @@ using boost::chrono::duration;
 #define PIXEL_DIMENSION 0.0055 // mm
 
 /// OpenCL parameter
-#define RUN 1
+#define RUN 256
 #define LOCAL_SIZE 128
 
 #define DIRECTION_SCAN_AXIS_X 0
@@ -821,7 +821,7 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 
 	cl::NDRange localSize(LOCAL_SIZE, 1, 1);
 	// Number of total work items - localSize must be devisor
-	int global_size = (int)(ceil((array_lenght / RUN) / LOCAL_SIZE) * LOCAL_SIZE);
+	int global_size = (int)(ceil((array_lenght / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 	//cout << "global_size " << global_size << endl;
 	cl::NDRange globalSize(global_size, 1, 1);
 
@@ -960,7 +960,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		{
 			computeOpenCL(openCLData, output_points, output_hits, start_index, diff, ray_origin, ray_direction);
 
-			int n_max = (int)(ceil((diff / RUN) / LOCAL_SIZE) * LOCAL_SIZE);
+			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 			for (int h = 0; h < n_max; h++)
 			{
 				if (output_hits[h] == 1)
@@ -1853,7 +1853,7 @@ int main(int argc, char** argv)
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		position_step = laser_point.y ;
+		position_step = laser_point.y -200 ;
 		min_iter = min_y - (laser_point.y - max_y);
 	}
 
@@ -1875,7 +1875,7 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	for (int z = 0; laser_point_2.y > min_iter; z++)
+	for (int z = 0; z < 100; z++)
 	{
 
 		cout << "Z->" << z << " ";
