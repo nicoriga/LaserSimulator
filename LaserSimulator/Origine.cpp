@@ -900,7 +900,8 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 	//cout << "max_polygons_coordinate: " << max_polygons_coordinate << endl;
 	//cout << "start_index: " << start_index << endl;
 	//cout << "final_index: " << final_index << endl;
-	cout << "Number of Poligon insercted: " << final_index - start_index << endl;
+	
+	//cout << "Number of Poligon insercted: " << final_index - start_index << endl;
 
 	for (int j = 0; j < number_of_line; j++)
 	{
@@ -1013,7 +1014,7 @@ void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRG
 	cloud_scan->width = 1;
 }
 
-int checkOcclusion(Point3f point, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits) {
+int checkOcclusion(PointXYZRGB point, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits) {
 	/**
 
 	1. calcola il raggio tra il point e il pin_hole
@@ -1055,10 +1056,11 @@ int checkOcclusion(Point3f point, int polygon_size, OpenCLDATA* openCLData, Tria
 		computeOpenCL(openCLData, output_points, output_hits, start_index, diff, origin, direction);
 
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
-		for (int h = 0; h < n_max; h++)
+		for (int k = 0; k < n_max; k++)
 		{
-			if (output_hits[h] == 1)
+			if (output_hits[k] == 1)
 			{
+				//cout << "output_hits[" << k << "]" << (int)output_hits[k] <<endl;
 				// ci sarebbe da verificare se il triangolo è lo stesso
 					return 0;
 			}
@@ -1279,7 +1281,7 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 			p2.y += 0.5;
 			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
 			{
-				if (checkOcclusion(points.at(i), polygon_size, openCLData, all_triangles, output_points, output_hits))
+				if (checkOcclusion(cloudIntersection->at(i), polygon_size, openCLData, all_triangles, output_points, output_hits))
 				{
 					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
 					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
@@ -1885,19 +1887,19 @@ int main(int argc, char** argv)
 	{
 
 		cout << "Z->" << z << " ";
-		cout << "position_step: " << position_step << endl;
+		//cout << "position_step: " << position_step << endl;
 
 		// Inizializza il Pin Hole e sposta anche la posizione del laser
 		initializePinHole(scanDirection, position_step);
 		position_step -= increment;
 
-		cout << "Laser_point 1 x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
-		cout << "Laser_point 2 x:" << laser_point_2.x << " y:" << laser_point_2.y << " z:" << laser_point_2 .z << endl;
+		//cout << "Laser_point 1 x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
+		//cout << "Laser_point 2 x:" << laser_point_2.x << " y:" << laser_point_2.y << " z:" << laser_point_2 .z << endl;
 
 		Plane plane1, plane2;
 
-		high_resolution_clock::time_point start;
-		start = high_resolution_clock::now();
+		//high_resolution_clock::time_point start;
+		//start = high_resolution_clock::now();
 
 		// cerca i punti di insersezione del raggio laser
 		//findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
@@ -1906,8 +1908,8 @@ int main(int argc, char** argv)
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
-		duration<double> timer2 = high_resolution_clock::now() - start;
-		cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
+		//duration<double> timer2 = high_resolution_clock::now() - start;
+		//cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
 
 		//****************** Converto la point cloud in un immagine **********************
 
