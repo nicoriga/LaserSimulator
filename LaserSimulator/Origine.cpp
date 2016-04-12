@@ -1024,7 +1024,7 @@ void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRG
 	cloud_scan->width = 1;
 }
 
-int checkOcclusion(Point3f point) {
+int checkOcclusion(Point3f point, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits) {
 	/**
 
 	1. calcola il raggio tra il point e il pin_hole
@@ -1036,15 +1036,17 @@ int checkOcclusion(Point3f point) {
 	return 1
 
 	**/
+	PointXYZRGB origin_point;
 	Vec3 origin;
-	origin.points[X] = point.x;
-	origin.points[Y] = point.y;
-	origin.points[Z] = point.z;
+	origin_point.x = origin.points[X] = point.x;
+	origin_point.y = origin.points[Y] = point.y;
+	origin_point.z = origin.points[Z] = point.z;
 
+	Eigen::Vector3d direction_ray_start;
 	Vec3 direction;
-	direction.points[X] = point.x - pin_hole.x;
-	direction.points[Y] = point.y - pin_hole.y;
-	direction.points[Z] = point.z - pin_hole.z;
+	direction_ray_start.x = direction.points[X] = point.x - pin_hole.x;
+	direction_ray_start.y = direction.points[Y] = point.y - pin_hole.y;
+	direction_ray_start.z = direction.points[Z] = point.z - pin_hole.z;
 
 	int d1, d2;
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
@@ -1057,6 +1059,37 @@ int checkOcclusion(Point3f point) {
 	{
 		d1 = 1;
 		d2 = 0;
+
+	}
+
+	int start_index, final_index;
+
+	if (pin_hole.y < origin.points[Y])
+	{
+		start_index = findStartIndex(min_poligon_point, polygon_size, pin_hole.y);
+		final_index = findFinalIndex(min_poligon_point, polygon_size, origin.points[Y]);
+	}
+	else
+	{
+		start_index = findFinalIndex(min_poligon_point, polygon_size, origin.points[Y]);
+		final_index = findStartIndex(min_poligon_point, polygon_size, pin_hole.y);
+	}
+
+	int diff = final_index - start_index;
+
+	if (diff > 0)
+	{
+		computeOpenCL(openCLData, output_points, output_hits, start_index, diff, origin, direction);
+
+		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
+		for (int h = 0; h < n_max; h++)
+		{
+			if (output_hits[h] == 1)
+			{
+				// ci sarebbe da verificare se il triangolo è lo stesso
+					return 0;
+			}
+		}
 
 	}
 
