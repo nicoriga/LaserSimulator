@@ -1946,7 +1946,8 @@ int main(int argc, char** argv)
 		cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
-	cout << "Punti cloud_test " << cloud_test->points.size();
+	cout << "Punti cloud_test " << cloud_test->points.size() << endl;
+	cout << "Punti cloud_out " << cloud_out->points.size() << endl;
 
 
 	// Create a PCLVisualizer
