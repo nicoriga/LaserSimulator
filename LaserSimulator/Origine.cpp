@@ -746,8 +746,8 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 
 		// Get list of devices on default platform and create context
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
-		openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
-		//openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
+		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
 
 		// Create command queue for first device
@@ -758,7 +758,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		char *kernelSource;
 
 		// get size of kernel source
-		programHandle = fopen("IntersectionTriangle.cl", "r");
+		programHandle = fopen("IntersectionTriangle.cl", "rb");
 		fseek(programHandle, 0, SEEK_END);
 		kernelSourceSize = ftell(programHandle);
 		rewind(programHandle);
@@ -771,7 +771,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 
 		//Build kernel from source string
 		openCLData->program_ = cl::Program(openCLData->context, kernelSource);
-		openCLData->program_.build(openCLData->devices);
+		err = openCLData->program_.build(openCLData->devices);
 
 		free(kernelSource);
 
@@ -874,7 +874,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		Vect3d line_2(-DIRECTION_TAN_LASER_APERTURE + 10 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
 		getPlaneCoefficent(laser, line_1, line_2, plane);
 
-		//drawLine(cloudIntersection, laser, Eigen::Vector3f(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), 1000);
+		//drawLine(cloudIntersection, laser, Eigen::Vector3f(-DIRECTION_TAN_LASER_APERTURE, DIRECTION_TAN_LASER_INCLINATION, -1), 1500);
 
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
@@ -1843,7 +1843,7 @@ int main(int argc, char** argv)
 		position_step -= increment_value;
 
 		cout << "Laser_point 1 x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
-		cout << "Laser_point 2 x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
+		cout << "Laser_point 2 x:" << laser_point_2.x << " y:" << laser_point_2.y << " z:" << laser_point_2 .z << endl;
 
 		Plane plane1, plane2;
 
