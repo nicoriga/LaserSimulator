@@ -68,7 +68,7 @@ float distance_laser_sensor = 600.f;	// [500, 800]
 float laser_aperture = 45.f;			// [30, 45]
 float laser_inclination = 60.f;			// [60, 70]
 float delta_z = 1200.f;					// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.005f;
+float RAY_DENSITY = 0.002f;
 
 float camera_fps = 100.f;					// fps  [100, 500]
 float scan_speed = 100.f;					// mm/s [100, 1000]
@@ -1844,6 +1844,7 @@ int main(int argc, char** argv)
 	// Inizializza il laser
 	initializeLaser(scanDirection);
 
+	// Disegno i laser
 	//drawLine(cloud_intersection, laser_point, Eigen::Vector3f(0, -DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
 	//drawLine(cloud_intersection, laser_point_2, Eigen::Vector3f(0, DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
 
@@ -1887,7 +1888,7 @@ int main(int argc, char** argv)
 		cout << "Z->" << z << " ";
 		cout << "position_step: " << position_step << endl;
 
-		// Inizializza il Pin Hole e sposta anche la posizione del laser
+		// Inizializza il Pin Hole e imposta la posizione iniziale del laser
 		initializePinHole(scanDirection, position_step);
 		position_step -= increment;
 
@@ -1899,9 +1900,13 @@ int main(int argc, char** argv)
 		high_resolution_clock::time_point start;
 		start = high_resolution_clock::now();
 
-		// cerca i punti di insersezione del raggio laser
+		//****************** Cerco le intersezioni (Solo PCL) **********************
+
 		//findPointsMeshLaserIntersection(mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 		//findPointsMeshLaserIntersection(mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
+		
+		
+		//****************** Cerco le intersezioni (PCL + OpenCL) **********************
 
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
@@ -1912,17 +1917,8 @@ int main(int argc, char** argv)
 		//****************** Converto la point cloud in un immagine **********************
 
 		// Crea immagine usando il metodo di openCV
-		PointXYZ pin_hole_temp, laser_point_temp, laser_point_temp_2;
-		pin_hole_temp.x = pin_hole.x;
-		pin_hole_temp.y = pin_hole.y;
-		pin_hole_temp.z = pin_hole.z;
-		laser_point_temp.x = laser_point.x;
-		laser_point_temp.y = laser_point.y;
-		laser_point_temp.z = laser_point.z;
-		laser_point_temp_2.x = laser_point_2.x;
-		laser_point_temp_2.y = laser_point_2.y;
-		laser_point_temp_2.z = laser_point_2.z;
-		getCameraFrame(pin_hole_temp, laser_point, laser_point_2, cloud_intersection, &image, scanDirection, 
+
+		getCameraFrame(pin_hole, laser_point, laser_point_2, cloud_intersection, &image, scanDirection, 
 						size_array, &openCLData, all_triangles, output_points, output_hits);
 
 		//getCameraFrameMauro2(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
@@ -1937,10 +1933,7 @@ int main(int argc, char** argv)
 		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
 
 		for (int i = 0; i < cloud_intersection->size(); i++)
-		{
 			cloud_test->push_back(cloud_intersection->at(i));
-
-		}
 
 		cloud_intersection->~PointCloud();
 		cloudGenerate->~PointCloud();
@@ -1951,7 +1944,6 @@ int main(int argc, char** argv)
 
 
 	// Create a PCLVisualizer
-
 	visualization::PCLVisualizer viewer("viewer");
 	viewer.addCoordinateSystem(100, "viewer");
 	viewer.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
