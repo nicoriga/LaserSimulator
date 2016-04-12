@@ -67,7 +67,7 @@ float distance_laser_sensor = 600; // [500, 800]
 float laser_aperture = 45.0;		// [30, 45]
 float laser_inclination = 60.0;		// [60, 70]
 float delta_z = 800;				// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.001;
+float RAY_DENSITY = 0.005;
 int default_number_samples = 10000000;
 
 float camera_fps = 100;				// fps  [100, 500]
@@ -937,7 +937,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 
 		firstIntersection.z = MIN_INTERSECTION;
 
-		if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+		/*if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 			ray_direction.points[X] = i;
 		else
 			ray_direction.points[Y] = i;
@@ -946,6 +946,10 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		else
 			ray_direction.points[Y] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
 
+		ray_direction.points[Z] = -1;*/
+
+		ray_direction.points[d1] = i;
+		ray_direction.points[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
 		ray_direction.points[Z] = -1;
 
 		int diff = final_index - start_index;
@@ -955,33 +959,37 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		//Vec3* output_points = new Vec3[diff];
 		//int* output_hits = new int[diff];
 
-		computeOpenCL(openCLData, output_points, output_hits, start_index, diff, ray_origin, ray_direction);
-
-		int n_max = (int)(ceil((diff / RUN) / LOCAL_SIZE) * LOCAL_SIZE);
-		for (int h = 0; h < n_max; h++)
+		if (diff > 0)
 		{
-			if (output_hits[h] == 1)
+			computeOpenCL(openCLData, output_points, output_hits, start_index, diff, ray_origin, ray_direction);
+
+			int n_max = (int)(ceil((diff / RUN) / LOCAL_SIZE) * LOCAL_SIZE);
+			for (int h = 0; h < n_max; h++)
 			{
-				//++hit_number;
-
-				if (output_points[h].points[Z] >= firstIntersection.z)
+				if (output_hits[h] == 1)
 				{
-					//cout << "hit point:" << output_points[h].x << "," << output_points[h].y << "," << output_points[h].z << endl;
+					//++hit_number;
 
-					firstIntersection.x = output_points[h].points[X];
-					firstIntersection.y = output_points[h].points[Y];
-					firstIntersection.z = output_points[h].points[Z];
-					firstIntersection.r = 255;
-					firstIntersection.g = 0;
-					firstIntersection.b = 0;
+					if (output_points[h].points[Z] >= firstIntersection.z)
+					{
+						//cout << "hit point:" << output_points[h].x << "," << output_points[h].y << "," << output_points[h].z << endl;
+
+						firstIntersection.x = output_points[h].points[X];
+						firstIntersection.y = output_points[h].points[Y];
+						firstIntersection.z = output_points[h].points[Z];
+						firstIntersection.r = 255;
+						firstIntersection.g = 0;
+						firstIntersection.b = 0;
+
+					}
 
 				}
-
 			}
-		}
 
-		if (firstIntersection.z > MIN_INTERSECTION)
-			cloudIntersection->push_back(firstIntersection);
+			if (firstIntersection.z > MIN_INTERSECTION)
+				cloudIntersection->push_back(firstIntersection);
+
+		}
 
 		//cout << "hit_number: " << hit_number << endl;
 
@@ -1018,6 +1026,45 @@ void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRG
 
 	cloud_scan->height = cloud_scan->points.size();
 	cloud_scan->width = 1;
+}
+
+int checkOcclusion(Point3f point) {
+	/**
+
+	1. calcola il raggio tra il point e il pin_hole
+	2. trova gli indici nell'array dei min_y tra le coordinate y del pin_hole e del point
+	3. cerco intersezione tra il raggio e i triangoli
+	5. interseca con un triangolo?
+	Falso -> return 0
+	Vero -> verifico che non sia lo stesso triangolo confrontando i vertici
+	return 1
+
+	**/
+	Vec3 origin;
+	origin.points[X] = point.x;
+	origin.points[Y] = point.y;
+	origin.points[Z] = point.z;
+
+	Vec3 direction;
+	direction.points[X] = point.x - pin_hole.x;
+	direction.points[Y] = point.y - pin_hole.y;
+	direction.points[Z] = point.z - pin_hole.z;
+
+	int d1, d2;
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	{
+		d1 = 0;
+		d2 = 1;
+
+	}
+	if (scanDirection == DIRECTION_SCAN_AXIS_X)
+	{
+		d1 = 1;
+		d2 = 0;
+
+	}
+
+	return 1;
 }
 
 void sensorPointProjection(float focal_distance, float sensor_height, float sensor_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection, PointCloud<PointXYZRGB>::Ptr cloud_projection)
@@ -1229,9 +1276,12 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 			p2.y += 0.5;
 			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
 			{
-				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
-				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
-				image.at<Vec3b>((int)(p2.y), (int)(p2.x))[2] = 0;
+				if (checkOcclusion(points.at(i)))
+				{
+					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
+					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
+					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[2] = 0;
+				}
 			}
 		}
 
@@ -1524,10 +1574,6 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 	}
 }
 
-int checkOcclusion() {
-
-}
-
 void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection) {
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 
@@ -1810,7 +1856,7 @@ int main(int argc, char** argv)
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		position_step = laser_point.y - 1180;
+		position_step = laser_point.y - 100;
 		min_iter = min_y - (laser_point.y - max_y);
 	}
 
@@ -1832,7 +1878,7 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	for (int z = 0; z < 1; z++)
+	for (int z = 0; z < 100; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1902,7 +1948,7 @@ int main(int argc, char** argv)
 	// Create a PCLVisualizer
 
 	visualization::PCLVisualizer viewer("viewer");
-	viewer.addCoordinateSystem(0.1, "viewer");
+	viewer.addCoordinateSystem(100, "viewer");
 	viewer.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb4(cloud_test);
 	viewer.addPointCloud<PointXYZRGB>(cloud_test, rgb4, "cloudTest");
