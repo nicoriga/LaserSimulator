@@ -40,7 +40,7 @@ using boost::chrono::duration;
 #define PIXEL_DIMENSION 0.0055 // mm
 
 /// OpenCL parameter
-#define RUN 256
+#define RUN 1
 #define LOCAL_SIZE 128
 
 #define DIRECTION_SCAN_AXIS_X 0
@@ -66,7 +66,7 @@ int scanDirection = DIRECTION_SCAN_AXIS_Y;
 float distance_laser_sensor = 600; // [500, 800]
 float laser_aperture = 45.0;		// [30, 45]
 float laser_inclination = 60.0;		// [60, 70]
-float delta_z = 800;				// 600 altezza rispetto all'oggetto
+float delta_z = 1200;				// 600 altezza rispetto all'oggetto
 float RAY_DENSITY = 0.005;
 int default_number_samples = 10000000;
 
@@ -653,9 +653,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZRGB l
 
 		direction_ray[d1] = i;
 		direction_ray[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
-		direction_ray[2] = -1;
-
-
+		//direction_ray[2] = -1;
 
 		for (int k = start_index; k < final_index; k++)
 		{
@@ -953,7 +951,6 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		ray_direction.points[Z] = -1;
 
 		int diff = final_index - start_index;
-		//cout << "final_index - start_index: " << diff << endl;
 
 		//Triangle* triangles = all_triangles + start_index;
 		//Vec3* output_points = new Vec3[diff];
@@ -1816,7 +1813,7 @@ int main(int argc, char** argv)
 	OpenCLDATA openCLData;
 	Triangle* all_triangles;
 
-	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
+	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
@@ -1856,7 +1853,7 @@ int main(int argc, char** argv)
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		position_step = laser_point.y - 100;
+		position_step = laser_point.y ;
 		min_iter = min_y - (laser_point.y - max_y);
 	}
 
@@ -1878,7 +1875,7 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	for (int z = 0; z < 100; z++)
+	for (int z = 0; laser_point_2.y > min_iter; z++)
 	{
 
 		cout << "Z->" << z << " ";
