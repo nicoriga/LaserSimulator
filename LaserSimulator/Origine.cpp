@@ -731,9 +731,9 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
-		openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
-		//openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
+		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
 
 		// Create command queue for first device
@@ -1025,31 +1025,15 @@ int checkOcclusion(Point3f point, int polygon_size, OpenCLDATA* openCLData, Tria
 	return 1
 
 	**/
-	PointXYZRGB origin_point;
 	Vec3 origin;
-	origin_point.x = origin.points[X] = point.x;
-	origin_point.y = origin.points[Y] = point.y;
-	origin_point.z = origin.points[Z] = point.z;
+	origin.points[X] = point.x;
+	origin.points[Y] = point.y;
+	origin.points[Z] = point.z;
 
-	Eigen::Vector3d direction_ray_start;
 	Vec3 direction;
-	direction_ray_start.x = direction.points[X] = point.x - pin_hole.x;
-	direction_ray_start.y = direction.points[Y] = point.y - pin_hole.y;
-	direction_ray_start.z = direction.points[Z] = point.z - pin_hole.z;
-
-	int d1, d2;
-	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
-	{
-		d1 = 0;
-		d2 = 1;
-
-	}
-	if (scanDirection == DIRECTION_SCAN_AXIS_X)
-	{
-		d1 = 1;
-		d2 = 0;
-
-	}
+	direction.points[X] = pin_hole.x - point.x;
+	direction.points[Y] = pin_hole.y - point.y;
+	direction.points[Z] = pin_hole.z - point.z;
 
 	int start_index, final_index;
 
@@ -1060,8 +1044,8 @@ int checkOcclusion(Point3f point, int polygon_size, OpenCLDATA* openCLData, Tria
 	}
 	else
 	{
-		start_index = findFinalIndex(min_poligon_point, polygon_size, origin.points[Y]);
-		final_index = findStartIndex(min_poligon_point, polygon_size, pin_hole.y);
+		start_index = findStartIndex(min_poligon_point, polygon_size, origin.points[Y]);
+		final_index = findFinalIndex(min_poligon_point, polygon_size, pin_hole.y);
 	}
 
 	int diff = final_index - start_index;
@@ -1191,7 +1175,8 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 	return image_point_added;
 }
 
-void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection) {
+void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection,
+					int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits) {
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
 	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
@@ -1294,7 +1279,7 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 			p2.y += 0.5;
 			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
 			{
-				if (checkOcclusion(points.at(i)))
+				if (checkOcclusion(points.at(i), polygon_size, openCLData, all_triangles, output_points, output_hits))
 				{
 					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
 					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
@@ -1937,7 +1922,8 @@ int main(int argc, char** argv)
 		laser_point_temp_2.x = laser_point_2.x;
 		laser_point_temp_2.y = laser_point_2.y;
 		laser_point_temp_2.z = laser_point_2.z;
-		getCameraFrame(pin_hole_temp, laser_point, laser_point_2, cloud_intersection, &image, scanDirection);
+		getCameraFrame(pin_hole_temp, laser_point, laser_point_2, cloud_intersection, &image, scanDirection, 
+						size_array, &openCLData, all_triangles, output_points, output_hits);
 
 		//getCameraFrameMauro2(pin_hole, &image, sensor_pixel_height, sensor_pixel_width, cloud_intersection);
 
