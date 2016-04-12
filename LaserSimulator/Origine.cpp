@@ -746,8 +746,8 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 
 		// Get list of devices on default platform and create context
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
-		openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
-		//openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
+		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
 
 		// Create command queue for first device
@@ -1791,15 +1791,19 @@ int main(int argc, char** argv)
 
 	// lo sposto già un po' più avanti per un bug che interseca tutti i triangoli
 
+	float min_iter;
+
 	// ATTENZIONE: al verso di scansione
 	float position_step;
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
 		position_step = laser_point.x - 1180; //- 1;
+		min_iter = min_x - (laser_point.x - max_x);
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
 		position_step = laser_point.y - 1180;
+		min_iter = min_y - (laser_point.y - max_y);
 	}
 
 	cout << "position_step:" << position_step << endl;
@@ -1820,7 +1824,7 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	for (int z = 0; z < 10; z++)
+	for (int z = 0; (position_step - distance_laser_sensor) > min_iter; z++)
 	{
 
 		cout << "Z->" << z << " ";
