@@ -746,8 +746,8 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 
 		// Get list of devices on default platform and create context
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
-		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
-		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
+		openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+		//openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
 
 		// Create command queue for first device
@@ -1524,6 +1524,10 @@ void generatePointCloudFromImageMauro(Plane* plane1, Plane* plane2, Mat* image, 
 	}
 }
 
+int checkOcclusion() {
+
+}
+
 void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_intersection) {
 	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 
@@ -1687,9 +1691,9 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 	flip(image_undistort, *image, 0); // altrimenti la cloud viene rovescia
 
 									  // Creo la point cloud del sensore a partire dall'immagine
-	for (int i = 0; i < image->rows / 2; i++)
+	for (int j = 0; j < image->cols; j++)
 	{
-		for (int j = 0; j < image->cols; j++)
+		for (int i = 0; i < image->rows / 2; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -1715,13 +1719,15 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 				point.y = dy * t + point.y;
 				point.z = dz * t + point.z;
 				cloud_out->push_back(point);
+
+				break;
 			}
 		}
 	}
 
-	for (int i = image->rows / 2; i < image->rows; i++)
+	for (int j = 0; j < image->cols; j++)
 	{
-		for (int j = 0; j < image->cols; j++)
+		for (int i = image->rows / 2; i < image->rows; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -1747,6 +1753,8 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 				point.y = dy * t + point.y;
 				point.z = dz * t + point.z;
 				cloud_out->push_back(point);
+
+				break;
 			}
 		}
 	}
@@ -1824,7 +1832,7 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	for (int z = 0; (position_step - distance_laser_sensor) > min_iter; z++)
+	for (int z = 0; z < 1; z++)
 	{
 
 		cout << "Z->" << z << " ";
