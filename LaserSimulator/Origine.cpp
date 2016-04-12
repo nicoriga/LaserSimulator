@@ -63,15 +63,14 @@ float min_z, max_z;
 PointXYZRGB laser_point, laser_point_2, laser_final_point_left, laser_final_point_right, pin_hole;
 
 int scanDirection = DIRECTION_SCAN_AXIS_Y;
-float distance_laser_sensor = 600; // [500, 800]
-float laser_aperture = 45.0;		// [30, 45]
-float laser_inclination = 60.0;		// [60, 70]
-float delta_z = 1200;				// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.005;
-int default_number_samples = 10000000;
+float distance_laser_sensor = 600.f;	// [500, 800]
+float laser_aperture = 45.f;			// [30, 45]
+float laser_inclination = 60.f;			// [60, 70]
+float delta_z = 1200.f;					// 600 altezza rispetto all'oggetto
+float RAY_DENSITY = 0.005f;
 
-float camera_fps = 100;				// fps  [100, 500]
-float scan_speed = 100;				// mm/s [100, 1000]
+float camera_fps = 100.f;					// fps  [100, 500]
+float scan_speed = 100.f;					// mm/s [100, 1000]
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
 float focal_length = 25;
@@ -1838,9 +1837,11 @@ int main(int argc, char** argv)
 	// Inizializza il laser
 	initializeLaser(scanDirection);
 
-	cout << "Laser_point x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
+	//drawLine(cloud_intersection, laser_point, Eigen::Vector3f(0, -DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
+	//drawLine(cloud_intersection, laser_point_2, Eigen::Vector3f(0, DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
 
-	// lo sposto già un po' più avanti per un bug che interseca tutti i triangoli
+	// Questo valore varia da 0,2 a 10 frame per mm
+	float increment = scan_speed / camera_fps;
 
 	float min_iter;
 
@@ -1848,19 +1849,17 @@ int main(int argc, char** argv)
 	float position_step;
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
-		position_step = laser_point.x - 1180; //- 1;
+		position_step = laser_point.x;
 		min_iter = min_x - (laser_point.x - max_x);
 	}
 	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		position_step = laser_point.y -200 ;
+		position_step = laser_point.y;
 		min_iter = min_y - (laser_point.y - max_y);
 	}
 
 	cout << "position_step:" << position_step << endl;
 
-	// Questo valore varia da 0,2 a 10 frame per mm
-	float increment_value = scan_speed / camera_fps;
 
 	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
@@ -1883,7 +1882,7 @@ int main(int argc, char** argv)
 
 		// Inizializza il Pin Hole e sposta anche la posizione del laser
 		initializePinHole(scanDirection, position_step);
-		position_step -= increment_value;
+		position_step -= increment;
 
 		cout << "Laser_point 1 x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
 		cout << "Laser_point 2 x:" << laser_point_2.x << " y:" << laser_point_2.y << " z:" << laser_point_2 .z << endl;
