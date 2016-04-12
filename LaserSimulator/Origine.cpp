@@ -1217,8 +1217,8 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
 		0, 1, 0,
 		0, 0, 1);
-	Mat rotatVec; //= (cv::Mat_<double>(3, 1) << 0, 0, 0);
-	cv::Rodrigues(rotatMat, rotatVec);
+	Mat rotatVec= (cv::Mat_<double>(3, 1) << 0, 0, 0);
+	//cv::Rodrigues(rotatMat, rotatVec);
 
 	if (cloudIntersection->size() > 0) {
 		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), cameraMatrix, distortion, output_point);
@@ -1669,6 +1669,10 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 	float delta_x = ((sensor_pixel_width / 2) - cameraMatrix.at<double>(0, 2)) * PIXEL_DIMENSION;
 	float delta_y = ((sensor_pixel_height / 2) - cameraMatrix.at<double>(1, 2)) * PIXEL_DIMENSION;
 
+	float focal_length_x = cameraMatrix.at<double>(0, 0) * sensor_width / sensor_pixel_width;
+	float focal_length_y = cameraMatrix.at<double>(1, 1) * sensor_height / sensor_pixel_height;
+	focal_length = (focal_length_x + focal_length_y) / 2;
+
 	if (scanDirection == DIRECTION_SCAN_AXIS_X) {
 		x_sensor_origin = pin_hole.x - (sensor_height) / 2 - delta_x;
 		y_sensor_origin = pin_hole.y - (sensor_width) / 2 - delta_y;
@@ -1816,7 +1820,7 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	for (int z = 0; z < 1; z++)
+	for (int z = 0; z < 10; z++)
 	{
 
 		cout << "Z->" << z << " ";
