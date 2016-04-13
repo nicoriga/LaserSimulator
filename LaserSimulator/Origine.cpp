@@ -1700,7 +1700,7 @@ void getCameraFrameMauro2(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel
 	cloud_projection->~PointCloud();
 }
 
-void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out) {
+void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image, int roi1_start, int roi2_start, int roi_dimension, PointCloud<PointXYZ>::Ptr cloud_out) {
 	PointXYZ point;
 	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
 	float x_sensor_origin, y_sensor_origin;
@@ -1744,7 +1744,7 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 									  // Creo la point cloud del sensore a partire dall'immagine
 	for (int j = 0; j < image->cols; j++)
 	{
-		for (int i = 0; i < image->rows / 2; i++)
+		for (int i = roi1_start; i < roi1_start + roi_dimension; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -1778,7 +1778,7 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 
 	for (int j = 0; j < image->cols; j++)
 	{
-		for (int i = image->rows / 2; i < image->rows; i++)
+		for (int i = roi2_start; i < roi2_start + roi_dimension; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// controlla che sia colorato il pixel dell'immagine
@@ -1929,7 +1929,7 @@ int main(int argc, char** argv)
 
 		//cout << "Plane A:" << plane.A << " B:" << plane.B << " C:" << plane.C << " D:" << plane.D << endl;
 		//flip(image, image, 0);
-		generatePointCloudFromImageMauro2(&plane2, &plane1, &image, cloud_out);
+		generatePointCloudFromImageMauro2(&plane2, &plane1, &image, 0, sensor_pixel_height / 2, sensor_pixel_height / 2,  cloud_out);
 
 		//generatePointCloudFromImage(&plane2, &plane1, &image, cloudGenerate);
 		//traslateCloud(pin_hole, laser_point, cloudGenerate, cloudOut);
