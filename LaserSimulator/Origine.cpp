@@ -118,6 +118,32 @@ struct OpenCLDATA {
 	std::vector<cl::Platform> platforms;
 };
 
+Vec3 checkTriangle(Triangle triangles) {
+
+	float diff_x, diff_y, diff_z;
+	Vec3 ret;
+
+	diff_x = triangles.vertex1.points[0] - triangles.vertex2.points[0];
+	diff_y = triangles.vertex1.points[1] - triangles.vertex2.points[1];
+	diff_z = triangles.vertex1.points[2] - triangles.vertex2.points[2];
+
+	ret.points[0] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
+
+	diff_x = triangles.vertex1.points[0] - triangles.vertex3.points[0];
+	diff_y = triangles.vertex1.points[1] - triangles.vertex3.points[1];
+	diff_z = triangles.vertex1.points[2] - triangles.vertex3.points[2];
+
+	ret.points[1] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
+
+	diff_x = triangles.vertex2.points[0] - triangles.vertex3.points[0];
+	diff_y = triangles.vertex2.points[1] - triangles.vertex3.points[1];
+	diff_z = triangles.vertex2.points[2] - triangles.vertex3.points[2];
+
+	ret.points[2] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
+
+	return ret;
+};
+
 void merge(float *a, int *b, int low, int high, int mid, float *c, int *d)
 {
 	int i = low;
@@ -361,7 +387,7 @@ void initializeLaser(int scanDirection) {
 	{
 		laser_point.z = max_z + delta_z;
 		laser_point.x = (max_x + min_x) / 2;
-		laser_point.y = max_y + (laser_point.z - min_z)*tan(deg2rad(90 - laser_inclination));
+		laser_point.y = max_y + (laser_point.z - min_z)*DIRECTION_TAN_LASER_INCLINATION;
 
 		laser_point_2.z = laser_point.z;
 		laser_point_2.x = laser_point.x;
@@ -372,7 +398,7 @@ void initializeLaser(int scanDirection) {
 	{
 		laser_point.z = max_z + delta_z;
 		laser_point.y = (max_y + min_y) / 2;
-		laser_point.x = max_x + (laser_point.z - min_z)*tan(deg2rad(90 - laser_inclination));
+		laser_point.x = max_x + (laser_point.z - min_z)*DIRECTION_TAN_LASER_INCLINATION;
 
 		laser_point_2.z = laser_point.z;
 		laser_point_2.y = laser_point.y;
@@ -1896,6 +1922,19 @@ int main(int argc, char** argv)
 	uchar* output_hits = new uchar[array_size_hits];
 	prepareDataForOpenCL(mesh, all_triangles);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
+
+	//************************ Ricerca triangoli "grandi" ***************************//
+	vector<Triangle> big_triangles;
+	Vec3 coord;
+	float projection_distance = (laser_point.z - min_z)*DIRECTION_TAN_LASER_INCLINATION;
+
+	for (int i = 0; i < size_array; i++) {
+		coord = checkTriangle(all_triangles[i]);
+		if (coord.points[0] > projection_distance || coord.points[1] > projection_distance || coord.points[2] > projection_distance)
+			big_triangles.push_back(all_triangles[i]);
+	}
+
+
 
 	for (int z = 0; laser_point_2.y > min_iter; z++)
 	{
