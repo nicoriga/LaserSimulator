@@ -68,13 +68,13 @@ float distance_laser_sensor = 600.f;	// [500, 800]
 float laser_aperture = 45.f;			// [30, 45]
 float laser_inclination = 60.f;			// [60, 70]
 float delta_z = 1200.f;					// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.002f;
+float RAY_DENSITY = 0.0015f;
 
-float camera_fps = 100.f;					// fps  [100, 500]
-float scan_speed = 100.f;					// mm/s [100, 1000]
+float camera_fps = 100.f;				// fps  [100, 500]
+float scan_speed = 100.f;				// mm/s [100, 1000]
 int sensor_pixel_width = 2024;
 int sensor_pixel_height = 1088;
-float focal_length = 25;
+float focal_length = 25.f;
 
 float sensor_width = sensor_pixel_width * PIXEL_DIMENSION;
 float sensor_height = sensor_pixel_height * PIXEL_DIMENSION;
@@ -175,7 +175,7 @@ float dist(float x1, float y1, float z1, float x2, float y2, float z2) {
 	return sqrt(exp2f(x2 - x1) + exp2f(y2 - y1) + exp2f(z2 - z1));
 }
 
-PointXYZRGB mediumPoint(PointXYZRGB point_1, PointXYZRGB point_2) {
+/*PointXYZRGB mediumPoint(PointXYZRGB point_1, PointXYZRGB point_2) {
 	PointXYZRGB point;
 	point.x = (point_1.x + point_2.x) / 2;
 	point.y = (point_1.y + point_2.y) / 2;
@@ -185,7 +185,7 @@ PointXYZRGB mediumPoint(PointXYZRGB point_1, PointXYZRGB point_2) {
 	point.b = 0;
 
 	return point;
-}
+}*/
 
 void addIntermediatePoint(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZRGB point_1, PointXYZRGB point_2, int step, uint8_t r, uint8_t g, uint8_t b) {
 	float delta_x = point_1.x - point_2.x;
@@ -731,7 +731,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[2])(), 0 };
 		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -988,7 +988,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 	}
 }
 
-void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRGB> tree, PointCloud<PointXYZRGB>::Ptr cloud_scan,
+/*void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRGB> tree, PointCloud<PointXYZRGB>::Ptr cloud_scan,
 	PointCloud<PointXYZRGB>::Ptr cloud_out, int intersect_points) {
 	vector<int> indices;
 	intersect_points = 0;
@@ -1012,10 +1012,10 @@ void findPointsOctreeLaserIntersection(octree::OctreePointCloudSearch<PointXYZRG
 
 	cloud_scan->height = cloud_scan->points.size();
 	cloud_scan->width = 1;
-}
+}*/
 
 int checkOcclusion(PointXYZRGB point, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits) {
-	/**
+	/*
 
 	1. calcola il raggio tra il point e il pin_hole
 	2. trova gli indici nell'array dei min_y tra le coordinate y del pin_hole e del point
@@ -1025,7 +1025,7 @@ int checkOcclusion(PointXYZRGB point, int polygon_size, OpenCLDATA* openCLData, 
 	Vero -> verifico che non sia lo stesso triangolo confrontando i vertici
 	return 1
 
-	**/
+	*/
 	Vec3 origin;
 	origin.points[X] = point.x;
 	origin.points[Y] = point.y;
@@ -1059,11 +1059,7 @@ int checkOcclusion(PointXYZRGB point, int polygon_size, OpenCLDATA* openCLData, 
 		for (int k = 0; k < n_max; k++)
 		{
 			if (output_hits[k] == 1)
-			{
-				//cout << "output_hits[" << k << "]" << (int)output_hits[k] <<endl;
-				// ci sarebbe da verificare se il triangolo è lo stesso
-					return 0;
-			}
+				return 0;
 		}
 
 	}
@@ -1821,7 +1817,24 @@ int main(int argc, char** argv)
 	OpenCLDATA openCLData;
 	Triangle* all_triangles;
 
-	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
+	/*// Read input parameters
+	FileStorage fs("parameters.yml", FileStorage::READ);
+	if (fs.isOpened())
+	{
+		fs["Number of calibration images"] >> numb_calib_image;
+		fs["Image file extension"] >> image_ext;
+		fs["Pattern size"] >> pattern_size;
+		fs["Square size"] >> square_size;
+		fs["Test image file extension"] >> test_image_ext;
+	}
+	else
+	{
+		cout << "Error: cannot read the parameters" << endl;
+		return -1;
+	}*/
+
+
+	if (io::loadPolygonFileSTL("../dataset/bin4.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
@@ -1943,7 +1956,7 @@ int main(int argc, char** argv)
 	}
 	cout << "Punti cloud_test " << cloud_test->points.size() << endl;
 	cout << "Punti cloud_out " << cloud_out->points.size() << endl;
-
+	io::savePCDFileASCII("prodottooccluso.pcd", *cloud_out);
 
 	// Create a PCLVisualizer
 	visualization::PCLVisualizer viewer("viewer");
