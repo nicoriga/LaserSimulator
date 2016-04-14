@@ -68,7 +68,7 @@ float distance_laser_sensor = 600.f;	// [500, 800]
 float laser_aperture = 45.f;			// [30, 45]
 float laser_inclination = 60.f;			// [60, 70]
 float delta_z = 1200.f;					// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.0015f;
+float RAY_DENSITY = 0.001f;
 
 float camera_fps = 100.f;				// fps  [100, 500]
 float scan_speed = 100.f;				// mm/s [100, 1000]
@@ -757,7 +757,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[2])(), 0 };
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
 		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -862,7 +862,7 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 	return 0;
 }
 
-void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
+void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, vector<Triangle> big_triangles, Vec3* output_points, uchar* output_hits,
 	const PolygonMesh mesh, const PointXYZ laser,
 	const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, double laser_number)
 {
@@ -950,17 +950,6 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 
 		firstIntersection.z = MIN_INTERSECTION;
 
-		/*if (scanDirection == DIRECTION_SCAN_AXIS_Y)
-			ray_direction.points[X] = i;
-		else
-			ray_direction.points[Y] = i;
-		if (scanDirection == DIRECTION_SCAN_AXIS_X)
-			ray_direction.points[X] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
-		else
-			ray_direction.points[Y] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
-
-		ray_direction.points[Z] = -1;*/
-
 		ray_direction.points[d1] = i;
 		ray_direction.points[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
 		ray_direction.points[Z] = -1;
@@ -997,11 +986,46 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 
 				}
 			}
-
-			if (firstIntersection.z > MIN_INTERSECTION)
-				cloudIntersection->push_back(firstIntersection);
-
 		}
+
+		Vect3d origin_ray(ray_origin.points[X], ray_origin.points[Y], ray_origin.points[Z]);
+		Vect3d direction_ray(ray_direction.points[d1], ray_direction.points[d2], ray_direction.points[Z]);
+
+
+		for (int k = 0; k < big_triangles.size(); k++)
+		{
+			//triangle = mesh.polygons.at(min_poligon_index[k]);
+			vertex1[0] = big_triangles[k].vertex1.points[X];
+			vertex1[1] = big_triangles[k].vertex1.points[Y];
+			vertex1[2] = big_triangles[k].vertex1.points[Z];
+
+			vertex2[0] = big_triangles[k].vertex2.points[X];
+			vertex2[1] = big_triangles[k].vertex2.points[Y];
+			vertex2[2] = big_triangles[k].vertex2.points[Z];
+
+			vertex3[0] = big_triangles[k].vertex3.points[X];
+			vertex3[1] = big_triangles[k].vertex3.points[Y];
+			vertex3[2] = big_triangles[k].vertex3.points[Z];
+
+			if (triangle_intersection(vertex1, vertex2, vertex3, origin_ray, direction_ray, &out, intersection_point) != 0)
+			{
+				if (intersection_point[2] >= firstIntersection.z)
+				{
+
+					firstIntersection.x = intersection_point[0];
+					firstIntersection.y = intersection_point[1];
+					firstIntersection.z = intersection_point[2];
+					firstIntersection.r = 255;
+					firstIntersection.g = 0;
+					firstIntersection.b = 0;
+
+				}
+			}
+		}
+
+
+		if (firstIntersection.z > MIN_INTERSECTION)
+			cloudIntersection->push_back(firstIntersection);
 
 		//cout << "hit_number: " << hit_number << endl;
 
@@ -1860,7 +1884,7 @@ int main(int argc, char** argv)
 	}*/
 
 
-	if (io::loadPolygonFileSTL("../dataset/bin4.stl", mesh) == 0)
+	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
@@ -1924,19 +1948,23 @@ int main(int argc, char** argv)
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
 	//************************ Ricerca triangoli "grandi" ***************************//
-	vector<Triangle> big_triangles;
+	vector<Triangle> big_triangles_vec;
 	Vec3 coord;
 	float projection_distance = (laser_point.z - min_z)*DIRECTION_TAN_LASER_INCLINATION;
 
 	for (int i = 0; i < size_array; i++) {
 		coord = checkTriangle(all_triangles[i]);
 		if (coord.points[0] > projection_distance || coord.points[1] > projection_distance || coord.points[2] > projection_distance)
-			big_triangles.push_back(all_triangles[i]);
+			big_triangles_vec.push_back(all_triangles[i]);
 	}
 
+	Triangle* big_triangles = new Triangle[big_triangles_vec.size()];
+	for (int i = 0; i < big_triangles_vec.size(); i++)
+	{
+		big_triangles[i] = big_triangles_vec[i];
+	}
 
-
-	for (int z = 0; laser_point_2.y > min_iter; z++)
+	for (int z = 0; z < laser_point_2.y > min_iter; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -1962,8 +1990,8 @@ int main(int argc, char** argv)
 		
 		//****************** Cerco le intersezioni (PCL + OpenCL) **********************
 
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
+		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_point, RAY_DENSITY, cloud_intersection, scanDirection, &plane1, LASER_1);
+		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_point_2, RAY_DENSITY, cloud_intersection, scanDirection, &plane2, LASER_2);
 
 		//duration<double> timer2 = high_resolution_clock::now() - start;
 		//cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
