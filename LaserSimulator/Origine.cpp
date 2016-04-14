@@ -1964,7 +1964,7 @@ int main(int argc, char** argv)
 		big_triangles[i] = big_triangles_vec[i];
 	}
 
-	for (int z = 0; z < laser_point_2.y > min_iter; z++)
+	for (int z = 0; laser_point_2.y > min_iter; z++)
 	{
 
 		cout << "Z->" << z << " ";
