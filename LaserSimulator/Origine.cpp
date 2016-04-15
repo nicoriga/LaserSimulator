@@ -1006,6 +1006,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 
 			if (triangle_intersection(vertex1, vertex2, vertex3, origin_ray, direction_ray, &out, intersection_point) != 0)
 			{
+#pragma omp critical
 				if (intersection_point[2] >= firstIntersection.z)
 				{
 
@@ -1881,7 +1882,7 @@ int main(int argc, char** argv)
 	}*/
 
 
-	if (io::loadPolygonFileSTL("../dataset/bin2.stl", mesh) == 0)
+	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
