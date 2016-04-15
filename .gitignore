@@ -16,3 +16,6 @@
 /imgOut
 /LaserSimulator.sdf
 /VisualizzatorePointCloud/x64/Release
+/LaserSimulator/prodottooccluso.pcd
+/LaserSimulator/final_cloud.pcd
+/LaserSimulator/all_intersection_cloud.pcd
