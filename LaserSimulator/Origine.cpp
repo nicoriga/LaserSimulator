@@ -68,7 +68,7 @@ float distance_laser_sensor = 600.f;	// [500, 800]
 float laser_aperture = 45.f;			// [30, 45]
 float laser_inclination = 60.f;			// [60, 70]
 float delta_z = 1200.f;					// 600 altezza rispetto all'oggetto
-float RAY_DENSITY = 0.001f;
+float RAY_DENSITY = 0.0015f;
 
 float camera_fps = 100.f;				// fps  [100, 500]
 float scan_speed = 100.f;				// mm/s [100, 1000]
@@ -91,10 +91,12 @@ struct Plane {
 	float C;
 	float D;
 };
+
 struct Vec3
 {
 	float points[3];
 };
+
 struct Triangle {
 	Vec3 vertex1;
 	Vec3 vertex2;
@@ -347,7 +349,7 @@ void initializeMinMaxPoints(PolygonMesh mesh) {
 	max_x = max_y = max_z = INT32_MIN;
 
 	PointCloud<PointXYZ> cloud_mesh;
-	PointXYZRGB point_1, point_2, point_3, point, point_m;
+	PointXYZRGB point_1, point_2, point_3;
 
 	// Metodo veloce per trasformare i vertici della mesh in point cloud
 	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
@@ -355,30 +357,25 @@ void initializeMinMaxPoints(PolygonMesh mesh) {
 	// ricerca max e min per tutti gli assi
 	for (int i = 0; i < mesh.polygons.size(); i++)
 	{
-		{
-			{
-				point_1.x = cloud_mesh.points[mesh.polygons[i].vertices[0]].x;
-				point_1.y = cloud_mesh.points[mesh.polygons[i].vertices[0]].y;
-				point_1.z = cloud_mesh.points[mesh.polygons[i].vertices[0]].z;
+		point_1.x = cloud_mesh.points[mesh.polygons[i].vertices[0]].x;
+		point_1.y = cloud_mesh.points[mesh.polygons[i].vertices[0]].y;
+		point_1.z = cloud_mesh.points[mesh.polygons[i].vertices[0]].z;
 
-				minMaxPoint(point_1);
+		minMaxPoint(point_1);
 
-				point_2.x = cloud_mesh.points[mesh.polygons[i].vertices[1]].x;
-				point_2.y = cloud_mesh.points[mesh.polygons[i].vertices[1]].y;
-				point_2.z = cloud_mesh.points[mesh.polygons[i].vertices[1]].z;
+		point_2.x = cloud_mesh.points[mesh.polygons[i].vertices[1]].x;
+		point_2.y = cloud_mesh.points[mesh.polygons[i].vertices[1]].y;
+		point_2.z = cloud_mesh.points[mesh.polygons[i].vertices[1]].z;
 
-				minMaxPoint(point_2);
+		minMaxPoint(point_2);
 
-				point_3.x = cloud_mesh.points[mesh.polygons[i].vertices[2]].x;
-				point_3.y = cloud_mesh.points[mesh.polygons[i].vertices[2]].y;
-				point_3.z = cloud_mesh.points[mesh.polygons[i].vertices[2]].z;
+		point_3.x = cloud_mesh.points[mesh.polygons[i].vertices[2]].x;
+		point_3.y = cloud_mesh.points[mesh.polygons[i].vertices[2]].y;
+		point_3.z = cloud_mesh.points[mesh.polygons[i].vertices[2]].z;
 
-				minMaxPoint(point_3);
+		minMaxPoint(point_3);
 
-				updatePoligonPointArray(point_1, point_2, point_3, i);
-
-			}
-		}
+		updatePoligonPointArray(point_1, point_2, point_3, i);
 	}
 }
 
@@ -677,12 +674,12 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZ lase
 			vertex1[1] = tmp.y;
 			vertex1[2] = tmp.z;
 
-			tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[1]];;
+			tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[1]];
 			vertex2[0] = tmp.x;
 			vertex2[1] = tmp.y;
 			vertex2[2] = tmp.z;
 
-			tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[2]];;
+			tmp = meshVertices.points[mesh.polygons[min_poligon_index[k]].vertices[2]];
 			vertex3[0] = tmp.x;
 			vertex3[1] = tmp.y;
 			vertex3[2] = tmp.z;
@@ -757,7 +754,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
 		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -1861,7 +1858,7 @@ int main(int argc, char** argv)
 {
 	// Load STL file as a PolygonMesh
 	PolygonMesh mesh;
-	PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
+	//PointCloud<PointXYZRGB>::Ptr cloud_projection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
 	Mat image;
 	OpenCLDATA openCLData;
@@ -1884,7 +1881,7 @@ int main(int argc, char** argv)
 	}*/
 
 
-	if (io::loadPolygonFileSTL("../dataset/bin1.stl", mesh) == 0)
+	if (io::loadPolygonFileSTL("../dataset/bin2.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
@@ -1916,25 +1913,26 @@ int main(int argc, char** argv)
 	// Questo valore varia da 0,2 a 10 frame per mm
 	float increment = scan_speed / camera_fps;
 
-	float min_iter;
+	float final_pos;
 
 	// ATTENZIONE: al verso di scansione
 	float position_step;
+
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
 		position_step = laser_point.x;
-		min_iter = min_x - (laser_point.x - max_x);
+		final_pos = min_x - (laser_point.x - max_x);
 	}
-	else if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
 		position_step = laser_point.y;
-		min_iter = min_y - (laser_point.y - max_y);
+		final_pos = min_y - (laser_point.y - max_y);
 	}
 
 	cout << "position_step:" << position_step << endl;
 
 
-	PointCloud<PointXYZ>::Ptr cloudGenerate(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
 
@@ -1950,7 +1948,7 @@ int main(int argc, char** argv)
 	//************************ Ricerca triangoli "grandi" ***************************//
 	vector<Triangle> big_triangles_vec;
 	Vec3 coord;
-	float projection_distance = (laser_point.z - min_z)*DIRECTION_TAN_LASER_INCLINATION;
+	float projection_distance = (max_z - min_z) * DIRECTION_TAN_LASER_INCLINATION;
 
 	for (int i = 0; i < size_array; i++) {
 		coord = checkTriangle(all_triangles[i]);
@@ -1964,7 +1962,10 @@ int main(int argc, char** argv)
 		big_triangles[i] = big_triangles_vec[i];
 	}
 
-	for (int z = 0; laser_point_2.y > min_iter; z++)
+	cout << "DISTANZA: " << projection_distance << endl;
+	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl;
+
+	for (int z = 0; laser_point_2.y > final_pos; z++)
 	{
 
 		cout << "Z->" << z << " ";
@@ -2018,7 +2019,6 @@ int main(int argc, char** argv)
 			cloud_test->push_back(cloud_intersection->at(i));
 
 		cloud_intersection->~PointCloud();
-		cloudGenerate->~PointCloud();
 		//cloud_projection->~PointCloud();
 	}
 	cout << "Punti cloud_test " << cloud_test->points.size() << endl;
