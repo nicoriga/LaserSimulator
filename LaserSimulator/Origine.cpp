@@ -1853,6 +1853,26 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, Mat* image,
 	}
 }
 
+void printProgBar(int percent) {
+	string bar;
+
+	for (int i = 0; i < 50; i++) {
+		if (i < (percent / 2)) {
+			bar.replace(i, 1, "=");
+		}
+		else if (i == (percent / 2)) {
+			bar.replace(i, 1, ">");
+		}
+		else {
+			bar.replace(i, 1, " ");
+		}
+	}
+
+	cout << "\r" "[" << bar << "] ";
+	cout.width(3);
+	cout << percent << "%     " << flush;
+}
+
 int main(int argc, char** argv)
 {
 	// Load STL file as a PolygonMesh
@@ -1886,7 +1906,7 @@ int main(int argc, char** argv)
 		return -1;
 	}
 	cout << mesh.polygons.size() << " Processing point cloud... " << endl;
-
+	
 	// Trova i punti di min e max per tutti gli assi della mesh
 	min_poligon_point = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
 	min_poligon_index = new int[mesh.polygons.size()];   // array per salvare l'indice di tali punti
@@ -1963,11 +1983,12 @@ int main(int argc, char** argv)
 
 	cout << "DISTANZA: " << projection_distance << endl;
 	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl;
-
+	float numero_iterazioni = (laser_point_2.y - final_pos) / increment;
 	for (int z = 0; laser_point_2.y > final_pos; z++)
 	{
-
-		cout << "Z->" << z << " ";
+		
+		printProgBar((int) ((z / numero_iterazioni) * 100));
+		//cout << "Z->" << z << " ";
 		//cout << "position_step: " << position_step << endl;
 
 		// Inizializza il Pin Hole e imposta la posizione iniziale del laser
