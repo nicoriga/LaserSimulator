@@ -123,6 +123,79 @@ Vec3 calculateEdges(Triangle triangles) {
 	return ret;
 };
 
+void readParamsFromXML(float &distance_laser_camera, float &distance_mesh_pinhole, float &laser_aperture, float &laser_inclination, float &RAY_DENSITY, float &camera_fps, 
+	float &scan_speed, int &image_width, int &image_height, Mat &cameraMatrix, Mat &distortion)
+	{
+
+		distance_laser_camera = 600.f;	// [500, 800]
+		distance_mesh_pinhole = 1200.f;   // altezza rispetto all'oggetto
+		laser_aperture = 45.f;			// [30, 45]
+		laser_inclination = 60.f;			// [60, 70]
+		RAY_DENSITY = 0.0015f;
+
+		camera_fps = 100.f;				// fps  [100, 500]
+		scan_speed = 100.f;				// mm/s [100, 1000]
+		image_width = 2024;
+		image_height = 1088;
+
+		// parametri intrinseci della telecamera
+		cameraMatrix = Mat::zeros(3, 3, CV_64F);
+		cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
+		cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
+		cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
+		cameraMatrix.at<double>(1, 2) = 480.016; // Cy
+		cameraMatrix.at<double>(2, 2) = 1;
+
+		distortion = Mat::zeros(5, 1, CV_64F);
+		distortion.at<double>(0, 0) = -0.0506472;
+		distortion.at<double>(1, 0) = -1.45132;
+		distortion.at<double>(2, 0) = 0.000868025;
+		distortion.at<double>(3, 0) = 0.00298601;
+		distortion.at<double>(4, 0) = 8.92225;
+
+
+		/*// Read input parameters
+		FileStorage fs("parameters.yml", FileStorage::READ);
+		if (fs.isOpened())
+		{
+		fs["Number of calibration images"] >> numb_calib_image;
+		fs["Image file extension"] >> image_ext;
+		fs["Pattern size"] >> pattern_size;
+		fs["Square size"] >> square_size;
+		fs["Test image file extension"] >> test_image_ext;
+		}
+		else
+		{
+		cout << "Error: cannot read the parameters" << endl;
+		return -1;
+		}
+
+		// Save calibration data on disk
+		FileStorage fs("stereo_calib_data.yml", FileStorage::WRITE);
+		if (fs.isOpened())
+		{
+		fs << "rms_1" << rms_1;
+		fs << "rms_2" << rms_2;
+		fs << "rms" << rms;
+		fs << "Camera_matrix_left" << camera_matrix[0];
+		fs << "Camera_matrix_right" << camera_matrix[1];
+		fs << "Dist_coeff_left" << dist_coeff[0];
+		fs << "Dist_coeff_right" << dist_coeff[1];
+		fs << "Rotation_matrix" << R;
+		fs << "Traslation_vector" << T;
+		fs << "Essential_matrix" << E;
+		fs << "Fundamental_matrix" << F;
+		fs.release();
+		}
+		else
+		{
+		cout << "Error: cannot save the parameters" << endl;
+		return -1;
+		}
+
+		*/
+	}
+
 void merge(float *a, int *b, int low, int high, int mid, float *c, int *d)
 {
 	int i = low;
@@ -1076,8 +1149,8 @@ int drawLaserImage(PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height
 }
 
 void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scanDirection,
-					int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits, float distance_laser_camera,
-					float* min_point_triangle, int sensor_pixel_height, int sensor_pixel_width) {
+					int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits, Mat &cameraMatrix, Mat &distortion,
+					float distance_laser_camera, float* min_point_triangle, int sensor_pixel_height, int sensor_pixel_width) {
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
 	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
@@ -1133,22 +1206,6 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 	std::vector<Point3d> points;
 	std::vector<Point2d> output_point;
 
-
-	// parametri intrinseci della telecamera
-	Mat cameraMatrix = Mat::zeros(3, 3, CV_64F);
-	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
-	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
-	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
-	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
-	cameraMatrix.at<double>(2, 2) = 1;
-
-	Mat distortion(5, 1, CV_64F);
-	distortion.at<double>(0, 0) = -0.0506472;
-	distortion.at<double>(1, 0) = -1.45132;
-	distortion.at<double>(2, 0) = 0.000868025;
-	distortion.at<double>(3, 0) = 0.00298601;
-	distortion.at<double>(4, 0) = 8.92225;
-
 	for (int i = 0; i < cloudIntersection->size(); i++) {
 		Eigen::Vector4f v_point, v_point_final;
 		v_point[0] = cloudIntersection->points[i].x;
@@ -1195,26 +1252,11 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 }
 
 
-void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, PointXYZ pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension, PointCloud<PointXYZ>::Ptr cloud_out) {
+void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, PointXYZ pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
+					Mat &cameraMatrix, Mat &distortion, PointCloud<PointXYZ>::Ptr cloud_out) {
 	PointXYZ point;
 	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
 	float x_sensor_origin, y_sensor_origin;
-
-	Mat cameraMatrix;
-	// parametri intrinseci della telecamera
-	cameraMatrix = Mat::zeros(3, 3, CV_64F);
-	cameraMatrix.at<double>(0, 0) = 4615.04; // Fx
-	cameraMatrix.at<double>(1, 1) = 4615.51; // Fy
-	cameraMatrix.at<double>(0, 2) = 1113.41; // Cx
-	cameraMatrix.at<double>(1, 2) = 480.016; // Cy
-	cameraMatrix.at<double>(2, 2) = 1;
-
-	Mat distortion(5, 1, CV_64F);
-	distortion.at<double>(0, 0) = -0.0506472;
-	distortion.at<double>(1, 0) = -1.45132;
-	distortion.at<double>(2, 0) = 0.000868025;
-	distortion.at<double>(3, 0) = 0.00298601;
-	distortion.at<double>(4, 0) = 8.92225;
 
 	float delta_x = ((image->cols / 2) - cameraMatrix.at<double>(0, 2)) * PIXEL_DIMENSION;
 	float delta_y = ((image->rows / 2) - cameraMatrix.at<double>(1, 2)) * PIXEL_DIMENSION;
@@ -1331,72 +1373,21 @@ int main(int argc, char** argv)
 	// Load STL file as a PolygonMesh
 	PolygonMesh mesh;
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
-	Mat image;
+	Mat image, cameraMatrix, distortion;
 	OpenCLDATA openCLData;
 	Triangle* all_triangles;
 
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 	PointXYZRGB laser_final_point_left, laser_final_point_right;
 
-	float distance_laser_camera = 600.f;	// [500, 800]
-	float distance_mesh_pinhole = 1200.f;   // altezza rispetto all'oggetto
-	float laser_aperture = 45.f;			// [30, 45]
-	float laser_inclination = 60.f;			// [60, 70]
-	float RAY_DENSITY = 0.0015f;
-
-	float camera_fps = 100.f;				// fps  [100, 500]
-	float scan_speed = 100.f;				// mm/s [100, 1000]
-	int image_width = 2024;
-	int image_height = 1088;
-
-	float sensor_width = image_width * PIXEL_DIMENSION;
-	float sensor_height = image_height * PIXEL_DIMENSION;
-
-
+	float distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, RAY_DENSITY, camera_fps, scan_speed;
+	int image_width, image_height;
+	
+	// Read the data from XML params file
+	readParamsFromXML(distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, RAY_DENSITY, camera_fps, scan_speed, image_width, image_height, 
+		cameraMatrix, distortion);
 	float DIRECTION_TAN_LASER_INCLINATION = tan(deg2rad(90 - laser_inclination));
 	float DIRECTION_TAN_LASER_APERTURE = tan(deg2rad(laser_aperture / 2));
-
-
-	/*// Read input parameters
-	FileStorage fs("parameters.yml", FileStorage::READ);
-	if (fs.isOpened())
-	{
-		fs["Number of calibration images"] >> numb_calib_image;
-		fs["Image file extension"] >> image_ext;
-		fs["Pattern size"] >> pattern_size;
-		fs["Square size"] >> square_size;
-		fs["Test image file extension"] >> test_image_ext;
-	}
-	else
-	{
-		cout << "Error: cannot read the parameters" << endl;
-		return -1;
-	}
-	
-		// Save calibration data on disk
-	FileStorage fs("stereo_calib_data.yml", FileStorage::WRITE);
-	if (fs.isOpened())
-	{
-		fs << "rms_1" << rms_1;
-		fs << "rms_2" << rms_2;
-		fs << "rms" << rms;
-		fs << "Camera_matrix_left" << camera_matrix[0];
-		fs << "Camera_matrix_right" << camera_matrix[1];
-		fs << "Dist_coeff_left" << dist_coeff[0];
-		fs << "Dist_coeff_right" << dist_coeff[1];
-		fs << "Rotation_matrix" << R;
-		fs << "Traslation_vector" << T;
-		fs << "Essential_matrix" << E;
-		fs << "Fundamental_matrix" << F;
-		fs.release();
-	}
-	else
-	{
-		cout << "Error: cannot save the parameters" << endl;
-		return -1;
-	}
-	
-	*/
 
 
 	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
@@ -1515,10 +1506,10 @@ int main(int argc, char** argv)
 		//cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
 
 		//****************** Converto la point cloud in un immagine **********************
-		getCameraFrame(pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, scanDirection, 
-						size_array, &openCLData, all_triangles, output_points, output_hits, distance_laser_camera, min_point_triangle, image_height, image_width);
+		getCameraFrame(pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, scanDirection, size_array, &openCLData, all_triangles, output_points, 
+			output_hits, cameraMatrix, distortion, distance_laser_camera, min_point_triangle, image_height, image_width);
 
-		generatePointCloudFromImageMauro2(&plane2, &plane1, pin_hole, &image, 0, image_height / 2, image_height / 2, cloud_out);
+		generatePointCloudFromImageMauro2(&plane2, &plane1, pin_hole, &image, 0, image_height / 2, image_height / 2, cameraMatrix, distortion, cloud_out);
 
 
 		for (int i = 0; i < cloud_intersection->size(); i++)
