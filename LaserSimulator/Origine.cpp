@@ -282,7 +282,7 @@ void initializeMinMaxPoints(PolygonMesh mesh, int* min_point_triangle_index, flo
 	}
 }
 
-void initializeLaser(PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float distance_laser_camera, float distance_laser_mesh, float DIRECTION_TAN_LASER_INCLINATION, int scanDirection) {
+void initializePinHole(PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, PointXYZ* pin_hole, float distance_laser_camera, float distance_laser_mesh, float DIRECTION_TAN_LASER_INCLINATION, int scanDirection) {
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
 		laser_origin_1->z = max_z + distance_laser_mesh;
@@ -292,6 +292,10 @@ void initializeLaser(PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float d
 		laser_origin_2->z = laser_origin_1->z;
 		laser_origin_2->x = laser_origin_1->x;
 		laser_origin_2->y = laser_origin_1->y - 2 * distance_laser_camera;
+
+		pin_hole->x = laser_origin_1->x;
+		pin_hole->y = laser_origin_1->y - distance_laser_camera;
+		pin_hole->z = laser_origin_1->z;
 
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
@@ -303,26 +307,30 @@ void initializeLaser(PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float d
 		laser_origin_2->z = laser_origin_1->z;
 		laser_origin_2->y = laser_origin_1->y;
 		laser_origin_2->x = laser_origin_1->x - 2 * distance_laser_camera;
+
+		pin_hole->x = laser_origin_1->x - distance_laser_camera;
+		pin_hole->y = laser_origin_1->y;
+		pin_hole->z = laser_origin_1->z;
 	}
 }
 
-void initializePinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float position, float distance_laser_camera, int scanDirection) {
+void setPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float current_position, float distance_laser_camera, int scanDirection) {
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
 	{
-		laser_origin_1->y = position;
-		laser_origin_2->y = position - 2 * distance_laser_camera;
-
-		//calcola valori pin hole
+		pin_hole->y = current_position;
 		pin_hole->x = laser_origin_1->x;
-		pin_hole->y = laser_origin_1->y - distance_laser_camera;
+
+		laser_origin_1->y = pin_hole->y + distance_laser_camera;
+		laser_origin_2->y = pin_hole->y - distance_laser_camera;
+
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_X)
 	{
-		laser_origin_1->x = position;
-		laser_origin_2->x = position - 2 * distance_laser_camera;
-
+		pin_hole->x = current_position;
 		pin_hole->y = laser_origin_1->y;
-		pin_hole->x = laser_origin_1->x - distance_laser_camera;
+
+		laser_origin_1->x = pin_hole->x + distance_laser_camera;
+		laser_origin_2->x = pin_hole->x - distance_laser_camera;
 
 	}
 	pin_hole->z = laser_origin_1->z;
@@ -1187,8 +1195,7 @@ void getCameraFrame(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 }
 
 
-void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, PointXYZ pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension, 
-	int sensor_pixel_width, int sensor_pixel_height, float sensor_width, float sensor_height, PointCloud<PointXYZ>::Ptr cloud_out) {
+void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, PointXYZ pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension, PointCloud<PointXYZ>::Ptr cloud_out) {
 	PointXYZ point;
 	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
 	float x_sensor_origin, y_sensor_origin;
@@ -1209,27 +1216,27 @@ void generatePointCloudFromImageMauro2(Plane* plane1, Plane* plane2, PointXYZ pi
 	distortion.at<double>(3, 0) = 0.00298601;
 	distortion.at<double>(4, 0) = 8.92225;
 
-	float delta_x = ((sensor_pixel_width / 2) - cameraMatrix.at<double>(0, 2)) * PIXEL_DIMENSION;
-	float delta_y = ((sensor_pixel_height / 2) - cameraMatrix.at<double>(1, 2)) * PIXEL_DIMENSION;
+	float delta_x = ((image->cols / 2) - cameraMatrix.at<double>(0, 2)) * PIXEL_DIMENSION;
+	float delta_y = ((image->rows / 2) - cameraMatrix.at<double>(1, 2)) * PIXEL_DIMENSION;
 
-	float focal_length_x = cameraMatrix.at<double>(0, 0) * sensor_width / sensor_pixel_width;
-	float focal_length_y = cameraMatrix.at<double>(1, 1) * sensor_height / sensor_pixel_height;
+	float focal_length_x = cameraMatrix.at<double>(0, 0) * PIXEL_DIMENSION;
+	float focal_length_y = cameraMatrix.at<double>(1, 1) * PIXEL_DIMENSION;
 	float focal_length = (focal_length_x + focal_length_y) / 2;
 
 	if (scanDirection == DIRECTION_SCAN_AXIS_X) {
-		x_sensor_origin = pin_hole.x - (sensor_height) / 2 - delta_x;
-		y_sensor_origin = pin_hole.y - (sensor_width) / 2 - delta_y;
+		x_sensor_origin = pin_hole.x - (image->rows * PIXEL_DIMENSION) / 2 - delta_x;
+		y_sensor_origin = pin_hole.y - (image->cols * PIXEL_DIMENSION) / 2 - delta_y;
 	}
 	if (scanDirection == DIRECTION_SCAN_AXIS_Y) {
-		x_sensor_origin = pin_hole.x + (sensor_width) / 2 - delta_x;
-		y_sensor_origin = pin_hole.y - (sensor_height) / 2 - delta_y;
+		x_sensor_origin = pin_hole.x + (image->cols * PIXEL_DIMENSION) / 2 - delta_x;
+		y_sensor_origin = pin_hole.y - (image->rows * PIXEL_DIMENSION) / 2 - delta_y;
 	}
 
 	Mat image_undistort;
 	undistort(*image, image_undistort, cameraMatrix, distortion);
 	flip(image_undistort, *image, 0); // altrimenti la cloud viene rovescia
 
-									  // Creo la point cloud del sensore a partire dall'immagine
+	// Creo la point cloud del sensore a partire dall'immagine
 	for (int j = 0; j < image->cols; j++)
 	{
 		for (int i = roi1_start; i < roi1_start + roi_dimension; i++)
@@ -1414,39 +1421,11 @@ int main(int argc, char** argv)
 	mergesort(min_point_triangle, min_point_triangle_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
 	delete[] tmp_a, tmp_b; // elimino gli array temporanei
 
-	// Inizializza il laser
-	initializeLaser(&laser_origin_1, &laser_origin_2, distance_laser_camera, distance_mesh_pinhole, DIRECTION_TAN_LASER_INCLINATION, scanDirection);
-
 	// Disegno i laser
 	//drawLine(cloud_intersection, laser_point, Eigen::Vector3f(0, -DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
 	//drawLine(cloud_intersection, laser_point_2, Eigen::Vector3f(0, DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
 
-	// Questo valore varia da 0,2 a 10 frame per mm
-	float increment = scan_speed / camera_fps;
-
-	float final_pos;
-
-	// ATTENZIONE: al verso di scansione
-	float position_step;
-
-	if (scanDirection == DIRECTION_SCAN_AXIS_X)
-	{
-		position_step = laser_origin_1.x;
-		final_pos = min_x - (laser_origin_1.x - max_x);
-	}
-
-	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
-	{
-		position_step = laser_origin_1.y;
-		final_pos = min_y - (laser_origin_1.y - max_y);
-	}
-
-	cout << "position_step:" << position_step << endl;
-
-
-	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
-	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
-
+	
 	//************************ OpenCL Loading ***************************//
 	int array_size_hits = (int)(ceil(mesh.polygons.size() / (float)RUN));
 	int size_array = mesh.polygons.size();
@@ -1474,23 +1453,45 @@ int main(int argc, char** argv)
 	}
 
 	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl;
-	float numero_iterazioni = (laser_origin_2.y - final_pos) / increment;
 
-	//position_step = laser_origin_1.y - 500;
+
+	// Inizializza il laser
+	initializePinHole(&laser_origin_1, &laser_origin_2, &pin_hole, distance_laser_camera, distance_mesh_pinhole, DIRECTION_TAN_LASER_INCLINATION, scanDirection);
+
+	// Questo valore varia da 0,2 a 10 frame per mm
+	float increment = scan_speed / camera_fps;
+	float final_pos;
+
+	// ATTENZIONE: al verso di scansione
+	float current_position;
+
+	if (scanDirection == DIRECTION_SCAN_AXIS_X)
+	{
+		current_position = pin_hole.x;
+		final_pos = min_x - (laser_origin_1.x - max_x);
+	}
+
+	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	{
+		current_position = pin_hole.y;
+		final_pos = min_y - (laser_origin_1.y - max_y);
+	}
+
+	//cout << "position_step:" << position_step << endl;
+	float number_of_iteration = (laser_origin_2.y - final_pos) / increment;
+	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
+
 	for (int z = 0; laser_origin_2.y > final_pos; z++) //laser_origin_2.y > final_pos
 	{
-		
-		printProgBar((int) ((z / numero_iterazioni) * 100));
-		cout << z << " of " << numero_iterazioni;
+		printProgBar((int) ((z / number_of_iteration) * 100));
+		cout << z << " of " << (int)(number_of_iteration + 0.5);
 		//cout << "Z->" << z << " ";
 		//cout << "position_step: " << position_step << endl;
 
 		// Inizializza il Pin Hole e imposta la posizione iniziale del laser
-		initializePinHole(&pin_hole, &laser_origin_1, &laser_origin_2, position_step, distance_laser_camera, scanDirection);
-		position_step -= increment;
-
-		//cout << "Laser_point 1 x:" << laser_point.x << " y:" << laser_point.y << " z:" << laser_point.z << endl;
-		//cout << "Laser_point 2 x:" << laser_point_2.x << " y:" << laser_point_2.y << " z:" << laser_point_2 .z << endl;
+		setPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, distance_laser_camera, scanDirection);
+		current_position -= increment;
 
 		Plane plane1, plane2;
 
@@ -1517,8 +1518,7 @@ int main(int argc, char** argv)
 		getCameraFrame(pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, scanDirection, 
 						size_array, &openCLData, all_triangles, output_points, output_hits, distance_laser_camera, min_point_triangle, image_height, image_width);
 
-		generatePointCloudFromImageMauro2(&plane2, &plane1, pin_hole, &image, 0, image_height / 2, image_height / 2, image_width, image_height,
-			sensor_width, sensor_height, cloud_out);
+		generatePointCloudFromImageMauro2(&plane2, &plane1, pin_hole, &image, 0, image_height / 2, image_height / 2, cloud_out);
 
 
 		for (int i = 0; i < cloud_intersection->size(); i++)
@@ -1527,7 +1527,7 @@ int main(int argc, char** argv)
 		cloud_intersection->~PointCloud();
 
 	}
-	cout << "Punti cloud_test " << cloud_test->points.size() << endl;
+	cout << endl << "Punti cloud_test " << cloud_test->points.size() << endl;
 	cout << "Punti cloud_out " << cloud_out->points.size() << endl;
 
 	io::savePCDFileASCII("all_intersection_cloud.pcd", *cloud_test);
