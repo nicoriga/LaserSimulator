@@ -988,7 +988,6 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		Vect3d origin_ray(ray_origin.points[X], ray_origin.points[Y], ray_origin.points[Z]);
 		Vect3d direction_ray(ray_direction.points[d1], ray_direction.points[d2], ray_direction.points[Z]);
 
-#pragma omp parallel for
 		for (int k = 0; k < big_triangles.size(); k++)
 		{
 			//triangle = mesh.polygons.at(min_poligon_index[k]);
@@ -1006,7 +1005,6 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 
 			if (triangle_intersection(vertex1, vertex2, vertex3, origin_ray, direction_ray, &out, intersection_point) != 0)
 			{
-#pragma omp critical
 				if (intersection_point[2] >= firstIntersection.z)
 				{
 
