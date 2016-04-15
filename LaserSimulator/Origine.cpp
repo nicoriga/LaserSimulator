@@ -66,8 +66,8 @@ PointXYZRGB laser_final_point_left, laser_final_point_right;
 int scanDirection = DIRECTION_SCAN_AXIS_Y;
 float distance_laser_sensor = 600.f;	// [500, 800]
 float laser_aperture = 45.f;			// [30, 45]
-float laser_inclination = 60.f;			// [60, 70]
-float delta_z = 1200.f;					// 600 altezza rispetto all'oggetto
+float laser_inclination = 70.f;			// [60, 70]
+float delta_z = 1800.f;					// 600 altezza rispetto all'oggetto
 float RAY_DENSITY = 0.0015f;
 
 float camera_fps = 100.f;				// fps  [100, 500]
