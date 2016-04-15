@@ -66,8 +66,8 @@ PointXYZRGB laser_final_point_left, laser_final_point_right;
 int scanDirection = DIRECTION_SCAN_AXIS_Y;
 float distance_laser_sensor = 600.f;	// [500, 800]
 float laser_aperture = 45.f;			// [30, 45]
-float laser_inclination = 70.f;			// [60, 70]
-float delta_z = 1800.f;					// 600 altezza rispetto all'oggetto
+float laser_inclination = 60.f;			// [60, 70]
+float delta_z = 1200.f;					// 600 altezza rispetto all'oggetto
 float RAY_DENSITY = 0.0015f;
 
 float camera_fps = 100.f;				// fps  [100, 500]
@@ -120,7 +120,7 @@ struct OpenCLDATA {
 	std::vector<cl::Platform> platforms;
 };
 
-Vec3 checkTriangle(Triangle triangles) {
+Vec3 calculateEdges(Triangle triangles) {
 
 	float diff_x, diff_y, diff_z;
 	Vec3 ret;
@@ -651,7 +651,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
 		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -1363,7 +1363,32 @@ int main(int argc, char** argv)
 	{
 		cout << "Error: cannot read the parameters" << endl;
 		return -1;
-	}*/
+	}
+	
+		// Save calibration data on disk
+	FileStorage fs("stereo_calib_data.yml", FileStorage::WRITE);
+	if (fs.isOpened())
+	{
+		fs << "rms_1" << rms_1;
+		fs << "rms_2" << rms_2;
+		fs << "rms" << rms;
+		fs << "Camera_matrix_left" << camera_matrix[0];
+		fs << "Camera_matrix_right" << camera_matrix[1];
+		fs << "Dist_coeff_left" << dist_coeff[0];
+		fs << "Dist_coeff_right" << dist_coeff[1];
+		fs << "Rotation_matrix" << R;
+		fs << "Traslation_vector" << T;
+		fs << "Essential_matrix" << E;
+		fs << "Fundamental_matrix" << F;
+		fs.release();
+	}
+	else
+	{
+		cout << "Error: cannot save the parameters" << endl;
+		return -1;
+	}
+	
+	*/
 
 
 	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
@@ -1436,7 +1461,7 @@ int main(int argc, char** argv)
 	float projection_distance = (max_z - min_z) * DIRECTION_TAN_LASER_INCLINATION;
 
 	for (int i = 0; i < size_array; i++) {
-		coord = checkTriangle(all_triangles[i]);
+		coord = calculateEdges(all_triangles[i]);
 		if (coord.points[0] > projection_distance || coord.points[1] > projection_distance || coord.points[2] > projection_distance)
 			big_triangles_vec.push_back(all_triangles[i]);
 	}
