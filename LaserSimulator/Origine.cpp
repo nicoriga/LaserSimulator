@@ -1295,6 +1295,7 @@ void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, PointXYZ pin
 	}
 }
 
+
 void printProgBar(int percent) {
 	string bar;
 
@@ -1402,12 +1403,14 @@ int main(int argc, char** argv)
 	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl;
 
 
-	// Inizializza il laser
+	// Initialize initial position for camera and lasers
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, distance_laser_camera, distance_mesh_pinhole,
 						direction_tan_laser_incl, scan_direction, min_x, min_y, min_z, max_x, max_y, max_z);
 
 	// Questo valore varia da 0,2 a 10 frame per mm
 	float increment = scan_speed / camera_fps;
+	
+	
 	float final_pos;
 
 	// ATTENZIONE: al verso di scansione
