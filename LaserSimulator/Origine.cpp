@@ -117,81 +117,40 @@ Vec3 calculateEdges(Triangle triangles) {
 	return ret;
 };
 
-void readParamsFromXML(float &distance_laser_camera, float &distance_mesh_pinhole, float &laser_aperture, float &laser_inclination, float &RAY_DENSITY, float &camera_fps, 
-	float &scan_speed, int &image_width, int &image_height, Mat &camera_matrix, Mat &distortion, int &scan_direction, bool &snapshot_save_flag)
+void readParamsFromXML(float *distance_laser_camera, float *distance_mesh_pinhole, float *laser_aperture, float *laser_inclination, float *RAY_DENSITY, float *camera_fps, 
+	float *scan_speed, int *image_width, int *image_height, Mat *camera_matrix, Mat *distortion, int *scan_direction, bool *snapshot_save_flag)
 	{
 
-		distance_laser_camera = 600.f;	// [500, 800]
-		distance_mesh_pinhole = 1200.f;   // altezza rispetto all'oggetto
-		laser_aperture = 45.f;			// [30, 45]
-		laser_inclination = 60.f;			// [60, 70]
-		RAY_DENSITY = 0.0015f;
+		*distance_laser_camera = 600.f;	// [500, 800]
+		*distance_mesh_pinhole = 1200.f;   // altezza rispetto all'oggetto
+		*laser_aperture = 45.f;			// [30, 45]
+		*laser_inclination = 60.f;			// [60, 70]
+		*RAY_DENSITY = 0.0015f;
 
-		camera_fps = 100.f;				// fps  [100, 500]
-		scan_speed = 100.f;				// mm/s [100, 1000]
-		image_width = 2024;
-		image_height = 1088;
+		*camera_fps = 100.f;				// fps  [100, 500]
+		*scan_speed = 100.f;				// mm/s [100, 1000]
+		*image_width = 2024;
+		*image_height = 1088;
 
-		scan_direction = DIRECTION_SCAN_AXIS_Y;
+		*scan_direction = DIRECTION_SCAN_AXIS_Y;
 
-		snapshot_save_flag = FALSE;
+		*snapshot_save_flag = FALSE;
 
 		// parametri intrinseci della telecamera
-		camera_matrix = Mat::zeros(3, 3, CV_64F);
-		camera_matrix.at<double>(0, 0) = 4615.04; // Fx
-		camera_matrix.at<double>(1, 1) = 4615.51; // Fy
-		camera_matrix.at<double>(0, 2) = 1113.41; // Cx
-		camera_matrix.at<double>(1, 2) = 480.016; // Cy
-		camera_matrix.at<double>(2, 2) = 1;
+		*camera_matrix = Mat::zeros(3, 3, CV_64F);
+		camera_matrix->at<double>(0, 0) = 4615.04; // Fx
+		camera_matrix->at<double>(1, 1) = 4615.51; // Fy
+		camera_matrix->at<double>(0, 2) = 1113.41; // Cx
+		camera_matrix->at<double>(1, 2) = 480.016; // Cy
+		camera_matrix->at<double>(2, 2) = 1;
 
-		distortion = Mat::zeros(5, 1, CV_64F);
-		distortion.at<double>(0, 0) = -0.0506472;
-		distortion.at<double>(1, 0) = -1.45132;
-		distortion.at<double>(2, 0) = 0.000868025;
-		distortion.at<double>(3, 0) = 0.00298601;
-		distortion.at<double>(4, 0) = 8.92225;
+		*distortion = Mat::zeros(5, 1, CV_64F);
+		distortion->at<double>(0, 0) = -0.0506472;
+		distortion->at<double>(1, 0) = -1.45132;
+		distortion->at<double>(2, 0) = 0.000868025;
+		distortion->at<double>(3, 0) = 0.00298601;
+		distortion->at<double>(4, 0) = 8.92225;
 
-
-		/*// Read input parameters
-		FileStorage fs("parameters.yml", FileStorage::READ);
-		if (fs.isOpened())
-		{
-		fs["Number of calibration images"] >> numb_calib_image;
-		fs["Image file extension"] >> image_ext;
-		fs["Pattern size"] >> pattern_size;
-		fs["Square size"] >> square_size;
-		fs["Test image file extension"] >> test_image_ext;
-		}
-		else
-		{
-		cout << "Error: cannot read the parameters" << endl;
-		return -1;
-		}
-
-		// Save calibration data on disk
-		FileStorage fs("stereo_calib_data.yml", FileStorage::WRITE);
-		if (fs.isOpened())
-		{
-		fs << "rms_1" << rms_1;
-		fs << "rms_2" << rms_2;
-		fs << "rms" << rms;
-		fs << "Camera_matrix_left" << camera_matrix[0];
-		fs << "Camera_matrix_right" << camera_matrix[1];
-		fs << "Dist_coeff_left" << dist_coeff[0];
-		fs << "Dist_coeff_right" << dist_coeff[1];
-		fs << "Rotation_matrix" << R;
-		fs << "Traslation_vector" << T;
-		fs << "Essential_matrix" << E;
-		fs << "Fundamental_matrix" << F;
-		fs.release();
-		}
-		else
-		{
-		cout << "Error: cannot save the parameters" << endl;
-		return -1;
-		}
-
-		*/
 	}
 
 void arraysMerge(float *a, int *b, int low, int high, int mid, float *c, int *d)
@@ -983,10 +942,10 @@ bool checkOcclusion(PointXYZRGB point, PointXYZ pin_hole, float* min_point_trian
 	3. cerco intersezione tra il raggio e i triangoli
 	5. interseca con un triangolo?
 	Falso -> return 0
-	Vero -> verifico che non sia lo stesso triangolo confrontando i vertici
 	return 1
 
 	*/
+
 	Vec3 origin;
 	origin.points[X] = point.x;
 	origin.points[Y] = point.y;
@@ -1020,12 +979,12 @@ bool checkOcclusion(PointXYZRGB point, PointXYZ pin_hole, float* min_point_trian
 		for (int k = 0; k < n_max; k++)
 		{
 			if (output_hits[k] == 1)
-				return 0;
+				return FALSE;
 		}
 
 	}
 
-	return 1;
+	return TRUE;
 }
 
 /*int drawLaserImage(int scan_direction, PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_projection) {
@@ -1173,7 +1132,7 @@ void cameraSnapshot(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 		0, 1, 0,
 		0, 0, 1);
 	Mat rotatVec= (cv::Mat_<double>(3, 1) << 0, 0, 0);
-	//cv::Rodrigues(rotatMat, rotatVec);
+
 
 	if (cloudIntersection->size() > 0) {
 		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), camera_matrix, distortion, output_point);
@@ -1199,7 +1158,7 @@ void cameraSnapshot(const PointXYZ pin_hole, const PointXYZ laser_1, const Point
 }
 
 
-void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, PointXYZ pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
+void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, const PointXYZ &pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
 					const Mat &camera_matrix, const Mat &distortion, PointCloud<PointXYZ>::Ptr cloud_out) {
 	PointXYZ point;
 	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
@@ -1334,8 +1293,9 @@ int main(int argc, char** argv)
 	bool snapshot_save_flag;
 	
 	// Read the data from XML params file
-	readParamsFromXML(distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, ray_density, camera_fps, scan_speed,
-						image_width, image_height, camera_matrix, distortion, scan_direction, snapshot_save_flag);
+	readParamsFromXML(&distance_laser_camera, &distance_mesh_pinhole, &laser_aperture, &laser_inclination, &ray_density, &camera_fps, &scan_speed,
+						&image_width, &image_height, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag);
+
 	float direction_tan_laser_incl = tan(deg2rad(90 - laser_inclination));
 	float direction_tan_laser_apert = tan(deg2rad(laser_aperture / 2));
 
