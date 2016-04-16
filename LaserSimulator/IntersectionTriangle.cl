@@ -19,9 +19,9 @@ typedef struct
 	Vec3 vertex3;
 } Triangle;
 
-float DOT( Vec3 v1, Vec3 v2 ) { return v1.points[X]* v2.points[X] + v1.points[Y] * v2.points[Y] + v1.points[Z] * v2.points[Z]; }
+float DOT(Vec3 v1, Vec3 v2) { return v1.points[X]* v2.points[X] + v1.points[Y] * v2.points[Y] + v1.points[Z] * v2.points[Z]; }
 
-Vec3 SUB( Vec3 v1, Vec3 v2 ) 
+Vec3 SUB(Vec3 v1, Vec3 v2) 
 { 
 	Vec3 v;
 	v.points[X] = v1.points[X] - v2.points[X];
@@ -30,7 +30,7 @@ Vec3 SUB( Vec3 v1, Vec3 v2 )
 	return v;
 }
 
-Vec3 ADD(Vec3 v1, Vec3 v2 ) 
+Vec3 ADD(Vec3 v1, Vec3 v2) 
 { 
 	Vec3 v;
 	v.points[X] = v1.points[X] + v2.points[X];
@@ -40,7 +40,7 @@ Vec3 ADD(Vec3 v1, Vec3 v2 )
 }
 
 
-Vec3 CROSS(Vec3 a, Vec3 b ) 
+Vec3 CROSS(Vec3 a, Vec3 b) 
 { 
 	Vec3 v;
 	v.points[X] = a.points[Y] * b.points[Z] - a.points[Z] * b.points[Y];
@@ -49,7 +49,7 @@ Vec3 CROSS(Vec3 a, Vec3 b )
 	return v;
 }
 
-Vec3 MUL(Vec3 v,float f){ 
+Vec3 MUL(Vec3 v, float f){ 
 	v.points[X] = v.points[X] * f;
 	v.points[Y] = v.points[Y] * f;
 	v.points[Z] = v.points[Z] * f;
@@ -57,6 +57,7 @@ Vec3 MUL(Vec3 v,float f){
 
 }
 
+// Moller-Trumbore intersection algorithm
 inline int triangle_intersection( Vec3   V1,  // Triangle vertices
 						   Vec3   V2,
 						   Vec3   V3,
@@ -99,14 +100,12 @@ Vec3 P, Q, T;
   t = DOT(e2, Q) * inv_det;
 
   if(t > EPSILON) { //ray intersection
-	//*out = t;
 
 	*hit_point = ADD(O, MUL(D, t));
 
 	return 1;
   }
 
-  // No hit, no win
   return 0;
 }
 
