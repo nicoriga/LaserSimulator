@@ -87,8 +87,8 @@ struct OpenCLDATA {
 	cl::Kernel kernel;
 	cl::Program program_;
 
-	std::vector<cl::Device> devices;
-	std::vector<cl::Platform> platforms;
+	vector<cl::Device> devices;
+	vector<cl::Platform> platforms;
 };
 
 Vec3 calculateEdges(Triangle triangles) {
@@ -185,7 +185,7 @@ void arraysMerge(float *a, int *b, int low, int high, int mid, float *c, int *d)
 		d[k++] = b[j++];
 	}
 
-	for (i = low; i < k; i++)
+	for (i = low; i < k; ++i)
 	{
 		a[i] = c[i];
 		b[i] = d[i];
@@ -656,7 +656,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
 		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -1277,9 +1277,7 @@ void printProgBar(int percent) {
 
 int main(int argc, char** argv)
 {
-	// Load STL file as a PolygonMesh
 	PolygonMesh mesh;
-	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
 	Mat image, camera_matrix, distortion;
 	OpenCLDATA openCLData;
 	Triangle* all_triangles;
@@ -1292,21 +1290,21 @@ int main(int argc, char** argv)
 	int scan_direction;
 	bool snapshot_save_flag;
 	
-	// Read the data from XML params file
+	//********* Read data from XML parameters file ***************************************
 	readParamsFromXML(&distance_laser_camera, &distance_mesh_pinhole, &laser_aperture, &laser_inclination, &ray_density, &camera_fps, &scan_speed,
 						&image_width, &image_height, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag);
 
-	float direction_tan_laser_incl = tan(deg2rad(90 - laser_inclination));
-	float direction_tan_laser_apert = tan(deg2rad(laser_aperture / 2));
 
+	float direction_tan_laser_incl = tan(deg2rad(90.f - laser_inclination));
+	float direction_tan_laser_apert = tan(deg2rad(laser_aperture / 2.f));
 
-	// MIN MAX POINT
 	float min_x, min_y, min_z;
 	float max_x, max_y, max_z;
-
 	min_x = min_y = min_z = VTK_FLOAT_MAX;
 	max_x = max_y = max_z = VTK_FLOAT_MIN;
 
+
+	//********* Load STL file as a PolygonMesh *******************************************
 	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
@@ -1317,13 +1315,20 @@ int main(int argc, char** argv)
 	// Trova i punti di min e max per tutti gli assi della mesh
 	float *min_point_triangle = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
 	int *min_point_triangle_index = new int[mesh.polygons.size()];   // array per salvare l'indice di tali punti
+	
+
+	//********** Find minimum and mixiumum points of 3 axis and fill *********************
+	//********** arrays used to find minimum value on the direction axis *****************
 	calculateBoundariesAndArrayMin(scan_direction, mesh, min_point_triangle_index, min_point_triangle, &min_x, &min_y, &min_z, &max_x, &max_y, &max_z);
 
+
+	//********** Print minimum and maximum points of mesh ********************************
 	cout << "min_x:" << min_x << " max_x:" << max_x << endl;
 	cout << "min_y:" << min_y << " max_y:" << max_y << endl;
 	cout << "min_z:" << min_z << " max_z:" << max_z << endl;
 
-	// Ordino gli array per una ricerca più efficiente dei poligoni
+
+	//********** Sort arrays to have more efficency in the search ************************
 	float *tmp_a = new float[mesh.polygons.size()]; // li creo qui fuori perché creandoli ogni volta nella ricorsione
 	int *tmp_b = new int[mesh.polygons.size()];     // c'è un crash dovuto alla ricorsione dell'operatore new
 	arraysMergesort(min_point_triangle, min_point_triangle_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
@@ -1334,7 +1339,7 @@ int main(int argc, char** argv)
 	//drawLine(cloud_intersection, laser_point_2, Eigen::Vector3f(0, DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
 
 	
-	//************************ OpenCL Loading ***************************//
+	//************************ OpenCL Loading ********************************************
 	int array_size_hits = (int)(ceil(mesh.polygons.size() / (float)RUN));
 	int size_array = mesh.polygons.size();
 	all_triangles = new Triangle[size_array];
@@ -1343,7 +1348,8 @@ int main(int argc, char** argv)
 	prepareDataForOpenCL(mesh, all_triangles, min_point_triangle_index);
 	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
-	//************************ Ricerca triangoli "grandi" ***************************//
+
+	//************************ Find "big" triangles **************************************
 	vector<Triangle> big_triangles_vec;
 	Vec3 coord;
 	float projection_distance = (max_z - min_z) * direction_tan_laser_incl;
@@ -1356,51 +1362,55 @@ int main(int argc, char** argv)
 
 	Triangle* big_triangles = new Triangle[big_triangles_vec.size()];
 	for (int i = 0; i < big_triangles_vec.size(); i++)
-	{
 		big_triangles[i] = big_triangles_vec[i];
-	}
 
 	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl;
 
 
-	// Initialize initial position for camera and lasers
+	//**************** Initialize initial position for camera and lasers *****************
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, distance_laser_camera, distance_mesh_pinhole,
 						direction_tan_laser_incl, scan_direction, min_x, min_y, min_z, max_x, max_y, max_z);
 
 	// Questo valore varia da 0,2 a 10 frame per mm
 	float increment = scan_speed / camera_fps;
 	
-	
 	float final_pos;
 
 	// ATTENZIONE: al verso di scansione
 	float current_position;
+
 
 	if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		current_position = pin_hole.x;
 		final_pos = min_x - (laser_origin_1.x - max_x);
 	}
-
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		current_position = pin_hole.y;
 		final_pos = min_y - (laser_origin_1.y - max_y);
 	}
+	
+	// Iterations of the for cycle
+	float number_of_iterations = (laser_origin_2.y - final_pos) / increment;
 
-	//cout << "position_step:" << position_step << endl;
-	float number_of_iteration = (laser_origin_2.y - final_pos) / increment;
+
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection_backup(new PointCloud<PointXYZRGB>);
 
-	for (int z = 0; laser_origin_2.y > final_pos; z++) //laser_origin_2.y > final_pos
+
+	//************CORE OF THE PROJECT: this cycle simulates the laser scan. **************
+	//*********** Every iteration finds intersection with mesh, take a camera snapshot ***
+	//*********** and reconstruct the points in the 3D space *****************************
+	for (int z = 0; laser_origin_2.y > final_pos; z++) //laser_origin_2.y > final_pos*****
 	{
-		printProgBar((int) ((z / number_of_iteration) * 100));
-		cout << z << " of " << (int)(number_of_iteration + 0.5);
+		printProgBar((int) ((z / number_of_iterations) * 100));
+		cout << z << " of " << (int)(number_of_iterations + 0.5);
 		//cout << "Z->" << z << " ";
 		//cout << "position_step: " << position_step << endl;
 
-		// Inizializza il Pin Hole e imposta la posizione iniziale del laser
+		// Update position of pin hole and lasers
 		setLasersAndPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, distance_laser_camera, scan_direction);
 		current_position -= increment;
 
@@ -1409,22 +1419,24 @@ int main(int argc, char** argv)
 		//high_resolution_clock::time_point start;
 		//start = high_resolution_clock::now();
 
-		//****************** Cerco le intersezioni (Solo PCL) **********************
+		//************* Cerco le intersezioni (Solo PCL) *********************************
 		//findPointsMeshLaserIntersection(mesh, laser_point, ray_density, cloud_intersection, scanDirection, &plane1, LASER_1);
 		//findPointsMeshLaserIntersection(mesh, laser_point_2, ray_density, cloud_intersection, scanDirection, &plane2, LASER_2);
 		
 		
-		//****************** Look for intersection with mesh (PCL + OpenCL) **********************
-
+		//************* Look for intersection with mesh (PCL + OpenCL) *******************
+		// For laser 1
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_1, ray_density, cloud_intersection, 
 			scan_direction, &plane1, direction_tan_laser_apert, direction_tan_laser_incl, min_point_triangle, LASER_1, min_z, max_z);
+		// For laser 2
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_2, ray_density, cloud_intersection,
 			scan_direction, &plane2, direction_tan_laser_apert, direction_tan_laser_incl, min_point_triangle, LASER_2, min_z, max_z);
 
 		//duration<double> timer2 = high_resolution_clock::now() - start;
 		//cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
 
-		//****************** Take snapshot  **********************
+
+		//************** Take snapshot  **************************************************
 		cameraSnapshot(pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, scan_direction, size_array, &openCLData, all_triangles, output_points, 
 			output_hits, camera_matrix, distortion, distance_laser_camera, min_point_triangle, image_height, image_width);
 	
@@ -1433,12 +1445,11 @@ int main(int argc, char** argv)
 			imwrite("../imgOut/out_" + to_string(z) + ".png", image);
 
 
-
-		//****************** Convert image to point cloud **********************
+		//************** Convert image to point cloud ************************************
 		imageToCloud(scan_direction, &plane2, &plane1, pin_hole, &image, 0, image_height / 2, image_height / 2, camera_matrix, distortion, cloud_out);
 
 
-		//****************** Make a backup of point cloud that contains (all) intersections *********
+		//************** Make a backup of point cloud that contains (all) intersections **
 		for (int i = 0; i < cloud_intersection->size(); i++)
 			cloud_intersection_backup->push_back(cloud_intersection->at(i));
 
@@ -1447,10 +1458,12 @@ int main(int argc, char** argv)
 
 	}
 
-	cout << endl << "Punti cloud_test " << cloud_intersection_backup->points.size() << endl;
-	cout << "Punti cloud_out " << cloud_out->points.size() << endl;
 
-	//****************** Save clouds **************************************************
+	//****************** Points of the cloud *********************************************
+	cout << "Points of the cloud: " << cloud_out->points.size() << endl;
+
+
+	//****************** Save clouds *****************************************************
 	if (cloud_intersection_backup->size() > 0)
 	{
 		if (io::savePCDFileASCII("all_intersection_cloud.pcd", *cloud_intersection_backup) == 0)
@@ -1470,7 +1483,7 @@ int main(int argc, char** argv)
 
 	
 
-	// Create a PCLVisualizer
+	//****************** Visualize cloud *************************************************
 	visualization::PCLVisualizer viewer("viewer");
 	viewer.addCoordinateSystem(100, "viewer");
 	viewer.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
@@ -1481,5 +1494,3 @@ int main(int argc, char** argv)
 
 	return 0;
 }
-
-
