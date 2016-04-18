@@ -44,7 +44,6 @@ using boost::chrono::duration;
 
 #define DIRECTION_SCAN_AXIS_X 0
 #define DIRECTION_SCAN_AXIS_Y 1
-#define PIXEL_DIMENSION 0.0055 // mm
 #define LASER_1 -1
 #define LASER_2 1
 
@@ -118,7 +117,7 @@ Vec3 calculateEdges(const Triangle &triangles) {
 };
 
 void readParamsFromXML(float *distance_laser_camera, float *distance_mesh_pinhole, float *laser_aperture, float *laser_inclination, float *RAY_DENSITY, float *camera_fps, 
-	float *scan_speed, int *image_width, int *image_height, Mat *camera_matrix, Mat *distortion, int *scan_direction, bool *snapshot_save_flag, string *path_file)
+	float *scan_speed, int *image_width, int *image_height, float *pixel_dimension, Mat *camera_matrix, Mat *distortion, int *scan_direction, bool *snapshot_save_flag, string *path_file)
 	{
 
 		*distance_laser_camera = 600.f;	// [500, 800]
@@ -131,6 +130,7 @@ void readParamsFromXML(float *distance_laser_camera, float *distance_mesh_pinhol
 		*scan_speed = 100.f;				// mm/s [100, 1000]
 		*image_width = 2024;
 		*image_height = 1088;
+		*pixel_dimension = 0.0055;
 
 		*path_file = "../dataset/prodotto.stl";
 
@@ -990,73 +990,6 @@ bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* m
 	return TRUE;
 }
 
-/*int drawLaserImage(int scan_direction, PointXYZRGB pin_hole, Mat* image_out, int sensor_pixel_height, int sensor_pixel_width, PointCloud<PointXYZRGB>::Ptr cloud_projection) {
-	int image_point_added = 0;
-	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
-	float sensor_width = sensor_pixel_width * PIXEL_DIMENSION;
-	float sensor_height = sensor_pixel_height * PIXEL_DIMENSION;
-	float x_sensor_origin, y_sensor_origin;
-
-	// inizializza l'immagine bianca
-	for (int i = 0; i < sensor_pixel_height; i++)
-		for (int j = 0; j < sensor_pixel_width; j++) {
-			image.at<Vec3b>(i, j)[0] = 255;
-			image.at<Vec3b>(i, j)[1] = 255;
-			image.at<Vec3b>(i, j)[2] = 255;
-		}
-
-	if (scan_direction == DIRECTION_SCAN_AXIS_X) {
-		x_sensor_origin = pin_hole.x - (sensor_height) / 2;
-		y_sensor_origin = pin_hole.y - (sensor_width) / 2;
-
-		for (int i = 0; i < cloud_projection->points.size(); i++)
-		{
-			float x, y;
-			x = cloud_projection->points[i].x;
-			y = cloud_projection->points[i].y;
-
-			int x_pos = ((x - x_sensor_origin) / PIXEL_DIMENSION);
-			int y_pos = ((y - y_sensor_origin) / PIXEL_DIMENSION);
-
-			if (x_pos >= 0 && x_pos < sensor_pixel_height && y_pos >= 0 && y_pos < sensor_pixel_width) {
-
-				Vec3b & color = image.at<Vec3b>(x_pos, y_pos);
-				color[0] = 0;
-				color[1] = 0;
-				color[2] = 0;
-				image_point_added++;
-			}
-		}
-	}
-
-	if (scan_direction == DIRECTION_SCAN_AXIS_Y) {
-		x_sensor_origin = pin_hole.x + (sensor_width) / 2;
-		y_sensor_origin = pin_hole.y - (sensor_height) / 2;
-
-		for (int i = 0; i < cloud_projection->points.size(); i++)
-		{
-			float x, y;
-			x = cloud_projection->points[i].x;
-			y = cloud_projection->points[i].y;
-
-			int y_pos = ((x_sensor_origin - x) / PIXEL_DIMENSION);
-			int x_pos = ((y - y_sensor_origin) / PIXEL_DIMENSION);
-
-			if (x_pos >= 0 && x_pos < sensor_pixel_height && y_pos >= 0 && y_pos < sensor_pixel_width) {
-
-				Vec3b & color = image.at<Vec3b>(x_pos, y_pos);
-				color[0] = 0;
-				color[1] = 0;
-				color[2] = 0;
-				image_point_added++;
-			}
-		}
-	}
-	*image_out = image;
-
-	return image_point_added;
-}*/
-
 void cameraSnapshot(const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scan_direction,
 					int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits, const Mat &camera_matrix, const Mat &distortion,
 					float distance_laser_camera, float* min_point_triangle, int sensor_pixel_height, int sensor_pixel_width) {
@@ -1162,25 +1095,25 @@ void cameraSnapshot(const PointXYZ &pin_hole, const PointXYZ &laser_1, const Poi
 
 
 void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, const PointXYZ &pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
-					const Mat &camera_matrix, const Mat &distortion, PointCloud<PointXYZ>::Ptr cloud_out) {
+					float pixel_dimension, const Mat &camera_matrix, const Mat &distortion, PointCloud<PointXYZ>::Ptr cloud_out) {
 	PointXYZ point;
 	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
 	float x_sensor_origin, y_sensor_origin;
 
-	float delta_x = ((image->cols / 2) - camera_matrix.at<double>(0, 2)) * PIXEL_DIMENSION;
-	float delta_y = ((image->rows / 2) - camera_matrix.at<double>(1, 2)) * PIXEL_DIMENSION;
+	float delta_x = ((image->cols / 2) - camera_matrix.at<double>(0, 2)) * pixel_dimension;
+	float delta_y = ((image->rows / 2) - camera_matrix.at<double>(1, 2)) * pixel_dimension;
 	
-	float focal_length_x = camera_matrix.at<double>(0, 0) * PIXEL_DIMENSION;
-	float focal_length_y = camera_matrix.at<double>(1, 1) * PIXEL_DIMENSION;
+	float focal_length_x = camera_matrix.at<double>(0, 0) * pixel_dimension;
+	float focal_length_y = camera_matrix.at<double>(1, 1) * pixel_dimension;
 	float focal_length = (focal_length_x + focal_length_y) / 2;
 
 	if (scan_direction == DIRECTION_SCAN_AXIS_X) {
-		x_sensor_origin = pin_hole.x - (image->rows * PIXEL_DIMENSION) / 2 - delta_x;
-		y_sensor_origin = pin_hole.y - (image->cols * PIXEL_DIMENSION) / 2 - delta_y;
+		x_sensor_origin = pin_hole.x - (image->rows * pixel_dimension) / 2 - delta_x;
+		y_sensor_origin = pin_hole.y - (image->cols * pixel_dimension) / 2 - delta_y;
 	}
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y) {
-		x_sensor_origin = pin_hole.x + (image->cols * PIXEL_DIMENSION) / 2 - delta_x;
-		y_sensor_origin = pin_hole.y - (image->rows * PIXEL_DIMENSION) / 2 - delta_y;
+		x_sensor_origin = pin_hole.x + (image->cols * pixel_dimension) / 2 - delta_x;
+		y_sensor_origin = pin_hole.y - (image->rows * pixel_dimension) / 2 - delta_y;
 	}
 
 	Mat image_undistort;
@@ -1197,12 +1130,12 @@ void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, const PointX
 			if (color[0] !=255 && color[1] != 255 && color[2] != 255) {
 				// Posiziono i punti dell'immagine nel sensore virtuale
 				if (scan_direction == DIRECTION_SCAN_AXIS_X) {
-					point.x = i * PIXEL_DIMENSION + x_sensor_origin;
-					point.y = j * PIXEL_DIMENSION + y_sensor_origin;
+					point.x = i * pixel_dimension + x_sensor_origin;
+					point.y = j * pixel_dimension + y_sensor_origin;
 				}
 				if (scan_direction == DIRECTION_SCAN_AXIS_Y) {
-					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
-					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
+					point.x = x_sensor_origin - j * pixel_dimension;
+					point.y = i * pixel_dimension + y_sensor_origin;
 				}
 				point.z = pin_hole.z + focal_length;
 
@@ -1231,12 +1164,12 @@ void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, const PointX
 			if (color[0] != 255 && color[1] != 255 && color[2] != 255) {
 				// Posiziono i punti dell'immagine nel sensore virtuale
 				if (scan_direction == DIRECTION_SCAN_AXIS_X) {
-					point.x = i * PIXEL_DIMENSION + x_sensor_origin;
-					point.y = j * PIXEL_DIMENSION + y_sensor_origin;
+					point.x = i * pixel_dimension + x_sensor_origin;
+					point.y = j * pixel_dimension + y_sensor_origin;
 				}
 				if (scan_direction == DIRECTION_SCAN_AXIS_Y) {
-					point.x = x_sensor_origin - j * PIXEL_DIMENSION;
-					point.y = i * PIXEL_DIMENSION + y_sensor_origin;
+					point.x = x_sensor_origin - j * pixel_dimension;
+					point.y = i * pixel_dimension + y_sensor_origin;
 				}
 				point.z = pin_hole.z + focal_length;
 
@@ -1288,14 +1221,14 @@ int main(int argc, char** argv)
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 	PointXYZRGB laser_final_point_left, laser_final_point_right;
 
-	float distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, ray_density, camera_fps, scan_speed;
+	float distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, ray_density, camera_fps, scan_speed, pixel_dimension;
 	int image_width, image_height, scan_direction;
 	bool snapshot_save_flag;
 	string path_file;
 	
 	//********* Read data from XML parameters file ***************************************
 	readParamsFromXML(&distance_laser_camera, &distance_mesh_pinhole, &laser_aperture, &laser_inclination, &ray_density, &camera_fps, &scan_speed,
-						&image_width, &image_height, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag, &path_file);
+						&image_width, &image_height, &pixel_dimension, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag, &path_file);
 
 
 	float direction_tan_laser_incl = tan(deg2rad(90.f - laser_inclination));
@@ -1379,11 +1312,9 @@ int main(int argc, char** argv)
 
 	// Questo valore varia da 0,2 a 10 frame per mm
 	float increment = scan_speed / camera_fps;
-	
-	float final_pos;
 
 	// ATTENZIONE: al verso di scansione
-	float current_position, number_of_iterations;
+	float current_position, number_of_iterations, final_pos;
 
 
 	if (scan_direction == DIRECTION_SCAN_AXIS_X)
@@ -1449,7 +1380,7 @@ int main(int argc, char** argv)
 
 
 		//************** Convert image to point cloud ************************************
-		imageToCloud(scan_direction, &plane2, &plane1, pin_hole, &image, 0, image_height / 2, image_height / 2, camera_matrix, distortion, cloud_out);
+		imageToCloud(scan_direction, &plane2, &plane1, pin_hole, &image, 0, image_height / 2, image_height / 2, pixel_dimension, camera_matrix, distortion, cloud_out);
 
 
 		//************** Make a backup of point cloud that contains (all) intersections **
