@@ -91,7 +91,7 @@ struct OpenCLDATA {
 	vector<cl::Platform> platforms;
 };
 
-Vec3 calculateEdges(Triangle triangles) {
+Vec3 calculateEdges(const Triangle &triangles) {
 
 	float diff_x, diff_y, diff_z;
 	Vec3 ret;
@@ -118,7 +118,7 @@ Vec3 calculateEdges(Triangle triangles) {
 };
 
 void readParamsFromXML(float *distance_laser_camera, float *distance_mesh_pinhole, float *laser_aperture, float *laser_inclination, float *RAY_DENSITY, float *camera_fps, 
-	float *scan_speed, int *image_width, int *image_height, Mat *camera_matrix, Mat *distortion, int *scan_direction, bool *snapshot_save_flag)
+	float *scan_speed, int *image_width, int *image_height, Mat *camera_matrix, Mat *distortion, int *scan_direction, bool *snapshot_save_flag, string *file_name)
 	{
 
 		*distance_laser_camera = 600.f;	// [500, 800]
@@ -131,6 +131,8 @@ void readParamsFromXML(float *distance_laser_camera, float *distance_mesh_pinhol
 		*scan_speed = 100.f;				// mm/s [100, 1000]
 		*image_width = 2024;
 		*image_height = 1088;
+
+		*file_name = "prodotto";
 
 		*scan_direction = DIRECTION_SCAN_AXIS_Y;
 
@@ -428,7 +430,7 @@ int triangleIntersection(const Vect3d V1, const Vect3d V2, const Vect3d V3,
 }
 
 // Ritorna la coordinata della direzione di scansione in cui interseca
-float rayPlaneLimitIntersection(PointXYZ start_point, Eigen::Vector3d direction, float plane_coordinate, int scan_direction) {
+float rayPlaneLimitIntersection(const PointXYZ &start_point, const Eigen::Vector3d &direction, float plane_coordinate, int scan_direction) {
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		return direction[1] * (plane_coordinate - start_point.z) / direction[2] + start_point.y;
@@ -441,7 +443,7 @@ float rayPlaneLimitIntersection(PointXYZ start_point, Eigen::Vector3d direction,
 	return 0;
 }
 
-void getPlaneCoefficents(PointXYZ laser, Vect3d line_1, Vect3d line_2, Plane* plane) {
+void getPlaneCoefficents(const PointXYZ &laser, const Vect3d &line_1, const Vect3d &line_2, Plane* plane) {
 	Vect3d plane_normal = line_1.cross(line_2);
 	plane->A = plane_normal[0];
 	plane->B = plane_normal[1];
@@ -616,7 +618,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZ lase
 	}
 }
 
-void prepareDataForOpenCL(const PolygonMesh mesh, Triangle* triangles, int* min_point_triangle_index) {
+void prepareDataForOpenCL(const PolygonMesh &mesh, Triangle* triangles, int* min_point_triangle_index) {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
 
@@ -718,7 +720,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 	return 0;
 }
 
-int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, Vec3 ray_origin, Vec3 ray_direction) {
+int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction) {
 
 	//high_resolution_clock::time_point start;
 	//start = high_resolution_clock::now();
@@ -761,8 +763,8 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 	return 0;
 }
 
-void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, vector<Triangle> big_triangles, Vec3* output_points, uchar* output_hits,
-	const PolygonMesh mesh, const PointXYZ laser, const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, 
+void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, const vector<Triangle> &big_triangles, Vec3* output_points, uchar* output_hits,
+	const PolygonMesh &mesh, const PointXYZ &laser, const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, 
 	float DIRECTION_TAN_LASER_APERTURE, float DIRECTION_TAN_LASER_INCLINATION, float* min_point_triangle, double laser_number, float min_z, float max_z)
 {
 	PointCloud<PointXYZ> meshVertices;
@@ -934,7 +936,8 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 	}
 }
 
-bool checkOcclusion(PointXYZRGB point, PointXYZ pin_hole, float* min_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits) {
+bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* min_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
+	Vec3* output_points, uchar* output_hits) {
 	/*
 
 	1. calcola il raggio tra il point e il pin_hole
@@ -1054,7 +1057,7 @@ bool checkOcclusion(PointXYZRGB point, PointXYZ pin_hole, float* min_point_trian
 	return image_point_added;
 }*/
 
-void cameraSnapshot(const PointXYZ pin_hole, const PointXYZ laser_1, const PointXYZ laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scan_direction,
+void cameraSnapshot(const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scan_direction,
 					int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits, const Mat &camera_matrix, const Mat &distortion,
 					float distance_laser_camera, float* min_point_triangle, int sensor_pixel_height, int sensor_pixel_width) {
 	Mat image(sensor_pixel_height, sensor_pixel_width, CV_8UC3);
@@ -1286,13 +1289,13 @@ int main(int argc, char** argv)
 	PointXYZRGB laser_final_point_left, laser_final_point_right;
 
 	float distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, ray_density, camera_fps, scan_speed;
-	int image_width, image_height;
-	int scan_direction;
+	int image_width, image_height, scan_direction;
 	bool snapshot_save_flag;
+	string file_name;
 	
 	//********* Read data from XML parameters file ***************************************
 	readParamsFromXML(&distance_laser_camera, &distance_mesh_pinhole, &laser_aperture, &laser_inclination, &ray_density, &camera_fps, &scan_speed,
-						&image_width, &image_height, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag);
+						&image_width, &image_height, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag, &file_name);
 
 
 	float direction_tan_laser_incl = tan(deg2rad(90.f - laser_inclination));
@@ -1305,12 +1308,12 @@ int main(int argc, char** argv)
 
 
 	//********* Load STL file as a PolygonMesh *******************************************
-	if (io::loadPolygonFileSTL("../dataset/prodotto.stl", mesh) == 0)
+	if (io::loadPolygonFileSTL("../dataset/" + file_name + ".stl", mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
 	}
-	cout << mesh.polygons.size() << " Processing point cloud... " << endl;
+	cout << "Numero di triangoli della mesh: " << mesh.polygons.size() << endl << endl;
 	
 	// Trova i punti di min e max per tutti gli assi della mesh
 	float *min_point_triangle = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
@@ -1323,9 +1326,10 @@ int main(int argc, char** argv)
 
 
 	//********** Print minimum and maximum points of mesh ********************************
-	cout << "min_x:" << min_x << " max_x:" << max_x << endl;
-	cout << "min_y:" << min_y << " max_y:" << max_y << endl;
-	cout << "min_z:" << min_z << " max_z:" << max_z << endl;
+	cout << "Estremi della mesh:" << endl;
+	cout << "X: [" << min_x << ", " << max_x << "]        ";
+	cout << "Y: [" << min_y << ", " << max_y << "]        ";
+	cout << "Z: [" << min_z << ", " << max_z << "]" << endl << endl;
 
 
 	//********** Sort arrays to have more efficency in the search ************************
@@ -1364,7 +1368,7 @@ int main(int argc, char** argv)
 	for (int i = 0; i < big_triangles_vec.size(); i++)
 		big_triangles[i] = big_triangles_vec[i];
 
-	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl;
+	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl << endl;
 
 
 	//**************** Initialize initial position for camera and lasers *****************
@@ -1406,7 +1410,7 @@ int main(int argc, char** argv)
 	for (int z = 0; laser_origin_2.y > final_pos; z++) //laser_origin_2.y > final_pos*****
 	{
 		printProgBar((int) ((z / number_of_iterations) * 100));
-		cout << z << " of " << (int)(number_of_iterations + 0.5);
+		cout << z << " of " << (int)(ceil(number_of_iterations));
 		//cout << "Z->" << z << " ";
 		//cout << "position_step: " << position_step << endl;
 
@@ -1453,20 +1457,19 @@ int main(int argc, char** argv)
 		for (int i = 0; i < cloud_intersection->size(); i++)
 			cloud_intersection_backup->push_back(cloud_intersection->at(i));
 
-
-		cloud_intersection->~PointCloud();
-
+		//************** Clear current intersections *************************************
+		cloud_intersection->clear();
 	}
 
 
 	//****************** Points of the cloud *********************************************
-	cout << "Points of the cloud: " << cloud_out->points.size() << endl;
+	cout << endl << "Numero di punti della cloud: " << cloud_out->points.size() << endl;
 
 
 	//****************** Save clouds *****************************************************
 	if (cloud_intersection_backup->size() > 0)
 	{
-		if (io::savePCDFileASCII("all_intersection_cloud.pcd", *cloud_intersection_backup) == 0)
+		if (io::savePCDFileASCII("all_intersection_cloud.pcd", *cloud_intersection_backup))
 			PCL_ERROR("Failed to save PCD file\n");
 	}
 	else
@@ -1475,7 +1478,7 @@ int main(int argc, char** argv)
 
 	if (cloud_out->size() > 0)
 	{
-		if (io::savePCDFileASCII("final_cloud.pcd", *cloud_out) == 0)
+		if (io::savePCDFileASCII("final_cloud.pcd", *cloud_out))
 			PCL_ERROR("Failed to save PCD file\n");
 	}
 	else
@@ -1484,11 +1487,11 @@ int main(int argc, char** argv)
 	
 
 	//****************** Visualize cloud *************************************************
-	visualization::PCLVisualizer viewer("viewer");
-	viewer.addCoordinateSystem(100, "viewer");
-	viewer.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
+	visualization::PCLVisualizer viewer("PCL viewer");
+	viewer.addCoordinateSystem(100, "PCL viewer");
+	viewer.addPointCloud<PointXYZ>(cloud_out, "Final Cloud");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
-	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "cloudTest");
+	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
 	viewer.spin();
 
 
