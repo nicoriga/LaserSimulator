@@ -1030,13 +1030,21 @@ void cameraSnapshot(const PointXYZ &pin_hole, const PointXYZ &laser_1, const Poi
 	}
 	if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
+		p1.x = 0;
+		p1.y = distance_laser_camera;
+		p1.z = 0;
+
+		p2.x = 0;
+		p2.y = -distance_laser_camera;
+		p2.z = 0;
+		/*
 		p1.x = distance_laser_camera;
 		p1.y = 0;
 		p1.z = 0;
 
 		p2.x = -distance_laser_camera;
 		p2.y = 0;
-		p2.z = 0;
+		p2.z = 0;*/
 	}
 	cloud_target->push_back(p1);
 	cloud_target->push_back(p2);
@@ -1063,27 +1071,21 @@ void cameraSnapshot(const PointXYZ &pin_hole, const PointXYZ &laser_1, const Poi
 		points.push_back(p);
 	}
 
-	// camera rotation
-	Mat rotatMat = (cv::Mat_<double>(3, 3) << 1, 0, 0,
-		0, 1, 0,
-		0, 0, 1);
-	Mat rotatVec= (cv::Mat_<double>(3, 1) << 0, 0, 0);
-
-
 	if (cloudIntersection->size() > 0) {
-		projectPoints(points, rotatVec, Mat::zeros(3, 1, CV_64F), camera_matrix, distortion, output_point);
-		Point2d p2;
+		projectPoints(points, Mat::zeros(3, 1, CV_64F), Mat::zeros(3, 1, CV_64F), camera_matrix, distortion, output_point);
+		Point2d pixel;
 		for (int i = 0; i < output_point.size(); i++) {
-			p2 = output_point.at(i);
-			p2.x += 0.5;
-			p2.y += 0.5;
-			if ((p2.y >= 0) && (p2.y < image.rows) && (p2.x >= 0) && (p2.x < image.cols))
+			pixel = output_point.at(i);
+			pixel.x += 0.5;
+			pixel.y += 0.5;
+
+			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
 			{
 				if (checkOcclusion(cloudIntersection->at(i), pin_hole, min_point_triangle, polygon_size, openCLData, all_triangles, output_points, output_hits))
 				{
-					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[0] = 0;
-					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[1] = 0;
-					image.at<Vec3b>((int)(p2.y), (int)(p2.x))[2] = 0;
+					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
+					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
+					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[2] = 0;
 				}
 			}
 		}
@@ -1107,17 +1109,20 @@ void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, const PointX
 	float focal_length_y = camera_matrix.at<double>(1, 1) * pixel_dimension;
 	float focal_length = (focal_length_x + focal_length_y) / 2;
 
-	if (scan_direction == DIRECTION_SCAN_AXIS_X) {
-		x_sensor_origin = pin_hole.x - (image->rows * pixel_dimension) / 2 - delta_x;
-		y_sensor_origin = pin_hole.y - (image->cols * pixel_dimension) / 2 - delta_y;
+	if (scan_direction == DIRECTION_SCAN_AXIS_X) 
+	{
+		x_sensor_origin = pin_hole.x - (image->rows * pixel_dimension) / 2 - delta_y;
+		y_sensor_origin = pin_hole.y - (image->cols * pixel_dimension) / 2 + delta_x;
 	}
-	if (scan_direction == DIRECTION_SCAN_AXIS_Y) {
+	if (scan_direction == DIRECTION_SCAN_AXIS_Y) 
+	{
 		x_sensor_origin = pin_hole.x + (image->cols * pixel_dimension) / 2 - delta_x;
 		y_sensor_origin = pin_hole.y - (image->rows * pixel_dimension) / 2 - delta_y;
 	}
 
 	Mat image_undistort;
 	undistort(*image, image_undistort, camera_matrix, distortion);
+
 	flip(image_undistort, *image, 0); // altrimenti la cloud viene rovescia
 
 	// Creo la point cloud del sensore a partire dall'immagine
@@ -1190,6 +1195,28 @@ void imageToCloud(int scan_direction, Plane* plane1, Plane* plane2, const PointX
 	}
 }
 
+void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::Vector3f direction, int number_of_point) {
+	PointXYZRGB point;
+	point.x = start_point.x;
+	point.y = start_point.y;
+	point.z = start_point.z;
+	point.r = 255;
+	point.g = 0;
+	point.b = 255;
+
+	for (int i = 0; i < number_of_point; i++)
+	{
+		point.x = point.x + direction[0];
+		point.y = point.y + direction[1];
+		point.z = point.z + direction[2];
+		point.r = 255;
+		point.g = 0;
+		point.b = 255;
+		cloud->push_back(point);
+	}
+
+	cloud->width = cloud->points.size();
+}
 
 void printProgBar(int percent) {
 	string bar;
@@ -1272,11 +1299,6 @@ int main(int argc, char** argv)
 	int *tmp_b = new int[mesh.polygons.size()];     // c'è un crash dovuto alla ricorsione dell'operatore new
 	arraysMergesort(min_point_triangle, min_point_triangle_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
 	delete[] tmp_a, tmp_b; // elimino gli array temporanei
-
-	// Disegno i laser
-	//drawLine(cloud_intersection, laser_point, Eigen::Vector3f(0, -DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
-	//drawLine(cloud_intersection, laser_point_2, Eigen::Vector3f(0, DIRECTION_TAN_LASER_INCLINATION, -1), 2000);
-
 	
 	//************************ OpenCL Loading ********************************************
 	int array_size_hits = (int)(ceil(mesh.polygons.size() / (float)RUN));
@@ -1335,11 +1357,22 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection_backup(new PointCloud<PointXYZRGB>);
 
+	// Disegno i laser
+	/*if (scan_direction == DIRECTION_SCAN_AXIS_X)
+	{
+		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(-direction_tan_laser_incl, -0, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(direction_tan_laser_incl, 0, -1), 2000);
+	}
+	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
+	{
+		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(0, -direction_tan_laser_incl, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(0, direction_tan_laser_incl, -1), 2000);
+	}*/
 
 	//************CORE OF THE PROJECT: this cycle simulates the laser scan. **************
 	//*********** Every iteration finds intersection with mesh, take a camera snapshot ***
 	//*********** and reconstruct the points in the 3D space *****************************
-	for (int z = 0; (current_position - distance_laser_camera)  > final_pos; z++) //laser_origin_2.y > final_pos*****
+	for (int z = 0; (current_position - distance_laser_camera)  > final_pos; z++) //(current_position - distance_laser_camera)  > final_pos
 	{
 		printProgBar((int) ((z / number_of_iterations) * 100));
 		cout << z << " of " << (int)(number_of_iterations + 0.5);
@@ -1424,6 +1457,7 @@ int main(int argc, char** argv)
 	viewer.addCoordinateSystem(100, "PCL viewer");
 	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
 	viewer.addPointCloud<PointXYZ>(cloud_out, "Final Cloud");
+	//viewer.addPolygonMesh(mesh, "mesh");
 	
 	//****************** Print total time of computation *********************************
 	duration<double> timer2 = high_resolution_clock::now() - start;
