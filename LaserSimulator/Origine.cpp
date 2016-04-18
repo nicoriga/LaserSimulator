@@ -118,7 +118,7 @@ Vec3 calculateEdges(const Triangle &triangles) {
 };
 
 void readParamsFromXML(float *distance_laser_camera, float *distance_mesh_pinhole, float *laser_aperture, float *laser_inclination, float *RAY_DENSITY, float *camera_fps, 
-	float *scan_speed, int *image_width, int *image_height, Mat *camera_matrix, Mat *distortion, int *scan_direction, bool *snapshot_save_flag, string *file_name)
+	float *scan_speed, int *image_width, int *image_height, Mat *camera_matrix, Mat *distortion, int *scan_direction, bool *snapshot_save_flag, string *path_file)
 	{
 
 		*distance_laser_camera = 600.f;	// [500, 800]
@@ -132,7 +132,7 @@ void readParamsFromXML(float *distance_laser_camera, float *distance_mesh_pinhol
 		*image_width = 2024;
 		*image_height = 1088;
 
-		*file_name = "prodotto";
+		*path_file = "../dataset/prodotto.stl";
 
 		*scan_direction = DIRECTION_SCAN_AXIS_Y;
 
@@ -658,7 +658,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
 		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -1291,11 +1291,11 @@ int main(int argc, char** argv)
 	float distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, ray_density, camera_fps, scan_speed;
 	int image_width, image_height, scan_direction;
 	bool snapshot_save_flag;
-	string file_name;
+	string path_file;
 	
 	//********* Read data from XML parameters file ***************************************
 	readParamsFromXML(&distance_laser_camera, &distance_mesh_pinhole, &laser_aperture, &laser_inclination, &ray_density, &camera_fps, &scan_speed,
-						&image_width, &image_height, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag, &file_name);
+						&image_width, &image_height, &camera_matrix, &distortion, &scan_direction, &snapshot_save_flag, &path_file);
 
 
 	float direction_tan_laser_incl = tan(deg2rad(90.f - laser_inclination));
@@ -1308,7 +1308,7 @@ int main(int argc, char** argv)
 
 
 	//********* Load STL file as a PolygonMesh *******************************************
-	if (io::loadPolygonFileSTL("../dataset/" + file_name + ".stl", mesh) == 0)
+	if (io::loadPolygonFileSTL(path_file, mesh) == 0)
 	{
 		PCL_ERROR("Failed to load STL file\n");
 		return -1;
@@ -1410,7 +1410,7 @@ int main(int argc, char** argv)
 	for (int z = 0; laser_origin_2.y > final_pos; z++) //laser_origin_2.y > final_pos*****
 	{
 		printProgBar((int) ((z / number_of_iterations) * 100));
-		cout << z << " of " << (int)(ceil(number_of_iterations));
+		cout << z << " of " << (int)(number_of_iterations + 0.5);
 		//cout << "Z->" << z << " ";
 		//cout << "position_step: " << position_step << endl;
 
@@ -1482,9 +1482,10 @@ int main(int argc, char** argv)
 			PCL_ERROR("Failed to save PCD file\n");
 	}
 	else
-		cerr << "WARNING! Point Cloud Out is empty" << endl;
-
+		cerr << "WARNING! Point Cloud Final is empty" << endl;
 	
+	//cloud_out->clear();
+	//io::loadPCDFile("final_cloud.pcd", *cloud_out);
 
 	//****************** Visualize cloud *************************************************
 	visualization::PCLVisualizer viewer("PCL viewer");
