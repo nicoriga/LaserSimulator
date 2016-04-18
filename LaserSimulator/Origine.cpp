@@ -1383,23 +1383,22 @@ int main(int argc, char** argv)
 	float final_pos;
 
 	// ATTENZIONE: al verso di scansione
-	float current_position;
+	float current_position, number_of_iterations;
 
 
 	if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		current_position = pin_hole.x;
 		final_pos = min_x - (laser_origin_1.x - max_x);
+		number_of_iterations = (laser_origin_2.x - final_pos) / increment;
 	}
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		current_position = pin_hole.y;
 		final_pos = min_y - (laser_origin_1.y - max_y);
+		number_of_iterations = (laser_origin_2.y - final_pos) / increment;
 	}
 	
-	// Iterations of the for cycle
-	float number_of_iterations = (laser_origin_2.y - final_pos) / increment;
-
 
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
@@ -1409,7 +1408,7 @@ int main(int argc, char** argv)
 	//************CORE OF THE PROJECT: this cycle simulates the laser scan. **************
 	//*********** Every iteration finds intersection with mesh, take a camera snapshot ***
 	//*********** and reconstruct the points in the 3D space *****************************
-	for (int z = 0; laser_origin_2.y > final_pos; z++) //laser_origin_2.y > final_pos*****
+	for (int z = 0; (current_position - distance_laser_camera)  > final_pos; z++) //laser_origin_2.y > final_pos*****
 	{
 		printProgBar((int) ((z / number_of_iterations) * 100));
 		cout << z << " of " << (int)(number_of_iterations + 0.5);
