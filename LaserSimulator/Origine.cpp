@@ -1,9 +1,9 @@
 /*
-* computePointCloud.cpp
-* Created on: 10/12/2015
-* Last Update: 21/12/2015
-* Author: Nicola Rigato 1110346
-*
+* LaserSimulator
+* Created on: 02/02/2016
+* Last Update: 21/04/2016
+* Authors: Mauro Bagatella  1110345
+*          Loris Del Monaco 1106940
 */
 
 #define _CRT_SECURE_NO_DEPRECATE
@@ -1306,6 +1306,8 @@ int main(int argc, char** argv)
 	min_x = min_y = min_z = VTK_FLOAT_MAX;
 	max_x = max_y = max_z = VTK_FLOAT_MIN;
 
+	high_resolution_clock::time_point start;
+	start = high_resolution_clock::now();
 
 	//********* Load STL file as a PolygonMesh *******************************************
 	if (io::loadPolygonFileSTL(path_file, mesh) == 0)
@@ -1411,8 +1413,6 @@ int main(int argc, char** argv)
 	{
 		printProgBar((int) ((z / number_of_iterations) * 100));
 		cout << z << " of " << (int)(number_of_iterations + 0.5);
-		//cout << "Z->" << z << " ";
-		//cout << "position_step: " << position_step << endl;
 
 		// Update position of pin hole and lasers
 		setLasersAndPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, distance_laser_camera, scan_direction);
@@ -1484,15 +1484,23 @@ int main(int argc, char** argv)
 	else
 		cerr << "WARNING! Point Cloud Final is empty" << endl;
 	
+
 	//cloud_out->clear();
 	//io::loadPCDFile("final_cloud.pcd", *cloud_out);
 
 	//****************** Visualize cloud *************************************************
 	visualization::PCLVisualizer viewer("PCL viewer");
-	viewer.addCoordinateSystem(100, "PCL viewer");
-	viewer.addPointCloud<PointXYZ>(cloud_out, "Final Cloud");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
+	viewer.addCoordinateSystem(100, "PCL viewer");
 	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
+	viewer.addPointCloud<PointXYZ>(cloud_out, "Final Cloud");
+	
+	//****************** Print total time of computation *********************************
+	duration<double> timer2 = high_resolution_clock::now() - start;
+	int seconds = (int) timer2.count() % 60;
+	int minutes = (int) (( (int) timer2.count() / 60) % 60);
+	cout << endl << "Durata: " << minutes << ":" << seconds << " s" << endl;
+
 	viewer.spin();
 
 
