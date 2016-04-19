@@ -309,59 +309,59 @@ void calculateBoundariesAndArrayMin(int scan_direction, PolygonMesh mesh, int* m
 	}
 }
 
-void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_2, PointXYZ* laser_origin_1, float distance_laser_camera, float height_from_mesh_to_laser,
+void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float distance_laser_camera, float height_from_mesh_to_laser,
 	float direction_tan_laser_incl, int scan_direction, float min_x, float min_y, float min_z, float max_x, float max_y, float max_z) {
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
-		laser_origin_2->z = max_z + height_from_mesh_to_laser;
-		laser_origin_2->x = (max_x + min_x) / 2;
-		laser_origin_2->y = max_y + (laser_origin_2->z - min_z) * direction_tan_laser_incl;
+		laser_origin_1->z = max_z + height_from_mesh_to_laser;
+		laser_origin_1->x = (max_x + min_x) / 2;
+		laser_origin_1->y = max_y + (laser_origin_1->z - min_z) * direction_tan_laser_incl;
 
-		laser_origin_1->z = laser_origin_2->z;
-		laser_origin_1->x = laser_origin_2->x;
-		laser_origin_1->y = laser_origin_2->y - 2 * distance_laser_camera;
+		laser_origin_2->z = laser_origin_1->z;
+		laser_origin_2->x = laser_origin_1->x;
+		laser_origin_2->y = laser_origin_1->y - 2 * distance_laser_camera;
 
-		pin_hole->x = laser_origin_2->x;
-		pin_hole->y = laser_origin_2->y - distance_laser_camera;
-		pin_hole->z = laser_origin_2->z;
+		pin_hole->x = laser_origin_1->x;
+		pin_hole->y = laser_origin_1->y - distance_laser_camera;
+		pin_hole->z = laser_origin_1->z;
 	}
 
 	if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
-		laser_origin_2->z = max_z + height_from_mesh_to_laser;
-		laser_origin_2->y = (max_y + min_y) / 2;
-		laser_origin_2->x = max_x + (laser_origin_2->z - min_z) * direction_tan_laser_incl;
+		laser_origin_1->z = max_z + height_from_mesh_to_laser;
+		laser_origin_1->y = (max_y + min_y) / 2;
+		laser_origin_1->x = max_x + (laser_origin_1->z - min_z) * direction_tan_laser_incl;
 
-		laser_origin_1->z = laser_origin_2->z;
-		laser_origin_1->y = laser_origin_2->y;
-		laser_origin_1->x = laser_origin_2->x - 2 * distance_laser_camera;
+		laser_origin_2->z = laser_origin_1->z;
+		laser_origin_2->y = laser_origin_1->y;
+		laser_origin_2->x = laser_origin_1->x - 2 * distance_laser_camera;
 
-		pin_hole->x = laser_origin_2->x - distance_laser_camera;
-		pin_hole->y = laser_origin_2->y;
-		pin_hole->z = laser_origin_2->z;
+		pin_hole->x = laser_origin_1->x - distance_laser_camera;
+		pin_hole->y = laser_origin_1->y;
+		pin_hole->z = laser_origin_1->z;
 	}
 }
 
-void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_2, PointXYZ* laser_origin_1, float current_position, float distance_laser_camera, int scan_direction) {
+void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float current_position, float distance_laser_camera, int scan_direction) {
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		pin_hole->y = current_position;
-		pin_hole->x = laser_origin_2->x;
+		pin_hole->x = laser_origin_1->x;
 
-		laser_origin_2->y = pin_hole->y + distance_laser_camera;
-		laser_origin_1->y = pin_hole->y - distance_laser_camera;
+		laser_origin_1->y = pin_hole->y + distance_laser_camera;
+		laser_origin_2->y = pin_hole->y - distance_laser_camera;
 
 	}
 	if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		pin_hole->x = current_position;
-		pin_hole->y = laser_origin_2->y;
+		pin_hole->y = laser_origin_1->y;
 
-		laser_origin_2->x = pin_hole->x + distance_laser_camera;
-		laser_origin_1->x = pin_hole->x - distance_laser_camera;
+		laser_origin_1->x = pin_hole->x + distance_laser_camera;
+		laser_origin_2->x = pin_hole->x - distance_laser_camera;
 
 	}
-	pin_hole->z = laser_origin_2->z;
+	pin_hole->z = laser_origin_1->z;
 }
 
 Vec3f directionVector(PointXYZRGB source_point, PointXYZRGB destination_point) {
@@ -1245,7 +1245,7 @@ int main(int argc, char** argv)
 	OpenCLDATA openCLData;
 	Triangle* all_triangles;
 
-	PointXYZ laser_origin_2, laser_origin_1, pin_hole;
+	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 	PointXYZRGB laser_final_point_left, laser_final_point_right;
 
 	float distance_laser_camera, distance_mesh_pinhole, laser_aperture, laser_inclination, ray_density, camera_fps, scan_speed, pixel_dimension;
@@ -1329,7 +1329,7 @@ int main(int argc, char** argv)
 
 
 	//**************** Initialize initial position for camera and lasers *****************
-	setInitialPosition(&pin_hole, &laser_origin_2, &laser_origin_1, distance_laser_camera, distance_mesh_pinhole,
+	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, distance_laser_camera, distance_mesh_pinhole,
 						direction_tan_laser_incl, scan_direction, min_x, min_y, min_z, max_x, max_y, max_z);
 
 	// Questo valore varia da 0,2 a 10 frame per mm
@@ -1342,14 +1342,14 @@ int main(int argc, char** argv)
 	if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		current_position = pin_hole.x;
-		final_pos = min_x - (laser_origin_2.x - max_x);
-		number_of_iterations = (laser_origin_1.x - final_pos) / increment;
+		final_pos = min_x - (laser_origin_1.x - max_x);
+		number_of_iterations = (laser_origin_2.x - final_pos) / increment;
 	}
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		current_position = pin_hole.y;
-		final_pos = min_y - (laser_origin_2.y - max_y);
-		number_of_iterations = (laser_origin_1.y - final_pos) / increment;
+		final_pos = min_y - (laser_origin_1.y - max_y);
+		number_of_iterations = (laser_origin_2.y - final_pos) / increment;
 	}
 	
 
@@ -1360,13 +1360,13 @@ int main(int argc, char** argv)
 	// Disegno i laser
 	/*if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
-		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(-direction_tan_laser_incl, -0, -1), 2000);
-		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(direction_tan_laser_incl, 0, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(-direction_tan_laser_incl, -0, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(direction_tan_laser_incl, 0, -1), 2000);
 	}
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
-		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(0, -direction_tan_laser_incl, -1), 2000);
-		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(0, direction_tan_laser_incl, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(0, -direction_tan_laser_incl, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(0, direction_tan_laser_incl, -1), 2000);
 	}*/
 
 	//************CORE OF THE PROJECT: this cycle simulates the laser scan. **************
@@ -1378,7 +1378,7 @@ int main(int argc, char** argv)
 		cout << z << " of " << (int)(number_of_iterations + 0.5);
 
 		// Update position of pin hole and lasers
-		setLasersAndPinHole(&pin_hole, &laser_origin_2, &laser_origin_1, current_position, distance_laser_camera, scan_direction);
+		setLasersAndPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, distance_laser_camera, scan_direction);
 		current_position -= increment;
 
 		Plane plane1, plane2;
@@ -1393,10 +1393,10 @@ int main(int argc, char** argv)
 		
 		//************* Look for intersection with mesh (PCL + OpenCL) *******************
 		// For laser 1
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_2, ray_density, cloud_intersection, 
+		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_1, ray_density, cloud_intersection, 
 			scan_direction, &plane1, direction_tan_laser_apert, direction_tan_laser_incl, min_point_triangle, LASER_1, min_z, max_z);
 		// For laser 2
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_1, ray_density, cloud_intersection,
+		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_2, ray_density, cloud_intersection,
 			scan_direction, &plane2, direction_tan_laser_apert, direction_tan_laser_incl, min_point_triangle, LASER_2, min_z, max_z);
 
 		//duration<double> timer2 = high_resolution_clock::now() - start;
@@ -1404,7 +1404,7 @@ int main(int argc, char** argv)
 
 
 		//************** Take snapshot  **************************************************
-		cameraSnapshot(pin_hole, laser_origin_2, laser_origin_1, cloud_intersection, &image, scan_direction, size_array, &openCLData, all_triangles, output_points, 
+		cameraSnapshot(pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, scan_direction, size_array, &openCLData, all_triangles, output_points, 
 			output_hits, camera_matrix, distortion, distance_laser_camera, min_point_triangle, image_height, image_width);
 	
 		// Save snapshot (only for debug) 
