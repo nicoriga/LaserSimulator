@@ -118,41 +118,38 @@ __kernel void RayTriangleIntersection(__global Triangle *input,
 									  Vec3 ray_origin, 
 									  Vec3 ray_direction)
 {
-	int k = get_global_id(0);
+	int k = get_global_id(0); 
+	output_hit[k] = MISS;
 
-	if(k < num_triangle)
-	{ 
-		output_hit[k] = MISS;
+	Vec3 local_hit_point, hight_hit_point;
+	uchar local_hit = MISS;
+	int j,t;
+	int l = k * RUN + start_index;
+	int final_index = num_triangle+start_index;
 
-		Vec3 local_hit_point, hight_hit_point;
-		uchar local_hit = MISS;
-		int j,t;
-		int l = k * RUN + start_index;
-		int final_index = num_triangle+start_index;
+	for(j = 0; j<RUN && (l + j) < final_index; ++j)
+	{
+		t = l + j;
 
-		for(j = 0; j<RUN && (l + j) < final_index; ++j)
+		if(triangle_intersection(input[t].vertex1, input[t].vertex2, input[t].vertex3, ray_origin, ray_direction, &local_hit_point))
 		{
-			t = l + j;
-
-			if(triangle_intersection(input[t].vertex1, input[t].vertex2, input[t].vertex3, ray_origin, ray_direction, &local_hit_point))
+			if (local_hit == MISS || local_hit_point.points[Z] >= hight_hit_point.points[Z])
 			{
-				if (local_hit == MISS || local_hit_point.points[Z] >= hight_hit_point.points[Z])
-				{
-					local_hit = HIT;
+				local_hit = HIT;
 					
-					hight_hit_point.points[X] = local_hit_point.points[X];
-					hight_hit_point.points[Y] = local_hit_point.points[Y];
-					hight_hit_point.points[Z] = local_hit_point.points[Z];
-				}
+				hight_hit_point.points[X] = local_hit_point.points[X];
+				hight_hit_point.points[Y] = local_hit_point.points[Y];
+				hight_hit_point.points[Z] = local_hit_point.points[Z];
 			}
 		}
-
-		if(local_hit == HIT)
-		{
-			output_hit[k] = HIT;
-			output_point[k].points[X] = hight_hit_point.points[X];
-			output_point[k].points[Y] = hight_hit_point.points[Y];
-			output_point[k].points[Z] = hight_hit_point.points[Z];
-		}
 	}
+
+	if(local_hit == HIT)
+	{
+		output_hit[k] = HIT;
+		output_point[k].points[X] = hight_hit_point.points[X];
+		output_point[k].points[Y] = hight_hit_point.points[Y];
+		output_point[k].points[Z] = hight_hit_point.points[Z];
+	}
+	
 }
