@@ -430,7 +430,7 @@ int triangleIntersection(const Vect3d V1, const Vect3d V2, const Vect3d V3,
 }
 
 // Ritorna la coordinata della direzione di scansione in cui interseca
-float rayPlaneLimitIntersection(const PointXYZ &start_point, const Eigen::Vector3d &direction, float plane_coordinate, int scan_direction) {
+float rayPlaneLimitIntersection(const PointXYZ &start_point, const Vect3d &direction, float plane_coordinate, int scan_direction) {
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		return direction[1] * (plane_coordinate - start_point.z) / direction[2] + start_point.y;
@@ -518,7 +518,7 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZ lase
 
 	}
 
-	Eigen::Vector3d direction_ray_start;
+	Vect3d direction_ray_start;
 	direction_ray_start[d1] = -DIRECTION_TAN_LASER_APERTURE;
 	direction_ray_start[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
 	direction_ray_start[2] = -1;
@@ -801,7 +801,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 
 	}
 
-	Eigen::Vector3d direction_ray_start;
+	Vect3d direction_ray_start;
 	direction_ray_start[d1] = -DIRECTION_TAN_LASER_APERTURE;
 	direction_ray_start[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
 	direction_ray_start[2] = -1;
