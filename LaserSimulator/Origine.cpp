@@ -250,7 +250,7 @@ void calculateBoundariesAndArrayMin(int scan_direction, PolygonMesh mesh, int* m
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZRGB point_1, point_2, point_3;
 
-	// Metodo veloce per trasformare i vertici della mesh in point cloud
+	// Convert mesh in a point cloud 
 	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
 
 	// ricerca max e min per tutti gli assi
@@ -302,6 +302,7 @@ void calculateBoundariesAndArrayMin(int scan_direction, PolygonMesh mesh, int* m
 					min_point_triangle[i] = point_3.y;
 			}
 		}
+
 	}
 }
 
@@ -1239,13 +1240,11 @@ void printProgBar(int percent) {
 
 string returnTime(duration<double> timer)
 {
-	//string seconds;
 	int sec = (int) timer.count() % 60;
 	string seconds = sec < 10 ? "0" + to_string(sec) : to_string(sec);
-	//sec < 10 ? seconds = "0" + to_string(sec) : seconds = to_string(sec);
 	string minutes = to_string((int) (((int) timer.count() / 60) % 60));
-	return minutes + ":" + seconds + " s";
 
+	return minutes + ":" + seconds + " s";
 }
 
 
