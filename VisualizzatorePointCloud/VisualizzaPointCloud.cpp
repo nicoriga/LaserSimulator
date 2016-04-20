@@ -12,12 +12,6 @@ int main(int argc, char** argv)
 	io::loadPCDFile("../LaserSimulator/all_intersection_cloud.pcd", *cloud_test);
 	io::loadPCDFile("../LaserSimulator/final_cloud.pcd", *cloud_out);
 
-/*	// Create a PCLVisualizer
-	visualization::PCLVisualizer viewer("viewer");
-	viewer.addCoordinateSystem(100, "viewer");
-	viewer.addPointCloud<PointXYZ>(cloud_out, "cloudGen");
-	viewer.spin();
-*/
 
 	visualization::PCLVisualizer viewer("PCL Viewer");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_test);
