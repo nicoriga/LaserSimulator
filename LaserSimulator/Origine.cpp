@@ -245,30 +245,6 @@ void updateMinMax(PointXYZRGB point, MeshBounds *bounds) {
 		bounds->max_z = point.z;
 }
 
-
-/*void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::Vector3f direction, int number_of_point) {
-	PointXYZRGB point;
-	point.x = start_point.x;
-	point.y = start_point.y;
-	point.z = start_point.z;
-	point.r = 255;
-	point.g = 0;
-	point.b = 255;
-
-	for (int i = 0; i < number_of_point; i++)
-	{
-		point.x = point.x + direction[0];
-		point.y = point.y + direction[1];
-		point.z = point.z + direction[2];
-		point.r = 255;
-		point.g = 0;
-		point.b = 255;
-		cloud->push_back(point);
-	}
-
-	cloud->width = cloud->points.size();
-}*/
-
 void calculateBoundariesAndArrayMin(int scan_direction, PolygonMesh mesh, int* min_point_triangle_index, float* min_point_triangle, MeshBounds *bounds) {
 
 	PointCloud<PointXYZ> cloud_mesh;
@@ -1117,17 +1093,20 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 void imageToCloud(Camera &camera, int scan_direction, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
 					PointCloud<PointXYZ>::Ptr cloud_out) {
-	PointXYZ point;
-	float dx, dy, dz;  // vettore direzionale retta punto-pin_hole
-	float x_sensor_origin, y_sensor_origin;
+	PointXYZ point;    // The point to add at the cloud
+	float dx, dy, dz;  // Directional vector for the line pin_hole - point in the sensor
+	float x_sensor_origin, y_sensor_origin; // Origin of the sensor in the space
 
+	// Amount of traslate of the sensor compared to the pinhole
 	float delta_x = ((image->cols / 2) - camera.camera_matrix.at<double>(0, 2)) * camera.pixel_dimension;
 	float delta_y = ((image->rows / 2) - camera.camera_matrix.at<double>(1, 2)) * camera.pixel_dimension;
 	
+	// Computation of the focal_length
 	float focal_length_x = camera.camera_matrix.at<double>(0, 0) * camera.pixel_dimension;
 	float focal_length_y = camera.camera_matrix.at<double>(1, 1) * camera.pixel_dimension;
 	float focal_length = (focal_length_x + focal_length_y) / 2;
 
+	// Traslation of the sensor
 	if (scan_direction == DIRECTION_SCAN_AXIS_X) 
 	{
 		x_sensor_origin = pin_hole.x - (image->rows * camera.pixel_dimension) / 2 - delta_y;
@@ -1139,20 +1118,20 @@ void imageToCloud(Camera &camera, int scan_direction, const Plane &plane_1, cons
 		y_sensor_origin = pin_hole.y - (image->rows * camera.pixel_dimension) / 2 - delta_y;
 	}
 
+	// Undistort the image accord with the camera disortion params
 	Mat image_undistort;
 	undistort(*image, image_undistort, camera.camera_matrix, camera.distortion);
+	flip(image_undistort, *image, 0);
 
-	flip(image_undistort, *image, 0); // altrimenti la cloud viene rovescia
-
-	// Creo la point cloud del sensore a partire dall'immagine
+	// Project the ROI1 points on the first plane
 	for (int j = 0; j < image->cols; j++)
 	{
 		for (int i = roi1_start; i < roi1_start + roi_dimension; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
-			// controlla che sia colorato il pixel dell'immagine
+			// Check the color of the pixels
 			if (color[0] !=255 && color[1] != 255 && color[2] != 255) {
-				// Posiziono i punti dell'immagine nel sensore virtuale
+				// Put the points of the image in the virtual sensor in the space
 				if (scan_direction == DIRECTION_SCAN_AXIS_X) {
 					point.x = i * camera.pixel_dimension + x_sensor_origin;
 					point.y = j * camera.pixel_dimension + y_sensor_origin;
@@ -1167,7 +1146,7 @@ void imageToCloud(Camera &camera, int scan_direction, const Plane &plane_1, cons
 				dy = pin_hole.y - point.y;
 				dz = pin_hole.z - point.z;
 
-				// Proietto il punto del sensore sul piano laser passando dal pin hole
+				// Project the point in the sensor on the laser plane passing by the pin hole
 				float t = -(plane_1.A * point.x + plane_1.B * point.y + plane_1.C * point.z + plane_1.D) / (plane_1.A * dx + plane_1.B * dy + plane_1.C * dz);
 				point.x = dx * t + point.x;
 				point.y = dy * t + point.y;
@@ -1179,14 +1158,15 @@ void imageToCloud(Camera &camera, int scan_direction, const Plane &plane_1, cons
 		}
 	}
 
+	// Project the ROI2 points on the second plane
 	for (int j = 0; j < image->cols; j++)
 	{
 		for (int i = roi2_start; i < roi2_start + roi_dimension; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
-			// controlla che sia colorato il pixel dell'immagine
+			// Check the color of the pixels
 			if (color[0] != 255 && color[1] != 255 && color[2] != 255) {
-				// Posiziono i punti dell'immagine nel sensore virtuale
+				// Put the points of the image in the virtual sensor in the space
 				if (scan_direction == DIRECTION_SCAN_AXIS_X) {
 					point.x = i * camera.pixel_dimension + x_sensor_origin;
 					point.y = j * camera.pixel_dimension + y_sensor_origin;
@@ -1201,7 +1181,7 @@ void imageToCloud(Camera &camera, int scan_direction, const Plane &plane_1, cons
 				dy = pin_hole.y - point.y;
 				dz = pin_hole.z - point.z;
 
-				// Proietto il punto del sensore sul piano laser passando dal pin hole
+				// Project the point in the sensor on the laser plane passing by the pin hole
 				float t = -(plane_2.A * point.x + plane_2.B * point.y + plane_2.C * point.z + plane_2.D) / (plane_2.A * dx + plane_2.B * dy + plane_2.C * dz);
 				point.x = dx * t + point.x;
 				point.y = dy * t + point.y;
