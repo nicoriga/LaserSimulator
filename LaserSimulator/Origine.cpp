@@ -109,7 +109,16 @@ struct OpenCLDATA {
 	vector<cl::Platform> platforms;
 };
 
-struct 
+struct SimulationParams 
+{
+	float baseline;
+	float height_to_mesh;
+	float laser_aperture;
+	float laser_inclination;
+	float ray_density;
+	float scan_speed;
+	int scan_direction;
+};
 
 Vec3 calculateEdges(const Triangle &triangles) {
 
@@ -137,7 +146,7 @@ Vec3 calculateEdges(const Triangle &triangles) {
 	return ret;
 };
 
-int readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, float *laser_aperture, float *laser_inclination, float *ray_density, 
+void readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, float *laser_aperture, float *laser_inclination, float *ray_density, 
 	float *scan_speed, int *scan_direction, bool *snapshot_save_flag, string *path_file)
 	{
 		// Read input parameters from xml file
@@ -162,8 +171,8 @@ int readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, fl
 		}
 		else
 		{
-			cout << "Error: cannot read the parameters" << endl;
-			return -1;
+			cerr << "Error: cannot read the parameters" << endl;
+			exit(-1);
 		}
 
 		/*
@@ -260,7 +269,6 @@ int readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, fl
 			camera->fps = 500.f;
 			cout << "WARNING: FPS della camera superiori a 500 (verranno impostati automaticamente a 500)" << endl << endl;
 		}
-		return 0;
 	}
 
 void arraysMerge(float *a, int *b, int low, int high, int mid, float *c, int *d)
