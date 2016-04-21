@@ -109,6 +109,8 @@ struct OpenCLDATA {
 	vector<cl::Platform> platforms;
 };
 
+struct 
+
 Vec3 calculateEdges(const Triangle &triangles) {
 
 	float diff_x, diff_y, diff_z;
@@ -135,29 +137,28 @@ Vec3 calculateEdges(const Triangle &triangles) {
 	return ret;
 };
 
-void readParamsFromXML(Camera *camera, float *baseline, float *distance_mesh_pinhole, float *laser_aperture, float *laser_inclination, float *ray_density, 
+void readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, float *laser_aperture, float *laser_inclination, float *ray_density, 
 	float *scan_speed, int *scan_direction, bool *snapshot_save_flag, string *path_file)
 	{
-
-		*baseline = 600.f;		// [500, 800]
-		*distance_mesh_pinhole = 800.f;	// altezza rispetto all'oggetto
+		*baseline = 600.f;					// [500, 800]
+		*height_to_mesh = 1200.f;	
 		*laser_aperture = 45.f;				// [30, 45]
 		*laser_inclination = 60.f;			// [60, 70]
 		*ray_density = 0.0015f;
-		*scan_speed = 100.f;				// mm/s [100, 1000]
+		*scan_speed = 100.f;				// [100, 1000]
 
 
-		*path_file = "../dataset/bin1.stl";
+		*path_file = "../dataset/prodotto.stl";
 
 		*scan_direction = DIRECTION_SCAN_AXIS_Y;
 
 		*snapshot_save_flag = FALSE;
 
 		// Intrinsic camera parameters
-		camera->fps = 100.f;				// fps  [100, 500]
+		camera->fps = 100.f;				// [100, 500]
 		camera->image_width = 2024;
 		camera->image_height = 1088;
-		camera->pixel_dimension = 0.0055f;
+		camera->pixel_dimension = 0.0055f; // mm
 
 		camera->camera_matrix = Mat::zeros(3, 3, CV_64F);
 		camera->camera_matrix.at<double>(0, 0) = 4615.04; // Fx
@@ -172,6 +173,42 @@ void readParamsFromXML(Camera *camera, float *baseline, float *distance_mesh_pin
 		camera->distortion.at<double>(2, 0) = 0.000868025;
 		camera->distortion.at<double>(3, 0) = 0.00298601;
 		camera->distortion.at<double>(4, 0) = 8.92225;
+
+		if (*scan_speed < 100)
+		{
+			*scan_speed = 100.f;
+			cout << "WARNING: Velocita' di scansione inferiore a 100 (verra' impostata automaticamente a 100)" << endl << endl;
+		}
+
+		if (*scan_speed > 1000)
+		{
+			*scan_speed = 1000.f;
+			cout << "WARNING: Velocita' di scansione superiore a 1000 (verra' impostata automaticamente a 1000)" << endl << endl;
+		}	
+		
+		if (*baseline < 500)
+		{
+			*baseline = 500.f;
+			cout << "WARNING: Baseline inferiore a 500 (verra' impostata automaticamente a 500)" << endl << endl;
+		}
+
+		if (*baseline > 800)
+		{
+			*baseline = 800.f;
+			cout << "WARNING: Baseline superiore a 800 (verra' impostata automaticamente a 800)" << endl << endl;
+		}
+
+		if (camera->fps < 100)
+		{
+			camera->fps = 100.f;
+			cout << "WARNING: FPS della camera inferiori a 100 (verranno impostati automaticamente a 100)" << endl << endl;
+		}
+
+		if (camera->fps > 500)
+		{
+			camera->fps = 500.f;
+			cout << "WARNING: FPS della camera superiori a 500 (verranno impostati automaticamente a 500)" << endl << endl;
+		}
 
 	}
 
@@ -306,12 +343,12 @@ void calculateBoundariesAndArrayMax(int scan_direction, PolygonMesh mesh, int* m
 }
 
 void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float baseline, float height_from_mesh_to_laser,
-	float direction_tan_laser_incl, int scan_direction, const MeshBounds &bounds) {
+	float inclination_coefficient, int scan_direction, const MeshBounds &bounds) {
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		laser_origin_1->z = bounds.max_z + height_from_mesh_to_laser;
 		laser_origin_1->x = (bounds.max_x + bounds.min_x) / 2;
-		laser_origin_1->y = bounds.min_y - (laser_origin_1->z - bounds.min_z) * direction_tan_laser_incl;
+		laser_origin_1->y = bounds.min_y - (laser_origin_1->z - bounds.min_z) * inclination_coefficient;
 
 		laser_origin_2->z = laser_origin_1->z;
 		laser_origin_2->x = laser_origin_1->x;
@@ -326,7 +363,7 @@ void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* 
 	{
 		laser_origin_1->z = bounds.max_z + height_from_mesh_to_laser;
 		laser_origin_1->y = (bounds.max_y + bounds.min_y) / 2;
-		laser_origin_1->x = bounds.min_x - (laser_origin_1->z - bounds.min_z) * direction_tan_laser_incl;
+		laser_origin_1->x = bounds.min_x - (laser_origin_1->z - bounds.min_z) * inclination_coefficient;
 
 		laser_origin_2->z = laser_origin_1->z;
 		laser_origin_2->y = laser_origin_1->y;
@@ -447,12 +484,12 @@ void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Ve
 	plane->D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
 }
 
-int getLowerBound(float* array_points, int array_size, float min_point) {
+int getLowerBound(float* array_points, int array_size, float threshold) {
 	int index = array_size - 1;
 
 	for (int i = 0; i < array_size; i++)
 	{
-		if (array_points[i] > min_point) {
+		if (array_points[i] > threshold) {
 			index = i - 1;
 			break;
 		}
@@ -463,12 +500,12 @@ int getLowerBound(float* array_points, int array_size, float min_point) {
 	return index;
 }
 
-int getUpperBound(float* array_points, int array_size, float max_point) {
+int getUpperBound(float* array_points, int array_size, float threshold) {
 	int index = 0;
 
 	for (int i = array_size - 1; i > 0; i--)
 	{
-		if (array_points[i] < max_point) {
+		if (array_points[i] < threshold) {
 			index = i;
 			break;
 		}
@@ -478,7 +515,7 @@ int getUpperBound(float* array_points, int array_size, float max_point) {
 }
 
 /*void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZ laser, const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, 
-										Plane* plane, float DIRECTION_TAN_LASER_APERTURE, float DIRECTION_TAN_LASER_INCLINATION, int* max_point_triangle_index,
+										Plane* plane, float aperture_coefficientURE, float inclination_coefficientINATION, int* max_point_triangle_index,
 										float* max_point_triangle, double laser_number, float min_z, float max_z)
 {
 	PointCloud<PointXYZ> meshVertices;
@@ -486,7 +523,7 @@ int getUpperBound(float* array_points, int array_size, float max_point) {
 
 	const float MIN_INTERSECTION = VTK_FLOAT_MIN;
 
-	int number_of_line = (DIRECTION_TAN_LASER_APERTURE * 2) / density;
+	int number_of_line = (aperture_coefficientURE * 2) / density;
 	//cout << "Numero linee fascio laser: " << number_of_line << endl;
 
 	int d1, d2;
@@ -494,8 +531,8 @@ int getUpperBound(float* array_points, int array_size, float max_point) {
 	{
 		d1 = 0;
 		d2 = 1;
-		Vector3d line_1(-DIRECTION_TAN_LASER_APERTURE + 0 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
-		Vector3d line_2(-DIRECTION_TAN_LASER_APERTURE + 10 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
+		Vector3d line_1(-aperture_coefficientURE + 0 * density, laser_number * inclination_coefficientINATION, -1);
+		Vector3d line_2(-aperture_coefficientURE + 10 * density, laser_number * inclination_coefficientINATION, -1);
 		getPlaneCoefficents(laser, line_1, line_2, plane);
 
 		//drawLine(cloudIntersection, laser, Eigen::Vector3f(0, -tan(deg2rad(laser_aperture / 2)) + 0 * density, -1), 1000);
@@ -505,8 +542,8 @@ int getUpperBound(float* array_points, int array_size, float max_point) {
 	{
 		d1 = 1;
 		d2 = 0;
-		Vector3d line_1(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 0 * density, -1);
-		Vector3d line_2(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 1000 * density, -1);
+		Vector3d line_1(laser_number * inclination_coefficientINATION, -aperture_coefficientURE + 0 * density, -1);
+		Vector3d line_2(laser_number * inclination_coefficientINATION, -aperture_coefficientURE + 1000 * density, -1);
 
 		getPlaneCoefficents(laser, line_1, line_2, plane);
 
@@ -515,28 +552,28 @@ int getUpperBound(float* array_points, int array_size, float max_point) {
 	}
 
 	Vector3d direction_ray_start;
-	direction_ray_start[d1] = -DIRECTION_TAN_LASER_APERTURE;
-	direction_ray_start[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
+	direction_ray_start[d1] = -aperture_coefficientURE;
+	direction_ray_start[d2] = laser_number * inclination_coefficientINATION;
 	direction_ray_start[2] = -1;
-	float min_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, min_z, scanDirection);
-	float max_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, max_z, scanDirection);
+	float laser_intersect_min_z = rayPlaneLimitIntersection(laser, direction_ray_start, min_z, scanDirection);
+	float laser_intersect_max_z = rayPlaneLimitIntersection(laser, direction_ray_start, max_z, scanDirection);
 
 	int lower_bound, upper_bound;
 
 	if (laser_number == LASER_2)
 	{
-		lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
-		upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
+		lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), laser_intersect_min_z);
+		upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), laser_intersect_max_z);
 	}
 
 	else //LASER_1
 	{
-		lower_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
-		upper_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
+		lower_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), laser_intersect_max_z);
+		upper_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), laser_intersect_min_z);
 	}
 
-	//cout << "min_polygons_coordinate: " << min_polygons_coordinate << endl;
-	//cout << "max_polygons_coordinate: " << max_polygons_coordinate << endl;
+	//cout << "laser_intersect_min_z: " << laser_intersect_min_z << endl;
+	//cout << "laser_intersect_max_z: " << laser_intersect_max_z << endl;
 	//cout << "start_index: " << start_index << endl;
 	//cout << "final_index: " << final_index << endl;
 	cout << "Number of Poligon intersected: " << upper_bound - lower_bound << endl;
@@ -558,12 +595,12 @@ int getUpperBound(float* array_points, int array_size, float max_point) {
 		origin_ray[1] = laser.y;
 		origin_ray[2] = laser.z;
 
-		float i = -DIRECTION_TAN_LASER_APERTURE + j*density;
+		float i = -aperture_coefficientURE + j*density;
 
 		firstIntersection.z = MIN_INTERSECTION;
 
 		direction_ray[d1] = i;
-		direction_ray[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
+		direction_ray[d2] = laser_number * inclination_coefficientINATION;
 		//direction_ray[2] = -1;
 
 		for (int k = lower_bound; k < upper_bound; k++)
@@ -652,7 +689,7 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[1])(), 0 };
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
 		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -758,75 +795,63 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 }
 
 void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, const vector<Triangle> &big_triangles, Vec3* output_points, uchar* output_hits,
-	const PolygonMesh &mesh, const PointXYZ &laser, const float density, PointCloud<PointXYZRGB>::Ptr cloudIntersection, int scanDirection, Plane* plane, 
-	float DIRECTION_TAN_LASER_APERTURE, float DIRECTION_TAN_LASER_INCLINATION, float* max_point_triangle, double laser_number, const MeshBounds &bounds)
+	const PolygonMesh &mesh, const PointXYZ &laser, const float density, PointCloud<PointXYZRGB>::Ptr cloud_intersection, int scan_direction, Plane* plane, 
+	float aperture_coefficient, float inclination_coefficient, float* max_point_triangle, const int laser_number, const MeshBounds &bounds)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
 
-	int array_size_hits = (int)(ceil(mesh.polygons.size() / (float)RUN));
-
-	const float MIN_INTERSECTION = VTK_FLOAT_MIN;
-
-	int number_of_line = (DIRECTION_TAN_LASER_APERTURE * 2) / density;
+	int array_size_hits = (int) (ceil(mesh.polygons.size() / (float)RUN));
+	
+	int number_of_line = (aperture_coefficient * 2) / density;
 
 	int d1, d2;
-	if (scanDirection == DIRECTION_SCAN_AXIS_Y)
+	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		d1 = 0;
 		d2 = 1;
-		Vector3d line_1(-DIRECTION_TAN_LASER_APERTURE + 0 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
-		Vector3d line_2(-DIRECTION_TAN_LASER_APERTURE + 10 * density, laser_number * DIRECTION_TAN_LASER_INCLINATION, -1);
+		Vector3d line_1(-aperture_coefficient + 0 * density, laser_number * inclination_coefficient, -1);
+		Vector3d line_2(-aperture_coefficient + 10 * density, laser_number * inclination_coefficient, -1);
 		getPlaneCoefficents(laser, line_1, line_2, plane);
 
-		//drawLine(cloudIntersection, laser, Eigen::Vector3f(-DIRECTION_TAN_LASER_APERTURE, DIRECTION_TAN_LASER_INCLINATION, -1), 1500);
-
+		//drawLine(cloudIntersection, laser, Eigen::Vector3f(-aperture_coefficientURE, inclination_coefficientINATION, -1), 1500);
 	}
-	if (scanDirection == DIRECTION_SCAN_AXIS_X)
+	if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		d1 = 1;
 		d2 = 0;
-		Vector3d line_1(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 0 * density, -1);
-		Vector3d line_2(laser_number * DIRECTION_TAN_LASER_INCLINATION, -DIRECTION_TAN_LASER_APERTURE + 1000 * density, -1);
+		Vector3d line_1(laser_number * inclination_coefficient, -aperture_coefficient + 0 * density, -1);
+		Vector3d line_2(laser_number * inclination_coefficient, -aperture_coefficient + 10 * density, -1);
 		getPlaneCoefficents(laser, line_1, line_2, plane);
 
 		//drawLine(cloudIntersection, laser, Eigen::Vector3f(-tan(deg2rad(laser_aperture / 2)) + 0 * density , 0, -1), 1000);
-
 	}
 
 	Vector3d direction_ray_start;
-	direction_ray_start[d1] = -DIRECTION_TAN_LASER_APERTURE;
-	direction_ray_start[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
+	direction_ray_start[d1] = -aperture_coefficient;
+	direction_ray_start[d2] = laser_number * inclination_coefficient;
 	direction_ray_start[2] = -1;
-	float min_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, bounds.min_z, scanDirection);
-	float max_polygons_coordinate = rayPlaneLimitIntersection(laser, direction_ray_start, bounds.max_z, scanDirection);
+	float laser_intersect_min_z = rayPlaneLimitIntersection(laser, direction_ray_start, bounds.min_z, scan_direction);
+	float laser_intersect_max_z = rayPlaneLimitIntersection(laser, direction_ray_start, bounds.max_z, scan_direction);
 
 	int lower_bound, upper_bound;
 
-	if (laser_number == LASER_1)
+	// Bounds calculated due to laser
+	switch (laser_number)
 	{
-		lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
-		upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
-	}
-	else //LASER_2
-	{
-		lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
-		upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
+		case (LASER_1):
+			lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), laser_intersect_max_z);
+			upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), laser_intersect_min_z);
+			break;
+
+		case (LASER_2):
+			lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), laser_intersect_min_z);
+			upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), laser_intersect_max_z);
+			break;
 	}
 
-	/*if (laser_number == LASER_1)
-	{
-		lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
-		upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
-	}
-	else
-	{
-		lower_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
-		upper_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
-	}
-	*/
+
 	int diff = upper_bound - lower_bound;
-	//if (diff != 0) cout << "Diff: " << diff << endl;
 
 	for (int j = 0; j < number_of_line; j++)
 	{
@@ -845,12 +870,12 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		ray_origin.points[Y] = laser.y;
 		ray_origin.points[Z] = laser.z;
 
-		float i = -DIRECTION_TAN_LASER_APERTURE + j*density;
+		float i = -aperture_coefficient + j*density;
 
-		firstIntersection.z = MIN_INTERSECTION;
+		firstIntersection.z = VTK_FLOAT_MIN;
 
 		ray_direction.points[d1] = i;
-		ray_direction.points[d2] = laser_number * DIRECTION_TAN_LASER_INCLINATION;
+		ray_direction.points[d2] = laser_number * inclination_coefficient;
 		ray_direction.points[Z] = -1;
 
 		//Triangle* triangles = all_triangles + start_index;
@@ -907,27 +932,19 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 			{
 				if (intersection_point[2] >= firstIntersection.z)
 				{
-
 					firstIntersection.x = intersection_point[0];
 					firstIntersection.y = intersection_point[1];
 					firstIntersection.z = intersection_point[2];
 					firstIntersection.r = 255;
 					firstIntersection.g = 0;
 					firstIntersection.b = 0;
-
 				}
 			}
 		}
 
 
-		if (firstIntersection.z > MIN_INTERSECTION)
-			cloudIntersection->push_back(firstIntersection);
-
-		//cout << "hit_number: " << hit_number << endl;
-
-		//delete(triangles);
-		//delete(output_points);
-		//delete(output_hits);
+		if (firstIntersection.z > VTK_FLOAT_MIN)
+			cloud_intersection->push_back(firstIntersection);
 
 		//duration<double> timer3 = high_resolution_clock::now() - start;
 		//cout << "Total time cycle ray intersection OpenCL:" << timer3.count() * 1000 << endl;
@@ -957,24 +974,24 @@ bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* m
 	direction.points[Y] = pin_hole.y - point.y;
 	direction.points[Z] = pin_hole.z - point.z;
 
-	int start_index, final_index;
+	int lower_bound, upper_bound;
 
 	if (pin_hole.y < origin.points[Y])
 	{
-		start_index = getLowerBound(max_point_triangle, polygon_size, pin_hole.y);
-		final_index = getUpperBound(max_point_triangle, polygon_size, origin.points[Y]);
+		lower_bound = getLowerBound(max_point_triangle, polygon_size, pin_hole.y);
+		upper_bound = getUpperBound(max_point_triangle, polygon_size, origin.points[Y]);
 	}
 	else
 	{
-		start_index = getLowerBound(max_point_triangle, polygon_size, origin.points[Y]);
-		final_index = getUpperBound(max_point_triangle, polygon_size, pin_hole.y);
+		lower_bound = getLowerBound(max_point_triangle, polygon_size, origin.points[Y]);
+		upper_bound = getUpperBound(max_point_triangle, polygon_size, pin_hole.y);
 	}
 
-	int diff = final_index - start_index;
+	int diff = upper_bound - lower_bound;
 
 	if (diff > 0)
 	{
-		computeOpenCL(openCLData, output_points, output_hits, start_index, diff, origin, direction);
+		computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
 
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int k = 0; k < n_max; k++)
@@ -991,23 +1008,17 @@ bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* m
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloudIntersection, Mat* img, int scan_direction,
 					int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,  
 					float baseline, float* max_point_triangle) {
-	Mat image(camera.image_height, camera.image_width, CV_8UC3);
+	// Initialize a white image
+	Mat image(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
+
 	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
 	PointXYZ current_point;
 
-	// inizializza l'immagine bianca
-	for (int i = 0; i < camera.image_height; ++i)
-		for (int j = 0; j < camera.image_width; ++j) {
-			image.at<Vec3b>(i, j)[0] = 255;
-			image.at<Vec3b>(i, j)[1] = 255;
-			image.at<Vec3b>(i, j)[2] = 255;
-		}
-
 	cloud_src->push_back(pin_hole);
 	cloud_src->push_back(laser_1);
 	cloud_src->push_back(laser_2);
-
+	
 	PointXYZ c, p1, p2;
 	// camera
 	c.x = 0;
@@ -1035,14 +1046,6 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 		p2.x = 0;
 		p2.y = baseline;
 		p2.z = 0;
-		/*
-		p1.x = distance_laser_camera;
-		p1.y = 0;
-		p1.z = 0;
-
-		p2.x = -distance_laser_camera;
-		p2.y = 0;
-		p2.z = 0;*/
 	}
 	cloud_target->push_back(p1);
 	cloud_target->push_back(p2);
@@ -1199,7 +1202,7 @@ void imageToCloud(Camera &camera, int scan_direction, const Plane &plane_1, cons
 	}
 }
 
-void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::Vector3f direction, int number_of_point) {
+/*void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::Vector3f direction, int number_of_point) {
 	PointXYZRGB point;
 	point.x = start_point.x;
 	point.y = start_point.y;
@@ -1220,7 +1223,7 @@ void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::V
 	}
 
 	cloud->width = cloud->points.size();
-}
+}*/
 
 void printProgBar(int percent) {
 	string bar;
@@ -1264,18 +1267,18 @@ int main(int argc, char** argv)
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 	PointXYZRGB laser_final_point_left, laser_final_point_right;
 
-	float baseline, distance_mesh_pinhole, laser_aperture, laser_inclination, ray_density, scan_speed;
+	float baseline, height_to_mesh, laser_aperture, laser_inclination, ray_density, scan_speed;
 	int scan_direction;
 	bool snapshot_save_flag;
 	string path_file;
 	
 	//********* Read data from XML parameters file ***************************************
-	readParamsFromXML(&camera, &baseline, &distance_mesh_pinhole, &laser_aperture, &laser_inclination, &ray_density, &scan_speed,
+	readParamsFromXML(&camera, &baseline, &height_to_mesh, &laser_aperture, &laser_inclination, &ray_density, &scan_speed,
 						&scan_direction, &snapshot_save_flag, &path_file);
 
 
-	float direction_tan_laser_incl = tan(deg2rad(90.f - laser_inclination));
-	float direction_tan_laser_apert = tan(deg2rad(laser_aperture / 2.f));
+	float inclination_coefficient = tan(deg2rad(90.f - laser_inclination));
+	float aperture_coefficient = tan(deg2rad(laser_aperture / 2.f));
 
 	// Initialize mesh's bounds
 	bounds.min_x = bounds.min_y = bounds.min_z = VTK_FLOAT_MAX;
@@ -1329,7 +1332,7 @@ int main(int argc, char** argv)
 	//************************ Find "big" triangles **************************************
 	vector<Triangle> big_triangles_vec;
 	Vec3 coord;
-	float projection_distance = (bounds.max_z - bounds.min_z) * direction_tan_laser_incl;
+	float projection_distance = (bounds.max_z - bounds.min_z) * inclination_coefficient;
 
 	for (int i = 0; i < size_array; i++) {
 		coord = calculateEdges(all_triangles[i]);
@@ -1345,13 +1348,12 @@ int main(int argc, char** argv)
 
 
 	//**************** Initialize initial position for camera and lasers *****************
-	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, baseline, distance_mesh_pinhole,
-						direction_tan_laser_incl, scan_direction, bounds);
+	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, baseline, height_to_mesh,
+						inclination_coefficient, scan_direction, bounds);
 
-	// Questo valore varia da 0,2 a 10 frame per mm
+	// Step size (in mm) between two snapshots
 	float increment = scan_speed / camera.fps;
 
-	// ATTENZIONE: al verso di scansione
 	float current_position, number_of_iterations, final_pos;
 
 
@@ -1377,13 +1379,13 @@ int main(int argc, char** argv)
 	// Disegno i laser
 	/*if (scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
-		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(-direction_tan_laser_incl, -0, -1), 2000);
-		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(direction_tan_laser_incl, 0, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(-inclination_coefficient, -0, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(inclination_coefficient, 0, -1), 2000);
 	}
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
-		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(0, -direction_tan_laser_incl, -1), 2000);
-		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(0, direction_tan_laser_incl, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_1, Eigen::Vector3f(0, -inclination_coefficient, -1), 2000);
+		drawLine(cloud_intersection_backup, laser_origin_2, Eigen::Vector3f(0, inclination_coefficient, -1), 2000);
 	}*/
 
 
@@ -1414,10 +1416,10 @@ int main(int argc, char** argv)
 		//************* Look for intersection with mesh (PCL + OpenCL) *******************
 		// For laser 1
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_1, ray_density, cloud_intersection, 
-			scan_direction, &plane_1, direction_tan_laser_apert, direction_tan_laser_incl, max_point_triangle, LASER_1, bounds);
+			scan_direction, &plane_1, aperture_coefficient, inclination_coefficient, max_point_triangle, LASER_1, bounds);
 		// For laser 2
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_2, ray_density, cloud_intersection,
-			scan_direction, &plane_2, direction_tan_laser_apert, direction_tan_laser_incl, max_point_triangle, LASER_2, bounds);
+			scan_direction, &plane_2, aperture_coefficient, inclination_coefficient, max_point_triangle, LASER_2, bounds);
 
 		//duration<double> timer2 = high_resolution_clock::now() - start;
 		//cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
