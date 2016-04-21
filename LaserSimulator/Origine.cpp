@@ -279,11 +279,11 @@ void calculateBoundariesAndArrayMax(int scan_direction, PolygonMesh mesh, int* m
 
 		if (scan_direction == DIRECTION_SCAN_AXIS_X)
 		{
-			if (point_1.x < point_2.x && point_1.x < point_3.x)
+			if (point_1.x > point_2.x && point_1.x > point_3.x)
 				max_point_triangle[i] = point_1.x;
 			else
 			{
-				if (point_2.x < point_3.x)
+				if (point_2.x > point_3.x)
 					max_point_triangle[i] = point_2.x;
 				else
 					max_point_triangle[i] = point_3.x;
@@ -302,19 +302,6 @@ void calculateBoundariesAndArrayMax(int scan_direction, PolygonMesh mesh, int* m
 					max_point_triangle[i] = point_3.y;
 			}
 		}
-
-		/*if (scan_direction == DIRECTION_SCAN_AXIS_Y)
-		{
-			if (point_1.y < point_2.y && point_1.y < point_3.y)
-				max_point_triangle[i] = point_1.y;
-			else
-			{
-				if (point_2.y < point_3.y)
-					max_point_triangle[i] = point_2.y;
-				else
-					max_point_triangle[i] = point_3.y;
-			}
-		}*/
 	}
 }
 
@@ -460,7 +447,7 @@ void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Ve
 	plane->D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
 }
 
-int findStartIndex(float* array_min_points, int array_size, float min_point) {
+int getLowerBound(float* array_min_points, int array_size, float min_point) {
 	int index = 0;
 
 	for (int i = 0; i < array_size; i++)
@@ -476,7 +463,7 @@ int findStartIndex(float* array_min_points, int array_size, float min_point) {
 	return index;
 }
 
-int findFinalIndex(float* array_min_points, int array_size, float max_point) {
+int getUpperBound(float* array_min_points, int array_size, float max_point) {
 	int index = 0;
 
 	for (int i = array_size - 1; i > 0; i--)
@@ -538,14 +525,14 @@ void findPointsMeshLaserIntersection(const PolygonMesh mesh, const PointXYZ lase
 
 	if (laser_number == -1)
 	{
-		start_index = findStartIndex(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
-		final_index = findFinalIndex(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
+		start_index = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
+		final_index = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
 	}
 
 	else
 	{
-		start_index = findFinalIndex(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
-		final_index = findStartIndex(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
+		start_index = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
+		final_index = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
 	}
 
 	//cout << "min_polygons_coordinate: " << min_polygons_coordinate << endl;
@@ -820,13 +807,13 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 
 	if (laser_number == LASER_1)
 	{
-		start_index = findStartIndex(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
-		final_index = findFinalIndex(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
+		start_index = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
+		final_index = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
 	}
 	else
 	{
-		start_index = findFinalIndex(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
-		final_index = findStartIndex(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
+		start_index = getUpperBound(max_point_triangle, mesh.polygons.size(), max_polygons_coordinate);
+		final_index = getLowerBound(max_point_triangle, mesh.polygons.size(), min_polygons_coordinate);
 	}
 
 	//cout << "min_polygons_coordinate: " << min_polygons_coordinate << endl;
@@ -971,13 +958,13 @@ bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* m
 
 	if (pin_hole.y < origin.points[Y])
 	{
-		start_index = findStartIndex(max_point_triangle, polygon_size, pin_hole.y);
-		final_index = findFinalIndex(max_point_triangle, polygon_size, origin.points[Y]);
+		start_index = getLowerBound(max_point_triangle, polygon_size, pin_hole.y);
+		final_index = getUpperBound(max_point_triangle, polygon_size, origin.points[Y]);
 	}
 	else
 	{
-		start_index = findStartIndex(max_point_triangle, polygon_size, origin.points[Y]);
-		final_index = findFinalIndex(max_point_triangle, polygon_size, pin_hole.y);
+		start_index = getLowerBound(max_point_triangle, polygon_size, origin.points[Y]);
+		final_index = getUpperBound(max_point_triangle, polygon_size, pin_hole.y);
 	}
 
 	int diff = final_index - start_index;
