@@ -137,9 +137,36 @@ Vec3 calculateEdges(const Triangle &triangles) {
 	return ret;
 };
 
-void readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, float *laser_aperture, float *laser_inclination, float *ray_density, 
+int readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, float *laser_aperture, float *laser_inclination, float *ray_density, 
 	float *scan_speed, int *scan_direction, bool *snapshot_save_flag, string *path_file)
 	{
+		// Read input parameters from xml file
+		FileStorage fs("laser_simulator_params.xml", FileStorage::READ);
+		if (fs.isOpened())
+		{
+			fs["path_file"] >> *path_file;
+			fs["baseline"] >> *baseline;
+			fs["height_to_mesh"] >> *height_to_mesh;
+			fs["laser_aperture"] >> *laser_aperture;
+			fs["laser_inclination"] >> *laser_inclination;
+			fs["ray_density"] >> *ray_density;
+			fs["scan_speed"] >> *scan_speed;
+			fs["scan_direction"] >> *scan_direction;
+			fs["snapshot_save_flag"] >> *snapshot_save_flag;
+			fs["camera_fps"] >> camera->fps;
+			fs["image_width"] >> camera->image_width;
+			fs["image_height"] >> camera->image_height;
+			fs["pixel_dimension"] >> camera->pixel_dimension;
+			fs["camera_matrix"] >> camera->camera_matrix;
+			fs["camera_distortion"] >> camera->distortion;
+		}
+		else
+		{
+			cout << "Error: cannot read the parameters" << endl;
+			return -1;
+		}
+
+		/*
 		*baseline = 600.f;					// [500, 800]
 		*height_to_mesh = 1200.f;	
 		*laser_aperture = 45.f;				// [30, 45]
@@ -173,6 +200,30 @@ void readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, f
 		camera->distortion.at<double>(2, 0) = 0.000868025;
 		camera->distortion.at<double>(3, 0) = 0.00298601;
 		camera->distortion.at<double>(4, 0) = 8.92225;
+		*/
+
+
+		/*
+		// Write file xml  
+		// PER SALVARE COME YAML BASTA MODIFICARE IL NOME
+		FileStorage fs("laser_simulator_params.xml", FileStorage::WRITE);
+		fs << "path_file" << *path_file;
+		fs << "baseline" << *baseline;					
+		fs << "height_to_mesh" << *height_to_mesh;
+		fs << "laser_aperture" << *laser_aperture;				
+		fs << "laser_inclination" << *laser_inclination;
+		fs << "ray_density" << *ray_density;
+		fs << "scan_speed" << *scan_speed;
+		fs << "scan_direction" << *scan_direction;
+		fs << "snapshot_save_flag" << *snapshot_save_flag;
+		fs << "camera_fps" << camera->fps;
+		fs << "image_width" << camera->image_width;
+		fs << "image_height" << camera->image_height;
+		fs << "pixel_dimension" << camera->pixel_dimension;
+		fs << "camera_matrix" << camera->camera_matrix;
+		fs << "camera_distortion" << camera->distortion;
+		fs.release();
+		*/
 
 		if (*scan_speed < 100)
 		{
@@ -209,7 +260,7 @@ void readParamsFromXML(Camera *camera, float *baseline, float *height_to_mesh, f
 			camera->fps = 500.f;
 			cout << "WARNING: FPS della camera superiori a 500 (verranno impostati automaticamente a 500)" << endl << endl;
 		}
-
+		return 0;
 	}
 
 void arraysMerge(float *a, int *b, int low, int high, int mid, float *c, int *d)
