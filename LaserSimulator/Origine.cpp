@@ -83,12 +83,12 @@ struct Triangle {
 
 struct MeshBounds
 {
-	float min_x;
-	float min_y;
-	float min_z;
-	float max_x;
-	float max_y;
-	float max_z;
+	float min_x = VTK_FLOAT_MAX;
+	float min_y = VTK_FLOAT_MAX;
+	float min_z = VTK_FLOAT_MAX;
+	float max_x = VTK_FLOAT_MIN;
+	float max_y = VTK_FLOAT_MIN;
+	float max_z = VTK_FLOAT_MIN;
 };
 
 struct OpenCLDATA {
@@ -1317,20 +1317,14 @@ int main(int argc, char** argv)
 	MeshBounds bounds;
 	Camera camera;
 	SimulationParams params;
-	Mat image;
-	OpenCLDATA openCLData;
-	Triangle* all_triangles;
-
-	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
-	PointXYZRGB laser_final_point_left, laser_final_point_right;
-
-
 	bool snapshot_save_flag;
 	string path_file;
+	OpenCLDATA openCLData;
 
-	// Initialize mesh's bounds
-	bounds.min_x = bounds.min_y = bounds.min_z = VTK_FLOAT_MAX;
-	bounds.max_x = bounds.max_y = bounds.max_z = VTK_FLOAT_MIN;
+	Mat image;
+	Triangle* all_triangles;
+	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
+
 	
 	//********* Read data from XML parameters file ***************************************
 	readParamsFromXML(&camera, &params, &snapshot_save_flag, &path_file);
@@ -1351,9 +1345,9 @@ int main(int argc, char** argv)
 	}
 	cout << "Dimensione della mesh (n. triangoli): " << mesh.polygons.size() << endl << endl;
 	
-	// Trova i punti di min e max per tutti gli assi della mesh
-	float *max_point_triangle = new float[mesh.polygons.size()]; // array per salvare i punti più a sx dei poligoni
-	int *max_point_triangle_index = new int[mesh.polygons.size()];   // array per salvare l'indice di tali punti
+	// Arrays used to optimize the computation of intersections
+	float *max_point_triangle = new float[mesh.polygons.size()];
+	int *max_point_triangle_index = new int[mesh.polygons.size()];
 	
 
 	//********** Find minimum and mixiumum points of 3 axis and fill *********************
@@ -1369,10 +1363,10 @@ int main(int argc, char** argv)
 
 
 	//********** Sort arrays to have more efficency in the search ************************
-	float *tmp_a = new float[mesh.polygons.size()]; // li creo qui fuori perché creandoli ogni volta nella ricorsione
-	int *tmp_b = new int[mesh.polygons.size()];     // c'è un crash dovuto alla ricorsione dell'operatore new
+	float *tmp_a = new float[mesh.polygons.size()];
+	int *tmp_b = new int[mesh.polygons.size()];
 	arraysMergesort(max_point_triangle, max_point_triangle_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
-	delete[] tmp_a, tmp_b; // elimino gli array temporanei
+	delete[] tmp_a, tmp_b;
 	
 	//************************ OpenCL Loading ********************************************
 	int array_size_hits = (int)(ceil(mesh.polygons.size() / (float)RUN));
@@ -1385,6 +1379,7 @@ int main(int argc, char** argv)
 
 
 	//************************ Find "big" triangles **************************************
+	// Questa parte dovra' sparire e finire in opencl, a quel punto faremo una funzione opportuna
 	vector<Triangle> big_triangles_vec;
 	Vec3 coord;
 	float projection_distance = (bounds.max_z - bounds.min_z) * inclination_coefficient;
@@ -1408,8 +1403,8 @@ int main(int argc, char** argv)
 	// Step size (in mm) between two snapshots
 	float increment = params.scan_speed / camera.fps;
 
-	float current_position, number_of_iterations, final_pos;
 
+	float current_position, number_of_iterations, final_pos;
 
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
@@ -1461,11 +1456,6 @@ int main(int argc, char** argv)
 		
 		//high_resolution_clock::time_point start;
 		//start = high_resolution_clock::now();
-
-		//************* Cerco le intersezioni (Solo PCL) *********************************
-		//findPointsMeshLaserIntersection(mesh, laser_point, ray_density, cloud_intersection, scanDirection, &plane_1, LASER_1);
-		//findPointsMeshLaserIntersection(mesh, laser_point_2, ray_density, cloud_intersection, scanDirection, &plane_2, LASER_2);
-		
 		
 		//************* Look for intersection with mesh (PCL + OpenCL) *******************
 		// For laser 1
