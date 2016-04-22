@@ -10,7 +10,7 @@
 <height_to_mesh>1200.</height_to_mesh>
 <laser_aperture>45.</laser_aperture>
 <laser_inclination>60.</laser_inclination>
-<number_of_line>100</number_of_line>
+<number_of_line>550</number_of_line>
 <scan_speed>100.</scan_speed>
 <scan_direction>1</scan_direction>
 

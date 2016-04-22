@@ -711,15 +711,34 @@ int getUpperBound(float* array_points, int array_size, float threshold) {
 		//cout << "Total time cycle ray intersection:" << timer.count() * 1000 << endl;
 	}
 }*/
+void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, int max_point_array_dimension, vector<int> &big_triangles_index)
+{
+	int current_position = 0;
+	
+	for (int i = 0; i < big_triangles_index.size(); i++) 
+	{
+		for (int j = 0; j < max_point_array_dimension; j++) 
+		{
+			// Find the duplicate
+			if (big_triangles_index[i] != max_point_triangle_index[j]) 
+			{
+				max_point_triangle[current_position] = max_point_triangle[j];
+				max_point_triangle_index[current_position] = max_point_triangle_index[j];
+				current_position++;
+				break;
+			}
+		}
+	}
+}
 
-void prepareDataForOpenCL(const PolygonMesh &mesh, Triangle* triangles, int* max_point_triangle_index) {
+void prepareDataForOpenCL(const PolygonMesh &mesh, Triangle* triangles, int* max_point_triangle_index, int size_array) {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
 
 	PointXYZ tmp;
 
 
-	for (int k = 0; k < mesh.polygons.size(); k++)
+	for (int k = 0; k < size_array; k++)
 	{
 
 		tmp = meshVertices.points[mesh.polygons[max_point_triangle_index[k]].vertices[0]];
@@ -859,12 +878,12 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 
 void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, const vector<Triangle> &big_triangles, Vec3* output_points, uchar* output_hits,
 	const PolygonMesh &mesh, const PointXYZ &laser, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane, 
-	float* max_point_triangle, const int laser_number, const MeshBounds &bounds)
+	float* max_point_triangle, const int laser_number, const MeshBounds &bounds, int size_array)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
 
-	int array_size_hits = (int) (ceil(mesh.polygons.size() / (float)RUN));
+	int array_size_hits = (int) (ceil(size_array / (float)RUN));
 	
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
 
@@ -900,13 +919,13 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 	switch (laser_number)
 	{
 		case (LASER_1):
-			lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), laser_intersect_max_z);
-			upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), laser_intersect_min_z);
+			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_max_z);
+			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_min_z);
 			break;
 
 		case (LASER_2):
-			lower_bound = getLowerBound(max_point_triangle, mesh.polygons.size(), laser_intersect_min_z);
-			upper_bound = getUpperBound(max_point_triangle, mesh.polygons.size(), laser_intersect_max_z);
+			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_min_z);
+			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_max_z);
 			break;
 	}
 
@@ -1335,7 +1354,6 @@ int main(int argc, char** argv)
 	OpenCLDATA openCLData;
 
 	Mat image;
-	Triangle* all_triangles;
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 
 	
@@ -1369,39 +1387,52 @@ int main(int argc, char** argv)
 	cout << "Z: [" << bounds.min_z << ", " << bounds.max_z << "]" << endl << endl;
 
 
-	//********** Sort arrays to have more efficency in the search ************************
-	float *tmp_a = new float[mesh.polygons.size()];
-	int *tmp_b = new int[mesh.polygons.size()];
-	arraysMergesort(max_point_triangle, max_point_triangle_index, 0, mesh.polygons.size() - 1, tmp_a, tmp_b);
-	delete[] tmp_a, tmp_b;
-	
-	//************************ OpenCL Loading ********************************************
-	int array_size_hits = (int)(ceil(mesh.polygons.size() / (float)RUN));
-	int size_array = mesh.polygons.size();
-	all_triangles = new Triangle[size_array];
-	Vec3* output_points = new Vec3[array_size_hits];
-	uchar* output_hits = new uchar[array_size_hits];
-	prepareDataForOpenCL(mesh, all_triangles, max_point_triangle_index);
-	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
-
-
 	//************************ Find "big" triangles **************************************
 	// Questa parte dovra' sparire e finire in opencl, a quel punto faremo una funzione opportuna
+	int size_array = mesh.polygons.size();
+	Triangle* all_triangles = new Triangle[size_array];
+	prepareDataForOpenCL(mesh, all_triangles, max_point_triangle_index, mesh.polygons.size());
 	vector<Triangle> big_triangles_vec;
+	vector<int> big_triangles_index;
 	Vec3 coord;
 	float projection_distance = (bounds.max_z - bounds.min_z) * params.inclination_coefficient;
 
+	// Find big triangles
 	for (int i = 0; i < size_array; i++) {
 		coord = calculateEdges(all_triangles[i]);
 		if (coord.points[0] > projection_distance || coord.points[1] > projection_distance || coord.points[2] > projection_distance)
+		{
 			big_triangles_vec.push_back(all_triangles[i]);
+			big_triangles_index.push_back(i);
+		}
 	}
 
+	// Put big traiangles in a Triangle array
 	Triangle* big_triangles = new Triangle[big_triangles_vec.size()];
 	for (int i = 0; i < big_triangles_vec.size(); i++)
 		big_triangles[i] = big_triangles_vec[i];
 
 	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl << endl;
+	
+	//***************** Remove "big" triangles from all triangle *************************
+	size_array = mesh.polygons.size() - big_triangles_index.size();
+	float * max_point_triangle_out = new float[size_array];
+	int * max_point_triangle_index_out = new int[size_array];
+	removeDuplicate(max_point_triangle, max_point_triangle_index, mesh.polygons.size(), big_triangles_index);
+	
+	//********** Sort arrays to have more efficency in the search ************************
+	float *tmp_a = new float[mesh.polygons.size()];
+	int *tmp_b = new int[mesh.polygons.size()];
+	arraysMergesort(max_point_triangle, max_point_triangle_index, 0, size_array - 1, tmp_a, tmp_b);
+	delete[] tmp_a, tmp_b;
+
+	//***************************** OpenCL Loading ***************************************
+	all_triangles = new Triangle[size_array];
+	prepareDataForOpenCL(mesh, all_triangles, max_point_triangle_index, size_array);
+	int array_size_hits = (int)(ceil(size_array / (float)RUN));
+	Vec3* output_points = new Vec3[array_size_hits];
+	uchar* output_hits = new uchar[array_size_hits];
+	initializeOpenCL(&openCLData, all_triangles, size_array, array_size_hits);
 
 
 	//**************** Initialize initial position for camera and lasers *****************
@@ -1467,10 +1498,10 @@ int main(int argc, char** argv)
 		//************* Look for intersection with mesh (PCL + OpenCL) *******************
 		// For laser 1
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection, 
-			&plane_1, max_point_triangle, LASER_1, bounds);
+			&plane_1, max_point_triangle, LASER_1, bounds, size_array);
 		// For laser 2
 		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
-			&plane_2, max_point_triangle, LASER_2, bounds);
+			&plane_2, max_point_triangle, LASER_2, bounds, size_array);
 
 		//duration<double> timer2 = high_resolution_clock::now() - start;
 		//cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
