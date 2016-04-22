@@ -148,7 +148,7 @@ Vec3 calculateEdges(const Triangle &triangles) {
 	ret.points[2] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
 
 	return ret;
-};
+}
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_file)
 	{
@@ -709,6 +709,47 @@ int getUpperBound(float* array_points, int array_size, float threshold) {
 		//cout << "Total time cycle ray intersection:" << timer.count() * 1000 << endl;
 	}
 }*/
+
+void findBigTriangles(const PolygonMesh &mesh, vector<Triangle>* big_triangles_vec, vector<int>* big_triangles_index, int projection_distance, int size_array)
+{
+	PointCloud<PointXYZ> mesh_vertices;
+	PointXYZ point;
+	Triangle triangle;
+	Vec3 triangle_edge;
+
+	fromPCLPointCloud2(mesh.cloud, mesh_vertices);
+
+	for (int i = 0; i < size_array; i++) {
+		// Take Vertex 1
+		point = mesh_vertices.points[mesh.polygons[i].vertices[0]];
+		triangle.vertex_1.points[X] = point.x;
+		triangle.vertex_1.points[Y] = point.y;
+		triangle.vertex_1.points[Z] = point.z;
+
+		// Take Vertex 2
+		point = mesh_vertices.points[mesh.polygons[i].vertices[1]];
+		triangle.vertex_2.points[X] = point.x;
+		triangle.vertex_2.points[Y] = point.y;
+		triangle.vertex_2.points[Z] = point.z;
+
+		// Take Vertex 3
+		point = mesh_vertices.points[mesh.polygons[i].vertices[2]];
+		triangle.vertex_3.points[X] = point.x;
+		triangle.vertex_3.points[Y] = point.y;
+		triangle.vertex_3.points[Z] = point.z;
+
+		// Calculate the length of the edges
+		triangle_edge = calculateEdges(triangle);
+
+		// Check if the triangle is a "Big Triangle" and save its index
+		if (triangle_edge.points[0] > projection_distance || triangle_edge.points[1] > projection_distance || triangle_edge.points[2] > projection_distance)
+		{
+			big_triangles_vec->push_back(triangle);
+			big_triangles_index->push_back(i);
+		}
+	}
+}
+
 void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, int max_point_array_dimension, vector<int> &big_triangles_index)
 {
 	int current_position = 0;
@@ -873,7 +914,7 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 	return 0;
 }
 
-void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, const vector<Triangle> &big_triangles, Vec3* output_points, uchar* output_hits,
+void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, const vector<Triangle> &big_triangles, Vec3* output_points, uchar* output_hits,
 	const PolygonMesh &mesh, const PointXYZ &laser, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane, 
 	float* max_point_triangle, const int laser_number, const MeshBounds &bounds, int size_array)
 {
@@ -1027,7 +1068,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 	}
 }
 
-bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
+bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData,
 	Vec3* output_points, uchar* output_hits) {
 	/*
 
@@ -1082,7 +1123,7 @@ bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* m
 }
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
-					Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points,
+					Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Vec3* output_points,
 					uchar* output_hits, float* max_point_triangle) {
 	// Initialize a white image
 	Mat image(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
@@ -1158,7 +1199,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
 			{
-				if (checkOcclusion(cloud_intersection->at(i), pin_hole, max_point_triangle, polygon_size, openCLData, all_triangles, output_points, output_hits))
+				if (checkOcclusion(cloud_intersection->at(i), pin_hole, max_point_triangle, polygon_size, openCLData, output_points, output_hits))
 				{
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
@@ -1395,14 +1436,16 @@ int main(int argc, char** argv)
 	//************************ Find "big" triangles **************************************
 	// Questa parte dovra' sparire e finire in opencl, a quel punto faremo una funzione opportuna
 	int size_array = mesh.polygons.size();
-	Triangle* all_triangles = new Triangle[size_array];
-	prepareDataForOpenCL(mesh, all_triangles, max_point_triangle_index, mesh.polygons.size());
+	//Triangle* all_triangles = new Triangle[size_array];
+	//prepareDataForOpenCL(mesh, all_triangles, max_point_triangle_index, mesh.polygons.size());
+	//Vec3 coord;
 	vector<Triangle> big_triangles_vec;
 	vector<int> big_triangles_index;
-	Vec3 coord;
 	float projection_distance = (bounds.max_z - bounds.min_z) * params.inclination_coefficient;
 
-	// Find big triangles
+	findBigTriangles(mesh, &big_triangles_vec, &big_triangles_index, projection_distance, size_array);
+	
+	/*
 	for (int i = 0; i < size_array; i++) {
 		coord = calculateEdges(all_triangles[i]);
 		if (coord.points[0] > projection_distance || coord.points[1] > projection_distance || coord.points[2] > projection_distance)
@@ -1411,18 +1454,17 @@ int main(int argc, char** argv)
 			big_triangles_index.push_back(i);
 		}
 	}
-
+	
+	//-----------------------------------------------------L'ARRAY big_triangles NON VIENE PIU UTILIZZATO QUINDI SI POTREBBE RIMUOVERE
 	// Put big triangles in a Triangle array
 	Triangle* big_triangles = new Triangle[big_triangles_vec.size()];
 	for (int i = 0; i < big_triangles_vec.size(); i++)
 		big_triangles[i] = big_triangles_vec[i];
-
+	*/
 	cout << "NUMERO BIG TRIANGLES: " << big_triangles_vec.size() << endl << endl;
 	
 	//***************** Remove "big" triangles from all triangle *************************
 	size_array = mesh.polygons.size() - big_triangles_index.size();
-	float * max_point_triangle_out = new float[size_array];
-	int * max_point_triangle_index_out = new int[size_array];
 	removeDuplicate(max_point_triangle, max_point_triangle_index, mesh.polygons.size(), big_triangles_index);
 	
 	//********** Sort arrays to have more efficency in the search ************************
@@ -1432,7 +1474,7 @@ int main(int argc, char** argv)
 	delete[] tmp_a, tmp_b;
 
 	//***************************** OpenCL Loading ***************************************
-	all_triangles = new Triangle[size_array];
+	Triangle* all_triangles = new Triangle[size_array];
 	prepareDataForOpenCL(mesh, all_triangles, max_point_triangle_index, size_array);
 	int array_size_hits = (int)(ceil(size_array / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];
@@ -1488,8 +1530,8 @@ int main(int argc, char** argv)
 	for (int z = 0; (current_position - params.baseline) < final_pos; z++)
 	{
 		// Print progression bar and number of iteration completed
-		printProgBar((int) ((z / number_of_iterations) * 100));
-		cout << z << " di " << (int)(number_of_iterations + 0.5);
+		printProgBar((int) ((z / number_of_iterations) * 100 + 0.5));
+		cout << z << " di " << (int)(number_of_iterations);
 
 
 		// Update position of pin hole and lasers
@@ -1502,10 +1544,10 @@ int main(int argc, char** argv)
 		
 		//************* Look for intersection with mesh (PCL + OpenCL) *******************
 		// For laser 1
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection, 
+		findPointsMeshLaserIntersectionOpenCL(&openCLData, big_triangles_vec, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection, 
 			&plane_1, max_point_triangle, LASER_1, bounds, size_array);
 		// For laser 2
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, big_triangles_vec, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
+		findPointsMeshLaserIntersectionOpenCL(&openCLData, big_triangles_vec, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
 			&plane_2, max_point_triangle, LASER_2, bounds, size_array);
 
 		//duration<double> timer2 = high_resolution_clock::now() - start;
@@ -1513,7 +1555,7 @@ int main(int argc, char** argv)
 
 
 		//************** Take snapshot  **************************************************
-		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, size_array, &openCLData, all_triangles, output_points,
+		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, size_array, &openCLData, output_points,
 			output_hits, max_point_triangle);
 	
 		// Save snapshot (only for debug) 
