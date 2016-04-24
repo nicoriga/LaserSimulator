@@ -546,6 +546,7 @@ void prepareDataForOpenCL(const PolygonMesh &mesh, Triangle* triangles, int* max
 }
 
 void initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) {
+	cl_int err = CL_SUCCESS;
 
 	try {
 		// Query platforms

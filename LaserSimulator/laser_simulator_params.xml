@@ -2,7 +2,7 @@
 <opencv_storage>
 
 <!-- Path della mesh -->
-<path_file>"../dataset/prodotto.stl"</path_file>
+<path_file>"../dataset/gitterbox.stl"</path_file>
 
 
 <!-- Parametri di simulazione -->
