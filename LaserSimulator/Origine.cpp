@@ -319,7 +319,7 @@ void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh 
 
 		updateMinMax(point_3, bounds);
 
-		// Popolamento array max_point_triangle per tener traccia quale dei 3 vertici ha la Y più piccola
+		// Popolamento array max_point_triangle per tener traccia quale dei 3 vertici ha la Y più grande
 		max_point_triangle_index[i] = i;
 
 		if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
@@ -424,14 +424,12 @@ float getLinePlaneIntersection(const PointXYZ &source, const Vector3d &direction
 	return 0;
 }
 
-Plane getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Vector3d &line_2) {
-	Plane p;
+void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Vector3d &line_2, Plane *p) {
 	Vector3d plane_normal = line_1.cross(line_2);
-	p.A = plane_normal[0];
-	p.B = plane_normal[1];
-	p.C = plane_normal[2];
-	p.D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
-	return p;
+	p->A = plane_normal[0];
+	p->B = plane_normal[1];
+	p->C = plane_normal[2];
+	p->D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
 }
 
 int getLowerBound(float* array_points, int array_size, float threshold) {
@@ -469,7 +467,6 @@ void findBigTriangles(const PolygonMesh &mesh, vector<Triangle> *big_triangles_v
 	PointCloud<PointXYZ> mesh_vertices;
 	PointXYZ point;
 	Triangle triangle;
-	Vec3 triangle_edge;
 
 	fromPCLPointCloud2(mesh.cloud, mesh_vertices);
 
@@ -548,16 +545,15 @@ void prepareDataForOpenCL(const PolygonMesh &mesh, Triangle* triangles, int* max
 	}
 }
 
-int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) {
+void initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) {
 
-	cl_int err = CL_SUCCESS;
 	try {
-
 		// Query platforms
 		cl::Platform::get(&openCLData->platforms);
-		if (openCLData->platforms.size() == 0) {
-			std::cout << "Platform size 0\n";
-			return -1;
+		if (openCLData->platforms.size() == 0)
+		{
+			cerr << "OpenCL error: Platform size 0" << endl;
+			exit(1);
 		}
 
 		// Get list of devices on default platform and create context
@@ -616,21 +612,16 @@ int initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array
 
 	}
 	catch (...) {
-		cout << "Errore OpenCL " << endl;
-
-		return -1;
-
+		cerr << "OpenCL error" << endl;
+		exit(1);
 	}
 
-	return 0;
 }
 
-int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) {
+void computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) {
 
 	//high_resolution_clock::time_point start;
 	//start = high_resolution_clock::now();
-
-	cl_int err = CL_SUCCESS;
 
 	if (big)
 		openCLData->kernel.setArg(0, openCLData->device_big_triangle_array);
@@ -646,20 +637,13 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 	// Number of work items in each local work group
 
 	cl::NDRange localSize(LOCAL_SIZE, 1, 1);
-	// Number of total work items - localSize must be devisor
+	// Number of total work items - localSize must be divisor
 	int global_size = (int)(ceil((array_lenght / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
-	//cout << "global_size " << global_size << endl;
 	cl::NDRange globalSize(global_size, 1, 1);
 
 	// Enqueue kernel
 	cl::Event event;
-	openCLData->queue.enqueueNDRangeKernel(
-		openCLData->kernel,
-		cl::NullRange,
-		globalSize,
-		localSize,
-		NULL,
-		&event);
+	openCLData->queue.enqueueNDRangeKernel(openCLData->kernel, cl::NullRange, globalSize, localSize, NULL, &event);
 
 	// Block until kernel completion
 	event.wait();
@@ -670,12 +654,10 @@ int computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hit
 
 	//duration<double> timer = high_resolution_clock::now() - start;
 	//cout << "Buffer output copied OpenCL:" << timer.count() * 1000 << endl;
-
-	return 0;
 }
 
-void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
-	const PolygonMesh &mesh, const PointXYZ &laser, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
+void getIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
+	const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
 	float* max_point_triangle, const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array)
 {
 	PointCloud<PointXYZ> meshVertices;
@@ -692,7 +674,7 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		d2 = 1;
 		Vector3d line_1(-params.aperture_coefficient + 0 * ray_density, laser_number * params.inclination_coefficient, -1);
 		Vector3d line_2(-params.aperture_coefficient + 10 * ray_density, laser_number * params.inclination_coefficient, -1);
-		*plane = getPlaneCoefficents(laser, line_1, line_2);
+		getPlaneCoefficents(laser_point, line_1, line_2, plane);
 	}
 
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
@@ -701,15 +683,15 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		d2 = 0;
 		Vector3d line_1(laser_number * params.inclination_coefficient, -params.aperture_coefficient + 0 * ray_density, -1);
 		Vector3d line_2(laser_number * params.inclination_coefficient, -params.aperture_coefficient + 10 * ray_density, -1);
-		*plane = getPlaneCoefficents(laser, line_1, line_2);
+		getPlaneCoefficents(laser_point, line_1, line_2, plane);
 	}
 
-	Vector3d direction_ray_start;
-	direction_ray_start[d1] = -params.aperture_coefficient;
-	direction_ray_start[d2] = laser_number * params.inclination_coefficient;
-	direction_ray_start[2] = -1;
-	float laser_intersect_min_z = getLinePlaneIntersection(laser, direction_ray_start, bounds.min_z, params.scan_direction);
-	float laser_intersect_max_z = getLinePlaneIntersection(laser, direction_ray_start, bounds.max_z, params.scan_direction);
+	Vector3d laser_direction;
+	laser_direction[d1] = -params.aperture_coefficient;
+	laser_direction[d2] = laser_number * params.inclination_coefficient;
+	laser_direction[2] = -1;
+	float laser_intersect_min_z = getLinePlaneIntersection(laser_point, laser_direction, bounds.min_z, params.scan_direction);
+	float laser_intersect_max_z = getLinePlaneIntersection(laser_point, laser_direction, bounds.max_z, params.scan_direction);
 
 	int lower_bound, upper_bound;
 
@@ -742,9 +724,9 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 		Vec3 ray_origin, ray_direction;
 		PointXYZRGB first_intersec;
 
-		ray_origin.points[X] = laser.x;
-		ray_origin.points[Y] = laser.y;
-		ray_origin.points[Z] = laser.z;
+		ray_origin.points[X] = laser_point.x;
+		ray_origin.points[Y] = laser_point.y;
+		ray_origin.points[Z] = laser_point.z;
 
 		float i = -params.aperture_coefficient + j * ray_density;
 
@@ -807,17 +789,15 @@ void findPointsMeshLaserIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all
 	}
 }
 
-bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
 	Vec3* output_points, uchar* output_hits) {
 	/*
-
 	1. calcola il raggio tra il point e il pin_hole
 	2. trova gli indici nell'array dei min_y tra le coordinate y del pin_hole e del point
 	3. cerco intersezione tra il raggio e i triangoli
 	5. interseca con un triangolo?
 	Falso -> return 0
 	return 1
-
 	*/
 
 	Vec3 origin;
@@ -853,12 +833,11 @@ bool checkOcclusion(const PointXYZRGB &point, const PointXYZ &pin_hole, float* m
 		for (int k = 0; k < n_max; k++)
 		{
 			if (output_hits[k] == 1)
-				return FALSE;
+				return TRUE;
 		}
-
 	}
 
-	return TRUE;
+	return FALSE;
 }
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
@@ -927,7 +906,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
 			{
-				if (checkOcclusion(cloud_intersection->at(i), pin_hole, max_point_triangle, polygon_size, openCLData, all_triangles, output_points, output_hits))
+				if (!(isOccluded(cloud_intersection->at(i), pin_hole, max_point_triangle, polygon_size, openCLData, all_triangles, output_points, output_hits)))
 				{
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
@@ -1258,10 +1237,10 @@ int main(int argc, char** argv)
 
 		//************* Look for intersection with mesh (PCL + OpenCL) *******************
 		// For laser 1
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
+		getIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
 			&plane_1, max_point_triangle, LASER_1, bounds, array_size, big_array_size);
 		// For laser 2
-		findPointsMeshLaserIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
+		getIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
 			&plane_2, max_point_triangle, LASER_2, bounds, array_size, big_array_size);
 
 		//duration<double> timer2 = high_resolution_clock::now() - start;
