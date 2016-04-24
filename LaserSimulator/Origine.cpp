@@ -125,7 +125,7 @@ struct OpenCLDATA {
 
 
 
-Vec3 calculateEdges(const Triangle &triangles) {
+bool isBigTriangle(const Triangle &triangles, float projection_distance) {
 
 	float diff_x, diff_y, diff_z;
 	Vec3 ret;
@@ -148,8 +148,8 @@ Vec3 calculateEdges(const Triangle &triangles) {
 
 	ret.points[2] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
 
-	return ret;
-};
+	return (ret.points[0] > projection_distance || ret.points[1] > projection_distance || ret.points[2] > projection_distance);
+}
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_file)
 {
@@ -493,11 +493,8 @@ void findBigTriangles(const PolygonMesh &mesh, vector<Triangle> *big_triangles_v
 		triangle.vertex_3.points[Y] = point.y;
 		triangle.vertex_3.points[Z] = point.z;
 
-		// Calculate the length of the edges
-		triangle_edge = calculateEdges(triangle);
-
 		// Check if the triangle is a "Big Triangle" and save its index
-		if (triangle_edge.points[0] > projection_distance || triangle_edge.points[1] > projection_distance || triangle_edge.points[2] > projection_distance)
+		if (isBigTriangle(triangle, projection_distance))
 		{
 			big_triangles_vec->push_back(triangle);
 			big_triangles_index->push_back(i);
@@ -1247,8 +1244,8 @@ int main(int argc, char** argv)
 	for (int z = 0; (current_position - params.baseline) < final_pos; z++)
 	{
 		// Print progression bar and number of iteration completed
-		printProgBar((int)((z / number_of_iterations) * 100));
-		cout << z << " di " << (int)(number_of_iterations + 0.5);
+		printProgBar((int)((z / number_of_iterations) * 100 + 0.5));
+		cout << z << " di " << (int)(number_of_iterations);
 
 
 		// Update position of pin hole and lasers
