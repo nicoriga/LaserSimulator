@@ -125,39 +125,40 @@ struct OpenCLDATA {
 
 
 
-bool isBigTriangle(const Triangle &triangles, float projection_distance) {
+bool isBigTriangle(const Triangle &triangle, float projection_distance) {
 
 	float diff_x, diff_y, diff_z;
 	Vec3 ret;
 
-	diff_x = triangles.vertex_1.points[0] - triangles.vertex_2.points[0];
-	diff_y = triangles.vertex_1.points[1] - triangles.vertex_2.points[1];
-	diff_z = triangles.vertex_1.points[2] - triangles.vertex_2.points[2];
+	diff_x = triangle.vertex_1.points[0] - triangle.vertex_2.points[0];
+	diff_y = triangle.vertex_1.points[1] - triangle.vertex_2.points[1];
+	diff_z = triangle.vertex_1.points[2] - triangle.vertex_2.points[2];
 
 	ret.points[0] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
 
-	diff_x = triangles.vertex_1.points[0] - triangles.vertex_3.points[0];
-	diff_y = triangles.vertex_1.points[1] - triangles.vertex_3.points[1];
-	diff_z = triangles.vertex_1.points[2] - triangles.vertex_3.points[2];
+	diff_x = triangle.vertex_1.points[0] - triangle.vertex_3.points[0];
+	diff_y = triangle.vertex_1.points[1] - triangle.vertex_3.points[1];
+	diff_z = triangle.vertex_1.points[2] - triangle.vertex_3.points[2];
 
 	ret.points[1] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
 
-	diff_x = triangles.vertex_2.points[0] - triangles.vertex_3.points[0];
-	diff_y = triangles.vertex_2.points[1] - triangles.vertex_3.points[1];
-	diff_z = triangles.vertex_2.points[2] - triangles.vertex_3.points[2];
+	diff_x = triangle.vertex_2.points[0] - triangle.vertex_3.points[0];
+	diff_y = triangle.vertex_2.points[1] - triangle.vertex_3.points[1];
+	diff_z = triangle.vertex_2.points[2] - triangle.vertex_3.points[2];
 
 	ret.points[2] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
 
 	return (ret.points[0] > projection_distance || ret.points[1] > projection_distance || ret.points[2] > projection_distance);
 }
 
-void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_file)
+void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file)
 {
 	// Read input parameters from xml file
 	FileStorage fs("laser_simulator_params.xml", FileStorage::READ);
 	if (fs.isOpened())
 	{
-		fs["path_file"] >> *path_file;
+		fs["path_read_file"] >> *path_read_file;
+		fs["path_save_file"] >> *path_save_file;
 		fs["baseline"] >> params->baseline;
 		fs["height_to_mesh"] >> params->height_to_mesh;
 		fs["laser_aperture"] >> params->laser_aperture;
@@ -176,7 +177,14 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 	else
 	{
 		cerr << "Error: cannot read the parameters" << endl;
-		exit(-1);
+		exit(1);
+	}
+
+
+	if (params->scan_direction != DIRECTION_SCAN_AXIS_X && params->scan_direction != DIRECTION_SCAN_AXIS_Y)
+	{
+		params->scan_direction = DIRECTION_SCAN_AXIS_Y;
+		cout << "WARNING: Direzione di scansione non valida (verra' impostato automaticamente l'asse Y)" << endl << endl;
 	}
 
 	if (params->scan_speed < 100)
@@ -270,7 +278,6 @@ void arraysMergesort(float *a, int* b, int low, int high, float *tmp_a, int *tmp
 		arraysMergesort(a, b, mid + 1, high, tmp_a, tmp_b);
 		arraysMerge(a, b, low, high, mid, tmp_a, tmp_b);
 	}
-	return;
 }
 
 void updateMinMax(PointXYZRGB point, MeshBounds *bounds) {
@@ -295,10 +302,10 @@ void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh 
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZRGB point_1, point_2, point_3;
 
-	// Convert mesh in a point cloud 
+	// Convert mesh in a point cloud (only vertex)
 	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
 
-	// ricerca max e min per tutti gli assi
+	// Search minimum and maximum points on X, Y and Z axis
 	for (int i = 0; i < mesh.polygons.size(); i++)
 	{
 		point_1.x = cloud_mesh.points[mesh.polygons[i].vertices[0]].x;
@@ -319,7 +326,6 @@ void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh 
 
 		updateMinMax(point_3, bounds);
 
-		// Popolamento array max_point_triangle per tener traccia quale dei 3 vertici ha la Y più grande
 		max_point_triangle_index[i] = i;
 
 		if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
@@ -402,16 +408,6 @@ void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ*
 
 	}
 	pin_hole->z = laser_origin_1->z;
-}
-
-Vec3f directionVector(PointXYZRGB source_point, PointXYZRGB destination_point) {
-	Vec3f direction;
-
-	direction[0] = (destination_point.x - source_point.x) / (destination_point.z - source_point.z);
-	direction[1] = (destination_point.y - source_point.y) / (destination_point.z - source_point.z);
-	direction[2] = 1;
-
-	return direction;
 }
 
 float getLinePlaneIntersection(const PointXYZ &source, const Vector3d &direction, float plane_coordinate, int scan_direction) {
@@ -519,7 +515,7 @@ void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, i
 	}
 }
 
-void prepareDataForOpenCL(const PolygonMesh &mesh, Triangle* triangles, int* max_point_triangle_index, int size_array)
+void createAllTriangleArray(const PolygonMesh &mesh, Triangle* triangles, int* max_point_triangle_index, int size_array)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
@@ -545,26 +541,26 @@ void prepareDataForOpenCL(const PolygonMesh &mesh, Triangle* triangles, int* max
 	}
 }
 
-void initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) {
+void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) {
 	cl_int err = CL_SUCCESS;
 
 	try {
 		// Query platforms
-		cl::Platform::get(&openCLData->platforms);
-		if (openCLData->platforms.size() == 0)
+		cl::Platform::get(&data->platforms);
+		if (data->platforms.size() == 0)
 		{
 			cerr << "OpenCL error: Platform size 0" << endl;
 			exit(1);
 		}
 
 		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(openCLData->platforms[0])(), 0 };
-		//openCLData->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
-		openCLData->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
-		openCLData->devices = openCLData->context.getInfo<CL_CONTEXT_DEVICES>();
+		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(data->platforms[0])(), 0 };
+		//data->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
+		data->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
+		data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
 
 		// Create command queue for first device
-		openCLData->queue = cl::CommandQueue(openCLData->context, openCLData->devices[0], 0, &err);
+		data->queue = cl::CommandQueue(data->context, data->devices[0], 0, &err);
 
 		FILE* programHandle;
 		size_t kernelSourceSize;
@@ -583,33 +579,33 @@ void initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int arra
 		fclose(programHandle);
 
 		//Build kernel from source string
-		openCLData->program_ = cl::Program(openCLData->context, kernelSource);
-		err = openCLData->program_.build(openCLData->devices);
+		data->program_ = cl::Program(data->context, kernelSource);
+		err = data->program_.build(data->devices);
 
 		free(kernelSource);
 
 		// Size, in bytes, of each vector
-		openCLData->triangles_size = array_lenght * sizeof(Triangle);
-		openCLData->big_triangles_size = big_array_lenght * sizeof(Triangle);
-		openCLData->points_size = array_size_hits * sizeof(Vec3);
-		openCLData->hits_size = array_size_hits * sizeof(uchar);
+		data->triangles_size = array_lenght * sizeof(Triangle);
+		data->big_triangles_size = big_array_lenght * sizeof(Triangle);
+		data->points_size = array_size_hits * sizeof(Vec3);
+		data->hits_size = array_size_hits * sizeof(uchar);
 
 		// Create device memory buffers
-		openCLData->device_triangle_array = cl::Buffer(openCLData->context, CL_MEM_READ_ONLY, openCLData->triangles_size);
-		openCLData->device_big_triangle_array = cl::Buffer(openCLData->context, CL_MEM_READ_ONLY, openCLData->big_triangles_size);
-		openCLData->device_output_points = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, openCLData->points_size);
-		openCLData->device_output_hits = cl::Buffer(openCLData->context, CL_MEM_WRITE_ONLY, openCLData->hits_size);
+		data->device_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->triangles_size);
+		data->device_big_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->big_triangles_size);
+		data->device_output_points = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->points_size);
+		data->device_output_hits = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->hits_size);
 
 		// Bind memory buffers
-		openCLData->queue.enqueueWriteBuffer(openCLData->device_triangle_array, CL_TRUE, 0, openCLData->triangles_size, triangle_array);
-		openCLData->queue.enqueueWriteBuffer(openCLData->device_big_triangle_array, CL_TRUE, 0, openCLData->big_triangles_size, big_triangle_array);
+		data->queue.enqueueWriteBuffer(data->device_triangle_array, CL_TRUE, 0, data->triangles_size, triangle_array);
+		data->queue.enqueueWriteBuffer(data->device_big_triangle_array, CL_TRUE, 0, data->big_triangles_size, big_triangle_array);
 
 		// Create kernel object
-		openCLData->kernel = cl::Kernel(openCLData->program_, "RayTriangleIntersection", &err);
+		data->kernel = cl::Kernel(data->program_, "RayTriangleIntersection", &err);
 
 		// Bind kernel arguments to kernel
-		openCLData->kernel.setArg(1, openCLData->device_output_points);
-		openCLData->kernel.setArg(2, openCLData->device_output_hits);
+		data->kernel.setArg(1, data->device_output_points);
+		data->kernel.setArg(2, data->device_output_hits);
 
 	}
 	catch (...) {
@@ -619,21 +615,21 @@ void initializeOpenCL(OpenCLDATA* openCLData, Triangle* triangle_array, int arra
 
 }
 
-void computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) {
+void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) {
 
 	//high_resolution_clock::time_point start;
 	//start = high_resolution_clock::now();
 
 	if (big)
-		openCLData->kernel.setArg(0, openCLData->device_big_triangle_array);
+		data->kernel.setArg(0, data->device_big_triangle_array);
 
 	else
-		openCLData->kernel.setArg(0, openCLData->device_triangle_array);
+		data->kernel.setArg(0, data->device_triangle_array);
 
-	openCLData->kernel.setArg(3, start_index);
-	openCLData->kernel.setArg(4, array_lenght);
-	openCLData->kernel.setArg(5, ray_origin);
-	openCLData->kernel.setArg(6, ray_direction);
+	data->kernel.setArg(3, start_index);
+	data->kernel.setArg(4, array_lenght);
+	data->kernel.setArg(5, ray_origin);
+	data->kernel.setArg(6, ray_direction);
 
 	// Number of work items in each local work group
 
@@ -644,20 +640,20 @@ void computeOpenCL(OpenCLDATA* openCLData, Vec3* output_points, uchar* output_hi
 
 	// Enqueue kernel
 	cl::Event event;
-	openCLData->queue.enqueueNDRangeKernel(openCLData->kernel, cl::NullRange, globalSize, localSize, NULL, &event);
+	data->queue.enqueueNDRangeKernel(data->kernel, cl::NullRange, globalSize, localSize, NULL, &event);
 
 	// Block until kernel completion
 	event.wait();
 
 	// Read back device_output_point, device_output_hit
-	openCLData->queue.enqueueReadBuffer(openCLData->device_output_points, CL_TRUE, 0, openCLData->points_size, output_points);
-	openCLData->queue.enqueueReadBuffer(openCLData->device_output_hits, CL_TRUE, 0, openCLData->hits_size, output_hits);
+	data->queue.enqueueReadBuffer(data->device_output_points, CL_TRUE, 0, data->points_size, output_points);
+	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
 
 	//duration<double> timer = high_resolution_clock::now() - start;
 	//cout << "Buffer output copied OpenCL:" << timer.count() * 1000 << endl;
 }
 
-void getIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
+void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
 	const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
 	float* max_point_triangle, const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array)
 {
@@ -739,7 +735,7 @@ void getIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3
 
 		if (diff > 0)
 		{
-			computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction, FALSE);
+			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction, FALSE);
 
 			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 			for (int h = 0; h < n_max; h++)
@@ -760,7 +756,7 @@ void getIntersectionOpenCL(OpenCLDATA* openCLData, Triangle* all_triangles, Vec3
 			}
 		}
 
-		computeOpenCL(openCLData, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, TRUE);
+		computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, TRUE);
 
 		int n = (int)(ceil((size_big_array / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n; h++)
@@ -1025,29 +1021,6 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &p
 	}
 }
 
-/*void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::Vector3f direction, int number_of_point) {
-PointXYZRGB point;
-point.x = start_point.x;
-point.y = start_point.y;
-point.z = start_point.z;
-point.r = 255;
-point.g = 0;
-point.b = 255;
-
-for (int i = 0; i < number_of_point; i++)
-{
-point.x = point.x + direction[0];
-point.y = point.y + direction[1];
-point.z = point.z + direction[2];
-point.r = 255;
-point.g = 0;
-point.b = 255;
-cloud->push_back(point);
-}
-
-cloud->width = cloud->points.size();
-}*/
-
 void loadMesh(string path_file, PolygonMesh *mesh)
 {
 	// Load STL file as a PolygonMesh
@@ -1098,6 +1071,28 @@ string returnTime(duration<double> timer)
 	return minutes + ":" + seconds + " s";
 }
 
+/*void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::Vector3f direction, int number_of_point) {
+PointXYZRGB point;
+point.x = start_point.x;
+point.y = start_point.y;
+point.z = start_point.z;
+point.r = 255;
+point.g = 0;
+point.b = 255;
+
+for (int i = 0; i < number_of_point; i++)
+{
+point.x = point.x + direction[0];
+point.y = point.y + direction[1];
+point.z = point.z + direction[2];
+point.r = 255;
+point.g = 0;
+point.b = 255;
+cloud->push_back(point);
+}
+
+cloud->width = cloud->points.size();
+}*/
 
 int main(int argc, char** argv)
 {
@@ -1106,22 +1101,22 @@ int main(int argc, char** argv)
 	Camera camera;
 	SimulationParams params;
 	bool snapshot_save_flag;
-	string path_file;
-	OpenCLDATA openCLData;
+	string path_read_file, path_save_file;
+	OpenCLDATA data;
 
 	// Origin point of laser 1, laser 2 and camera pin hole
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 
 
 	//********* Read data from XML parameters file ***************************************
-	readParamsFromXML(&camera, &params, &snapshot_save_flag, &path_file);
+	readParamsFromXML(&camera, &params, &snapshot_save_flag, &path_read_file, &path_save_file);
 
 	// Starting time counter
 	high_resolution_clock::time_point start = high_resolution_clock::now();
 
 
 	//********* Load mesh *****************************************************************
-	loadMesh(path_file, &mesh);
+	loadMesh(path_read_file, &mesh);
 	cout << "Dimensione della mesh (n. triangoli): " << mesh.polygons.size() << endl << endl;
 
 	// Arrays used to optimize the computation of intersections
@@ -1156,7 +1151,7 @@ int main(int argc, char** argv)
 		
 	cout << "NUMERO BIG TRIANGLES: " << big_array_size << endl << endl;
 
-	// Remove "big" triangles from all triangle
+	// Remove "big" triangles from all triangles array
 	int array_size = mesh.polygons.size() - big_triangles_index.size();
 	removeDuplicate(max_point_triangle, max_point_triangle_index, mesh.polygons.size(), big_triangles_index);
 
@@ -1168,11 +1163,12 @@ int main(int argc, char** argv)
 
 	//***************************** OpenCL Loading ***************************************
 	Triangle *all_triangles = new Triangle[array_size];
-	prepareDataForOpenCL(mesh, all_triangles, max_point_triangle_index, array_size);
+	createAllTriangleArray(mesh, all_triangles, max_point_triangle_index, array_size);
+
 	int array_size_hits = (int)(ceil(array_size / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];
 	uchar* output_hits = new uchar[array_size_hits];
-	initializeOpenCL(&openCLData, all_triangles, array_size, big_triangles, big_array_size, array_size_hits);
+	initializeOpenCL(&data, all_triangles, array_size, big_triangles, big_array_size, array_size_hits);
 
 
 	//**************** Initialize initial position for camera and lasers *****************
@@ -1217,9 +1213,9 @@ int main(int argc, char** argv)
 	}*/
 
 
-	//************CORE OF THE PROJECT: this cycle simulates the laser scan. **************
-	//*********** Every iteration finds intersection with mesh, take a camera snapshot ***
-	//*********** and reconstruct the points in the 3D space *****************************
+	//************CORE OF THE PROJECT: this cycle simulates the laser scan. *****************
+	//*********** In every iteration finds intersection with mesh, take a camera snapshot ***
+	//*********** and reconstruct the points in the 3D space ********************************
 
 	for (int z = 0; (current_position - params.baseline) < final_pos; z++)
 	{
@@ -1233,23 +1229,17 @@ int main(int argc, char** argv)
 		current_position += increment;
 
 
-		//high_resolution_clock::time_point start;
-		//start = high_resolution_clock::now();
-
-		//************* Look for intersection with mesh (PCL + OpenCL) *******************
+		//************* Look for intersection with mesh *******************
 		// For laser 1
-		getIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
+		getIntersectionOpenCL(&data, all_triangles, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
 			&plane_1, max_point_triangle, LASER_1, bounds, array_size, big_array_size);
 		// For laser 2
-		getIntersectionOpenCL(&openCLData, all_triangles, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
+		getIntersectionOpenCL(&data, all_triangles, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
 			&plane_2, max_point_triangle, LASER_2, bounds, array_size, big_array_size);
-
-		//duration<double> timer2 = high_resolution_clock::now() - start;
-		//cout << "Total time Intersection:" << timer2.count() * 1000 << endl;
 
 
 		//************** Take snapshot  **************************************************
-		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, array_size, &openCLData, all_triangles, output_points,
+		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, array_size, &data, all_triangles, output_points,
 			output_hits, max_point_triangle);
 
 		// Save snapshot (only for debug) 
@@ -1259,7 +1249,7 @@ int main(int argc, char** argv)
 		imageToCloud(camera, params, plane_1, plane_2, pin_hole, &image, 0, camera.image_height / 2, camera.image_height / 2, cloud_out);
 
 
-		//************** Make a backup of point cloud that contains (all) intersections **
+		// Make a backup of point cloud that contains (all) intersections
 		for (int i = 0; i < cloud_intersection->size(); i++)
 			cloud_intersection_backup->push_back(cloud_intersection->at(i));
 
@@ -1276,23 +1266,21 @@ int main(int argc, char** argv)
 	// Save clouds 
 	if (cloud_intersection_backup->size() > 0)
 	{
-		if (io::savePCDFileASCII("all_intersection_cloud.pcd", *cloud_intersection_backup))
+		if (io::savePCDFileASCII("../result/all_intersection_cloud.pcd", *cloud_intersection_backup))
 			PCL_ERROR("Failed to save PCD file\n");
 	}
 	else
 		cerr << "WARNING! Point Cloud intersection is empty" << endl;
 
-	saveCloud("final_cloud.pcd", cloud_out);
+	saveCloud(path_save_file, cloud_out);
 
-	//cloud_out->clear();
-	//io::loadPCDFile("final_cloud.pcd", *cloud_out);
 
 	//****************** Visualize cloud *************************************************
 	visualization::PCLVisualizer viewer("PCL viewer");
 	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
 	viewer.addCoordinateSystem(100, "PCL viewer");
 	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
-	viewer.addPointCloud<PointXYZ>(cloud_out, "Final Cloud");
+	viewer.addPointCloud<PointXYZ>(cloud_out, "Cloud");
 	//viewer.addPolygonMesh(mesh, "mesh");
 
 	// Print total time of computation 

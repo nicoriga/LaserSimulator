@@ -9,8 +9,8 @@ int main(int argc, char** argv)
 
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_test(new PointCloud<PointXYZRGB>);
-	io::loadPCDFile("../LaserSimulator/all_intersection_cloud.pcd", *cloud_test);
-	io::loadPCDFile("../LaserSimulator/final_cloud.pcd", *cloud_out);
+	io::loadPCDFile("../result/all_intersection_cloud.pcd", *cloud_test);
+	io::loadPCDFile("../result/final_cloud.pcd", *cloud_out);
 
 
 	visualization::PCLVisualizer viewer("PCL Viewer");

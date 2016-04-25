@@ -1,27 +1,29 @@
 <?xml version="1.0"?>
 <opencv_storage>
 
-<!-- Path della mesh -->
-<path_file>"../dataset/gitterbox.stl"</path_file>
+<!-- Path di lettura della mesh -->
+<path_read_file>"../dataset/prodotto.stl"</path_read_file>
 
+<!-- Path di salvataggio della cloud -->
+<path_save_file>"../result/final_cloud.pcd"</path_save_file>
 
 <!-- Parametri di simulazione -->
-<baseline>600.</baseline>
-<height_to_mesh>1200.</height_to_mesh>
-<laser_aperture>45.</laser_aperture>
-<laser_inclination>60.</laser_inclination>
-<number_of_line>550</number_of_line>
-<scan_speed>100.</scan_speed>
-<scan_direction>1</scan_direction>
+<baseline>600.</baseline>					<!-- [500, 800] mm -->
+<height_to_mesh>1200.</height_to_mesh>		<!-- Consigliata: 1800 --> 
+<laser_aperture>45.</laser_aperture>		<!-- [30, 45] gradi -->
+<laser_inclination>60.</laser_inclination>	<!-- [60, 70] gradi -->
+<number_of_line>550</number_of_line>		<!-- Sparse: 250, Dense: 550 -->
+<scan_speed>100.</scan_speed>				<!-- [100, 1000] mm/s -->
+<scan_direction>1</scan_direction>			<!-- Asse Y = 1, Asse X = 0 -->
 
 <snapshot_save_flag>0</snapshot_save_flag>
 
 
 <!-- Parametri della camera -->
-<camera_fps>100.</camera_fps>
+<camera_fps>100.</camera_fps>				<!-- [100, 500] fps -->
 <image_width>2024</image_width>
 <image_height>1088</image_height>
-<pixel_dimension>5.5e-03</pixel_dimension>
+<pixel_dimension>5.5e-03</pixel_dimension>	<!-- 5,5 um -->
 <camera_matrix type_id="opencv-matrix">
   <rows>3</rows>
   <cols>3</cols>
