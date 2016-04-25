@@ -1071,6 +1071,24 @@ string returnTime(duration<double> timer)
 	return minutes + ":" + seconds + " s";
 }
 
+void getForCycleParams(const SimulationParams &params, const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2,
+	const MeshBounds &bounds, float *increment, float *current_position, float *number_of_iterations, float *final_pos)
+{
+	*increment = params.scan_speed / camera.fps;
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+	{
+		*current_position = pin_hole.x;
+		*final_pos = bounds.max_x - (bounds.min_x - laser_origin_2.x);
+		*number_of_iterations = (*final_pos - laser_origin_1.x) / (*increment);
+	}
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+	{
+		*current_position = pin_hole.y;
+		*final_pos = bounds.max_y + (bounds.min_y - laser_origin_2.y);
+		*number_of_iterations = (*final_pos - laser_origin_1.y) / (*increment);
+	}
+}
+
 /*void drawLine(PointCloud<PointXYZRGB>::Ptr cloud, PointXYZ start_point, Eigen::Vector3f direction, int number_of_point) {
 PointXYZRGB point;
 point.x = start_point.x;
@@ -1161,7 +1179,7 @@ int main(int argc, char** argv)
 	arraysMergesort(max_point_triangle, max_point_triangle_index, 0, array_size - 1, tmp_a, tmp_b);
 	delete[] tmp_a, tmp_b;
 
-	//***************************** OpenCL Loading ***************************************
+	//**************** Initialize OpenCL *************************************************
 	Triangle *all_triangles = new Triangle[array_size];
 	createAllTriangleArray(mesh, all_triangles, max_point_triangle_index, array_size);
 
@@ -1171,28 +1189,16 @@ int main(int argc, char** argv)
 	initializeOpenCL(&data, all_triangles, array_size, big_triangles, big_array_size, array_size_hits);
 
 
-	//**************** Initialize initial position for camera and lasers *****************
+	//**************** Set initial position for camera and lasers *****************
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
 	// Step size (in mm) between two snapshots
-	const float increment = params.scan_speed / camera.fps;
+	//const float increment = params.scan_speed / camera.fps;
 
 
-	float current_position, number_of_iterations, final_pos;
-
-	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
-	{
-		current_position = pin_hole.x;
-		final_pos = bounds.max_x - (bounds.min_x - laser_origin_2.x);
-		number_of_iterations = (final_pos - laser_origin_1.x) / increment;
-	}
-	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
-	{
-		current_position = pin_hole.y;
-		final_pos = bounds.max_y + (bounds.min_y - laser_origin_2.y);
-		number_of_iterations = (final_pos - laser_origin_1.y) / increment;
-	}
-
+	// Set current position, calculate final position and number of iterations
+	float increment, current_position, number_of_iterations, final_pos;
+	getForCycleParams(params, camera, pin_hole, laser_origin_1, laser_origin_2, bounds, &increment, &current_position, &number_of_iterations, &final_pos);
 
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);

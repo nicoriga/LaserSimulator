@@ -15,8 +15,7 @@
 <number_of_line>550</number_of_line>		<!-- Sparse: 250, Dense: 550 -->
 <scan_speed>100.</scan_speed>				<!-- [100, 1000] mm/s -->
 <scan_direction>1</scan_direction>			<!-- Asse Y = 1, Asse X = 0 -->
-
-<snapshot_save_flag>0</snapshot_save_flag>
+<snapshot_save_flag>0</snapshot_save_flag>	<!-- Salva foto disattivo: 0 -->
 
 
 <!-- Parametri della camera -->
