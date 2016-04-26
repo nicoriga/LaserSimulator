@@ -6,7 +6,6 @@
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 #include <math.h>
-#include <iostream>
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/highgui/highgui.hpp>
@@ -45,6 +44,7 @@ using boost::chrono::duration;
 
 Eigen::Matrix<double, 3, 1> typedef Vector3d;
 
+/*************************** STRUCTS for the program *************************/
 struct Camera
 {
 	Mat camera_matrix;
@@ -117,7 +117,7 @@ struct OpenCLDATA {
 };
 
 
-
+/************************* FUNCTION for the program **************************/
 bool isBigTriangle(const Triangle &triangle, float projection_distance);
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file);
