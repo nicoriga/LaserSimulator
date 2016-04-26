@@ -159,6 +159,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="laser_scan_simulator_functions.cpp" />
     <ClCompile Include="Origine.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -166,6 +167,9 @@
   </ItemGroup>
   <ItemGroup>
     <Xml Include="laser_simulator_params.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="laser_scan_simulator_functions.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

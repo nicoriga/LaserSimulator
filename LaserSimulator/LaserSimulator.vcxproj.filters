@@ -22,6 +22,9 @@
     <ClCompile Include="Origine.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
+    <ClCompile Include="laser_scan_simulator_functions.cpp">
+      <Filter>File di origine</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <none Include="IntersectionTriangle.cl">
@@ -32,5 +35,10 @@
     <Xml Include="laser_simulator_params.xml">
       <Filter>File di risorse</Filter>
     </Xml>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="laser_scan_simulator_functions.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
