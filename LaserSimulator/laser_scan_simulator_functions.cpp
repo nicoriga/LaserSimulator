@@ -10,7 +10,8 @@
 
 
 
-bool isBigTriangle(const Triangle &triangle, float projection_distance) {
+bool isBigTriangle(const Triangle &triangle, float projection_distance) 
+{
 
 	float diff_x, diff_y, diff_z;
 	Vec3 ret;
@@ -165,7 +166,16 @@ void arraysMergesort(float *a, int* b, int low, int high, float *tmp_a, int *tmp
 	}
 }
 
-void updateMinMax(PointXYZRGB point, MeshBounds *bounds) {
+void sortArrays(float *a, int* b, int array_size)
+{
+	float *tmp_a = new float[array_size];
+	int *tmp_b = new int[array_size];
+	arraysMergesort(a, b, 0, array_size - 1, tmp_a, tmp_b);
+	delete[] tmp_a, tmp_b;
+}
+
+void updateMinMax(PointXYZRGB point, MeshBounds *bounds) 
+{
 	if (point.x < bounds->min_x)
 		bounds->min_x = point.x;
 	if (point.x > bounds->max_x)
@@ -182,7 +192,8 @@ void updateMinMax(PointXYZRGB point, MeshBounds *bounds) {
 		bounds->max_z = point.z;
 }
 
-void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh mesh, int* max_point_triangle_index, float* max_point_triangle, MeshBounds *bounds) {
+void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh mesh, int* max_point_triangle_index, float* max_point_triangle, MeshBounds *bounds) 
+{
 
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZRGB point_1, point_2, point_3;
@@ -241,7 +252,8 @@ void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh 
 	}
 }
 
-void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, const SimulationParams &params, const MeshBounds &bounds) {
+void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, const SimulationParams &params, const MeshBounds &bounds) 
+{
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		laser_origin_1->z = bounds.max_z + params.height_to_mesh;
@@ -273,7 +285,8 @@ void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* 
 	}
 }
 
-void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float current_position, const SimulationParams &params) {
+void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float current_position, const SimulationParams &params) 
+{
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		pin_hole->y = current_position;
@@ -295,7 +308,8 @@ void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ*
 	pin_hole->z = laser_origin_1->z;
 }
 
-float getLinePlaneIntersection(const PointXYZ &source, const Vector3d &direction, float plane_coordinate, int scan_direction) {
+float getLinePlaneIntersection(const PointXYZ &source, const Vector3d &direction, float plane_coordinate, int scan_direction) 
+{
 	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
 		return direction[1] * (plane_coordinate - source.z) / direction[2] + source.y;
 
@@ -305,7 +319,8 @@ float getLinePlaneIntersection(const PointXYZ &source, const Vector3d &direction
 	return 0;
 }
 
-void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Vector3d &line_2, Plane *p) {
+void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Vector3d &line_2, Plane *p) 
+{
 	Vector3d plane_normal = line_1.cross(line_2);
 	p->A = plane_normal[0];
 	p->B = plane_normal[1];
@@ -313,7 +328,8 @@ void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Ve
 	p->D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
 }
 
-int getLowerBound(float* array_points, int array_size, float threshold) {
+int getLowerBound(float* array_points, int array_size, float threshold) 
+{
 	int index = array_size - 1;
 
 	for (int i = 0; i < array_size; i++)
@@ -329,7 +345,8 @@ int getLowerBound(float* array_points, int array_size, float threshold) {
 	return index;
 }
 
-int getUpperBound(float* array_points, int array_size, float threshold) {
+int getUpperBound(float* array_points, int array_size, float threshold) 
+{
 	int index = 0;
 
 	for (int i = array_size - 1; i > 0; i--)
@@ -429,7 +446,8 @@ void createAllTriangleArray(const PolygonMesh &mesh, Triangle* triangles, int* m
 	}
 }
 
-void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) {
+void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) 
+{
 	cl_int err = CL_SUCCESS;
 
 	try {
@@ -455,7 +473,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 		char *kernelSource;
 
 		// get size of kernel source
-		programHandle = fopen("IntersectionTriangle.cl", "rb");
+		fopen_s(&programHandle, "IntersectionTriangle.cl", "rb");
 		fseek(programHandle, 0, SEEK_END);
 		kernelSourceSize = ftell(programHandle);
 		rewind(programHandle);
@@ -503,7 +521,8 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 }
 
-void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) {
+void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) 
+{
 
 	//high_resolution_clock::time_point start;
 	//start = high_resolution_clock::now();
@@ -675,7 +694,8 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 }
 
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
-	Vec3* output_points, uchar* output_hits) {
+	Vec3* output_points, uchar* output_hits) 
+{
 	Vec3 origin;
 	origin.points[X] = point.x;
 	origin.points[Y] = point.y;
@@ -718,7 +738,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_p
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
 	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points,
-	uchar* output_hits, float* max_point_triangle) {
+	uchar* output_hits, float* max_point_triangle) 
+{
 	// Initialize a white image
 	Mat image(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
 
@@ -799,7 +820,8 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 }
 
 void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
-	PointCloud<PointXYZ>::Ptr cloud_out) {
+	PointCloud<PointXYZ>::Ptr cloud_out) 
+{
 	PointXYZ point;    // The point to add at the cloud
 	float dx, dy, dz;  // Directional vector for the line pin_hole - point in the sensor
 	float x_sensor_origin, y_sensor_origin; // Origin of the sensor in the space
@@ -929,7 +951,8 @@ void saveCloud(string cloud_name, PointCloud<PointXYZ>::Ptr cloud)
 		cerr << "WARNING! Point Cloud Final is empty" << endl;
 }
 
-void printProgBar(int percent) {
+void printProgBar(int percent) 
+{
 	string bar;
 
 	for (int i = 0; i < 50; i++) {

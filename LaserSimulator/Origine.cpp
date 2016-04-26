@@ -92,10 +92,7 @@ int main(int argc, char** argv)
 	removeDuplicate(max_point_triangle, max_point_triangle_index, mesh.polygons.size(), big_triangles_index);
 
 	// Sort arrays to have more efficency in the search
-	float *tmp_a = new float[mesh.polygons.size()];
-	int *tmp_b = new int[mesh.polygons.size()];
-	arraysMergesort(max_point_triangle, max_point_triangle_index, 0, array_size - 1, tmp_a, tmp_b);
-	delete[] tmp_a, tmp_b;
+	sortArrays(max_point_triangle, max_point_triangle_index, array_size);
 
 	//**************** Initialize OpenCL *************************************************
 	Triangle *all_triangles = new Triangle[array_size];

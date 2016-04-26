@@ -122,9 +122,7 @@ bool isBigTriangle(const Triangle &triangle, float projection_distance);
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file);
 
-void arraysMerge(float *a, int *b, int low, int high, int mid, float *c, int *d);
-
-void arraysMergesort(float *a, int* b, int low, int high, float *tmp_a, int *tmp_b);
+void sortArrays(float *a, int* b, int array_size);
 
 void updateMinMax(PointXYZRGB point, MeshBounds *bounds);
 

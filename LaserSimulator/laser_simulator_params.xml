@@ -14,7 +14,7 @@
 <laser_inclination>60.</laser_inclination>	<!-- [60, 70] gradi -->
 <number_of_line>550</number_of_line>		<!-- Sparse: 250, Dense: 550 -->
 <scan_speed>100.</scan_speed>				<!-- [100, 1000] mm/s -->
-<scan_direction>0</scan_direction>			<!-- Asse Y = 1, Asse X = 0 -->
+<scan_direction>1</scan_direction>			<!-- Asse Y = 1, Asse X = 0 -->
 <snapshot_save_flag>0</snapshot_save_flag>	<!-- Salvataggio foto disattivo = 0 -->
 
 
@@ -28,8 +28,9 @@
   <cols>3</cols>
   <dt>d</dt>
   <data>
-    4.6150400000000000e+03 0. 1.1134100000000001e+03 0.
-    4.6155100000000002e+03 4.8001600000000002e+02 0. 0. 1.</data></camera_matrix>
+    4.6150400000000000e+03 0. 1.1134100000000001e+03 
+    0. 4.6155100000000002e+03 4.8001600000000002e+02 
+    0. 0. 1.</data></camera_matrix>
 <camera_distortion type_id="opencv-matrix">
   <rows>5</rows>
   <cols>1</cols>
