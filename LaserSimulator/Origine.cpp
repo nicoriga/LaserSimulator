@@ -1082,7 +1082,7 @@ void getScanCycleParams(const SimulationParams &params, const Camera &camera, co
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		*current_position = pin_hole.x;
-		*final_pos = bounds.max_x - (bounds.min_x - laser_origin_2.x);
+		*final_pos = bounds.max_x + (bounds.min_x - laser_origin_2.x);
 		*number_of_iterations = (*final_pos - laser_origin_1.x) / *increment;
 	}
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)

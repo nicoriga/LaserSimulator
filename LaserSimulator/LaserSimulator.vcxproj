@@ -164,6 +164,9 @@
   <ItemGroup>
     <none Include="IntersectionTriangle.cl" />
   </ItemGroup>
+  <ItemGroup>
+    <Xml Include="laser_simulator_params.xml" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
 </Project>

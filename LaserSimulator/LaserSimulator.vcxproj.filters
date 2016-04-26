@@ -28,4 +28,9 @@
       <Filter>OpenCL Files</Filter>
     </none>
   </ItemGroup>
+  <ItemGroup>
+    <Xml Include="laser_simulator_params.xml">
+      <Filter>File di risorse</Filter>
+    </Xml>
+  </ItemGroup>
 </Project>
