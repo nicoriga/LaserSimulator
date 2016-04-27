@@ -158,9 +158,9 @@ int main(int argc, char** argv)
 
 	/***************************** Visualize cloud ***************************************/
 	visualization::PCLVisualizer viewer("PCL viewer");
-	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
+//	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
 	viewer.addCoordinateSystem(100, "PCL viewer");
-	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
+	//viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
 	viewer.addPointCloud<PointXYZ>(cloud_out, "Cloud");
 
 	// Print total time of computation 

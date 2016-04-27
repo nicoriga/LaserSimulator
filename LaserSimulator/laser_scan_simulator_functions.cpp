@@ -242,11 +242,11 @@ void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh 
 
 		if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 		{
-			if (point_1.y > point_2.y && point_1.y > point_3.y)
+			if (point_1.y < point_2.y && point_1.y < point_3.y)
 				max_point_triangle[i] = point_1.y;
 			else
 			{
-				if (point_2.y > point_3.y)
+				if (point_2.y < point_3.y)
 					max_point_triangle[i] = point_2.y;
 				else
 					max_point_triangle[i] = point_3.y;
@@ -405,7 +405,40 @@ void findBigTriangles(const PolygonMesh &mesh, const MeshBounds &bounds, const S
 
 void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, int max_point_array_dimension, vector<int> &big_triangles_index)
 {
-	int current_position = 0;
+	int diff_size = max_point_array_dimension - big_triangles_index.size();
+	float *max_removed = new float[diff_size];
+	int *max_index_removed = new int[diff_size];
+
+	for (int i = 0; i < max_point_array_dimension; i++)
+	{
+		for (int j = 0; j < big_triangles_index.size(); j++)
+		{
+			if (max_point_triangle_index[i] == big_triangles_index[j])
+			{
+				max_point_triangle_index[i] = -1;
+			}
+		}
+	}
+
+	int count = 0;
+	for (int i = 0; i < max_point_array_dimension; i++)
+	{
+		if (max_point_triangle_index[i] != -1)
+		{
+			max_removed[count] = max_point_triangle[i];
+			max_index_removed[count] = max_point_triangle_index[i];
+			count++;
+		}
+	}
+
+	for (int i = 0; i < diff_size; i++)
+	{
+		max_point_triangle[i] = max_removed[i];
+		max_point_triangle_index[i] = max_index_removed[i];
+	}
+
+
+	/*int current_position = 0;
 
 	for (int i = 0; i < big_triangles_index.size(); i++)
 	{
@@ -420,7 +453,7 @@ void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, i
 				break;
 			}
 		}
-	}
+	}*/
 }
 
 void createAllTriangleArray(const PolygonMesh &mesh, Triangle* triangles, int* max_point_triangle_index, int size_array)
@@ -464,8 +497,6 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 		// Get list of devices on default platform and create context
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(data->platforms[0])(), 0 };
-	
-		//data->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		data->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
 
@@ -476,22 +507,28 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 		size_t kernelSourceSize;
 		char *kernelSource;
 
-		// get size of kernel source
+		// Get size of kernel source
 		fopen_s(&programHandle, "IntersectionTriangle.cl", "rb");
 		fseek(programHandle, 0, SEEK_END);
 		kernelSourceSize = ftell(programHandle);
 		rewind(programHandle);
 
-		// read kernel source into buffer
+		// Read kernel source into buffer
 		kernelSource = (char*)malloc(kernelSourceSize + 1);
 		kernelSource[kernelSourceSize] = '\0';
 		fread(kernelSource, sizeof(char), kernelSourceSize, programHandle);
 		fclose(programHandle);
 
-		//Build kernel from source string
+		// Build kernel from source string
 		data->program_ = cl::Program(data->context, kernelSource);
 		err = data->program_.build(data->devices);
 
+		if (err != CL_SUCCESS)
+		{
+			cerr << "OpenCL error" << endl;
+			exit(1);
+		}
+		
 		free(kernelSource);
 
 		// Size, in bytes, of each vector
@@ -516,9 +553,16 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 		// Bind kernel arguments to kernel
 		err = data->kernel.setArg(1, data->device_output_points);
-		data->kernel.setArg(2, data->device_output_hits);
+		err = data->kernel.setArg(2, data->device_output_hits);
+
+		if (err != CL_SUCCESS)
+		{
+			cerr << "OpenCL error" << endl;
+			exit(1);
+		}
 
 	}
+
 	catch (cl::Error er)
 	{
 		cerr << "OpenCL error" << endl;
@@ -529,16 +573,24 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) 
 {
+	cl_int err = CL_SUCCESS;
+
 	if (big)
-		data->kernel.setArg(0, data->device_big_triangle_array);
+		err = data->kernel.setArg(0, data->device_big_triangle_array);
 
 	else
-		data->kernel.setArg(0, data->device_triangle_array);
+		err = data->kernel.setArg(0, data->device_triangle_array);
 
-	data->kernel.setArg(3, start_index);
-	data->kernel.setArg(4, array_lenght);
-	data->kernel.setArg(5, ray_origin);
-	data->kernel.setArg(6, ray_direction);
+	err = data->kernel.setArg(3, start_index);
+	err = data->kernel.setArg(4, array_lenght);
+	err = data->kernel.setArg(5, ray_origin);
+	err = data->kernel.setArg(6, ray_direction);
+
+	if (err != CL_SUCCESS)
+	{
+		cerr << "OpenCL error" << endl;
+		exit(1);
+	}
 
 	// Number of work items in each local work group
 
@@ -676,7 +728,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 				}
 			}
 		}
-
+		
 		if (first_intersec.z > VTK_FLOAT_MIN)
 			cloud_intersection->push_back(first_intersec);
 	}
