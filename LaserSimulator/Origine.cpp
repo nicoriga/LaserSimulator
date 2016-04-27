@@ -101,7 +101,7 @@ int main(int argc, char** argv)
 	for (int z = 0; (current_position - params.baseline) < final_pos; z++)
 	{
 		// Print progression bar and number of iteration completed
-		printProgBar((int) ((z / number_of_iterations) * 100 + 0.5));
+		cout << printProgBar((int) ((z / number_of_iterations) * 100 + 0.5));
 		cout << z << " di " << (int) (number_of_iterations);
 
 		// Update position of pin hole and lasers
@@ -140,11 +140,11 @@ int main(int argc, char** argv)
 
 
 	// Points of the cloud 
-	cout << endl << "Numero di punti cloud rossa opencl: " << cloud_intersection_backup->points.size() << endl;
-	cout << endl << "Numero di punti della cloud: " << cloud_out->points.size() << endl;
+	cout << endl << endl << "Numero di punti cloud rossa opencl: " << cloud_intersection_backup->points.size() << endl;
+	cout << endl << "Numero di punti della point cloud: " << cloud_out->points.size() << endl;
 
 
-	// Save clouds 
+	// Save cloud 
 	if (cloud_intersection_backup->size() > 0)
 	{
 		if (io::savePCDFileASCII("../result/all_intersection_cloud.pcd", *cloud_intersection_backup))

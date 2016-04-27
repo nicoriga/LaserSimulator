@@ -1,9 +1,11 @@
 #pragma once
 
+#define __CL_ENABLE_EXCEPTIONS
 #define _CRT_SECURE_NO_DEPRECATE
 #define CL_HPP_MINIMUM_OPENCL_VERSION 120
 #define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
+
 
 #include <math.h>
 #include <opencv2/core/core.hpp>
@@ -66,6 +68,7 @@ struct SimulationParams
 	float aperture_coefficient;
 	int number_of_line;
 	int scan_direction;
+	bool distortion_flag;
 };
 
 struct Plane {
@@ -117,7 +120,7 @@ struct OpenCLDATA {
 };
 
 
-/************************* FUNCTION for the program **************************/
+/************************* FUNCTIONS for the program **************************/
 bool isBigTriangle(const Triangle &triangle, float projection_distance);
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file);
@@ -169,7 +172,7 @@ void loadMesh(string path_file, PolygonMesh *mesh);
 
 void saveCloud(string cloud_name, PointCloud<PointXYZ>::Ptr cloud);
 
-void printProgBar(int percent);
+string printProgBar(int percent);
 
 string returnTime(duration<double> timer);
 

@@ -8,34 +8,35 @@
 <path_save_file>"../result/final_cloud.pcd"</path_save_file>
 
 <!-- Parametri di simulazione -->
-<baseline>600.</baseline>					<!-- [500, 800] mm -->
-<height_to_mesh>1200.</height_to_mesh>		<!-- Consigliata: 1800 --> 
-<laser_aperture>45.</laser_aperture>		<!-- [30, 45] gradi -->
+<baseline>600.</baseline>					          <!-- [500, 800] mm -->
+<height_to_mesh>1200.</height_to_mesh>	  	<!-- Consigliata: 1800 --> 
+<laser_aperture>45.</laser_aperture>		    <!-- [30, 45] gradi -->
 <laser_inclination>60.</laser_inclination>	<!-- [60, 70] gradi -->
-<number_of_line>550</number_of_line>		<!-- Sparse: 250, Dense: 550 -->
-<scan_speed>100.</scan_speed>				<!-- [100, 1000] mm/s -->
-<scan_direction>1</scan_direction>			<!-- Asse Y = 1, Asse X = 0 -->
+<number_of_line>550</number_of_line>	     	<!-- Sparse: 250, Dense: 550 -->
+<scan_speed>100.</scan_speed>				        <!-- [100, 1000] mm/s -->
+<scan_direction>1</scan_direction>		    	<!-- Asse Y = 1, Asse X = 0 -->
+<distortion_flag>0</distortion_flag>        <!-- Uso matrice distorsione = 1 -->
 <snapshot_save_flag>0</snapshot_save_flag>	<!-- Salvataggio foto disattivo = 0 -->
 
 
 <!-- Parametri della camera -->
-<camera_fps>100.</camera_fps>				<!-- [100, 500] fps -->
+<camera_fps>100.</camera_fps>               <!-- [100, 500] fps -->
 <image_width>2024</image_width>
 <image_height>1088</image_height>
-<pixel_dimension>5.5e-03</pixel_dimension>	<!-- 5,5 um -->
+<pixel_dimension>5.5e-03</pixel_dimension>  <!-- 5,5 um -->
 <camera_matrix type_id="opencv-matrix">
   <rows>3</rows>
   <cols>3</cols>
   <dt>d</dt>
   <data>
-    4.6150400000000000e+03 0. 1.1134100000000001e+03 
-    0. 4.6155100000000002e+03 4.8001600000000002e+02 
+    4.61504e+03 0. 1.11341e+03 
+    0. 4.61551e+03 4.80016e+02 
     0. 0. 1.</data></camera_matrix>
 <camera_distortion type_id="opencv-matrix">
   <rows>5</rows>
   <cols>1</cols>
   <dt>d</dt>
   <data>
-    -5.0647200000000003e-02 -1.4513199999999999e+00
-    8.6802500000000002e-04 2.9860099999999999e-03 8.9222500000000000e+00</data></camera_distortion>
+    -5.06472e-02 -1.45132e+00
+    8.68025e-04 2.98601e-03 8.92225e+00</data></camera_distortion>
 </opencv_storage>

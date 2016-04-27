@@ -12,7 +12,6 @@
 
 bool isBigTriangle(const Triangle &triangle, float projection_distance) 
 {
-
 	float diff_x, diff_y, diff_z;
 	Vec3 ret;
 
@@ -39,6 +38,8 @@ bool isBigTriangle(const Triangle &triangle, float projection_distance)
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file)
 {
+	camera->distortion = Mat::zeros(5, 1, CV_64F);
+
 	// Read input parameters from xml file
 	FileStorage fs("laser_simulator_params.xml", FileStorage::READ);
 	if (fs.isOpened())
@@ -52,13 +53,16 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 		fs["number_of_line"] >> params->number_of_line;
 		fs["scan_speed"] >> params->scan_speed;
 		fs["scan_direction"] >> params->scan_direction;
+		fs["distortion_flag"] >> params->distortion_flag;
 		fs["snapshot_save_flag"] >> *snapshot_save_flag;
 		fs["camera_fps"] >> camera->fps;
 		fs["image_width"] >> camera->image_width;
 		fs["image_height"] >> camera->image_height;
 		fs["pixel_dimension"] >> camera->pixel_dimension;
 		fs["camera_matrix"] >> camera->camera_matrix;
-		fs["camera_distortion"] >> camera->distortion;
+
+		if(params->distortion_flag)
+			fs["camera_distortion"] >> camera->distortion;
 	}
 	else
 	{
@@ -70,43 +74,43 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 	if (params->scan_direction != DIRECTION_SCAN_AXIS_X && params->scan_direction != DIRECTION_SCAN_AXIS_Y)
 	{
 		params->scan_direction = DIRECTION_SCAN_AXIS_Y;
-		cout << "WARNING: Direzione di scansione non valida (verra' impostato automaticamente l'asse Y)" << endl << endl;
+		cerr << "WARNING: Direzione di scansione non valida (verra' impostato automaticamente l'asse Y)" << endl << endl;
 	}
 
 	if (params->scan_speed < 100)
 	{
 		params->scan_speed = 100.f;
-		cout << "WARNING: Velocita' di scansione inferiore a 100 (verra' impostata automaticamente a 100)" << endl << endl;
+		cerr << "WARNING: Velocita' di scansione inferiore a 100 (verra' impostata automaticamente a 100)" << endl << endl;
 	}
 
 	if (params->scan_speed > 1000)
 	{
 		params->scan_speed = 1000.f;
-		cout << "WARNING: Velocita' di scansione superiore a 1000 (verra' impostata automaticamente a 1000)" << endl << endl;
+		cerr << "WARNING: Velocita' di scansione superiore a 1000 (verra' impostata automaticamente a 1000)" << endl << endl;
 	}
 
 	if (params->baseline < 500)
 	{
 		params->baseline = 500.f;
-		cout << "WARNING: Baseline inferiore a 500 (verra' impostata automaticamente a 500)" << endl << endl;
+		cerr << "WARNING: Baseline inferiore a 500 (verra' impostata automaticamente a 500)" << endl << endl;
 	}
 
 	if (params->baseline > 800)
 	{
 		params->baseline = 800.f;
-		cout << "WARNING: Baseline superiore a 800 (verra' impostata automaticamente a 800)" << endl << endl;
+		cerr << "WARNING: Baseline superiore a 800 (verra' impostata automaticamente a 800)" << endl << endl;
 	}
 
 	if (camera->fps < 100)
 	{
 		camera->fps = 100.f;
-		cout << "WARNING: FPS della camera inferiori a 100 (verranno impostati automaticamente a 100)" << endl << endl;
+		cerr << "WARNING: FPS della camera inferiori a 100 (verranno impostati automaticamente a 100)" << endl << endl;
 	}
 
 	if (camera->fps > 500)
 	{
 		camera->fps = 500.f;
-		cout << "WARNING: FPS della camera superiori a 500 (verranno impostati automaticamente a 500)" << endl << endl;
+		cerr << "WARNING: FPS della camera superiori a 500 (verranno impostati automaticamente a 500)" << endl << endl;
 	}
 
 	// Calculate inclination and angular coefficients
@@ -194,7 +198,6 @@ void updateMinMax(PointXYZRGB point, MeshBounds *bounds)
 
 void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh mesh, int* max_point_triangle_index, float* max_point_triangle, MeshBounds *bounds) 
 {
-
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZRGB point_1, point_2, point_3;
 
@@ -461,6 +464,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 		// Get list of devices on default platform and create context
 		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(data->platforms[0])(), 0 };
+	
 		//data->context = cl::Context(CL_DEVICE_TYPE_GPU, properties);
 		data->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 		data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
@@ -505,16 +509,18 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 		// Bind memory buffers
 		data->queue.enqueueWriteBuffer(data->device_triangle_array, CL_TRUE, 0, data->triangles_size, triangle_array);
 		data->queue.enqueueWriteBuffer(data->device_big_triangle_array, CL_TRUE, 0, data->big_triangles_size, big_triangle_array);
+		data->queue.finish();
 
 		// Create kernel object
 		data->kernel = cl::Kernel(data->program_, "kernelTriangleIntersection", &err);
 
 		// Bind kernel arguments to kernel
-		data->kernel.setArg(1, data->device_output_points);
+		err = data->kernel.setArg(1, data->device_output_points);
 		data->kernel.setArg(2, data->device_output_hits);
 
 	}
-	catch (...) {
+	catch (cl::Error er)
+	{
 		cerr << "OpenCL error" << endl;
 		exit(1);
 	}
@@ -523,10 +529,6 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) 
 {
-
-	//high_resolution_clock::time_point start;
-	//start = high_resolution_clock::now();
-
 	if (big)
 		data->kernel.setArg(0, data->device_big_triangle_array);
 
@@ -555,9 +557,6 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 	// Read back device_output_point, device_output_hit
 	data->queue.enqueueReadBuffer(data->device_output_points, CL_TRUE, 0, data->points_size, output_points);
 	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
-
-	//duration<double> timer = high_resolution_clock::now() - start;
-	//cout << "Buffer output copied OpenCL:" << timer.count() * 1000 << endl;
 }
 
 void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
@@ -602,15 +601,15 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 	// Bounds calculated due to laser
 	switch (laser_number)
 	{
-	case (LASER_1):
-		lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_max_z);
-		upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_min_z);
-		break;
+		case (LASER_1):
+			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_max_z);
+			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_min_z);
+			break;
 
-	case (LASER_2):
-		lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_min_z);
-		upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_max_z);
-		break;
+		case (LASER_2):
+			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_min_z);
+			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_max_z);
+			break;
 	}
 
 
@@ -618,9 +617,6 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 
 	for (int j = 0; j < params.number_of_line; j++)
 	{
-		//high_resolution_clock::time_point start;
-		//start = high_resolution_clock::now();
-
 		PointXYZ tmp;
 		Vertices triangle;
 		Vector3d vertex_1, vertex_2, vertex_3;
@@ -649,7 +645,6 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 			{
 				if (output_hits[h] == 1)
 				{
-					//++hit_number;
 					if (output_points[h].points[Z] >= first_intersec.z)
 					{
 						first_intersec.x = output_points[h].points[X];
@@ -670,8 +665,6 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 		{
 			if (output_hits[h] == 1)
 			{
-				//++hit_number;
-
 				if (output_points[h].points[Z] >= first_intersec.z)
 				{
 					first_intersec.x = output_points[h].points[X];
@@ -681,15 +674,11 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 					first_intersec.g = 0;
 					first_intersec.b = 0;
 				}
-
 			}
 		}
 
 		if (first_intersec.z > VTK_FLOAT_MIN)
 			cloud_intersection->push_back(first_intersec);
-
-		//duration<double> timer3 = high_resolution_clock::now() - start;
-		//cout << "Total time cycle ray intersection OpenCL:" << timer3.count() * 1000 << endl;
 	}
 }
 
@@ -848,9 +837,16 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &p
 	}
 
 	// Undistort the image accord with the camera disortion params
-	Mat image_undistort;
-	undistort(*image, image_undistort, camera.camera_matrix, camera.distortion);
-	flip(image_undistort, *image, 0);
+	if (params.distortion_flag)
+	{
+		Mat image_undistort;
+		undistort(*image, image_undistort, camera.camera_matrix, camera.distortion);
+		flip(image_undistort, *image, 0);
+	}
+	
+	else
+		flip(*image, *image, 0);
+
 
 	// Project the ROI1 points on the first plane
 	for (int j = 0; j < image->cols; j++)
@@ -925,10 +921,10 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &p
 
 void loadMesh(string path_file, PolygonMesh *mesh)
 {
-	// Load STL file as a PolygonMesh
-	if (io::loadPolygonFileSTL(path_file, *mesh) == 0)
+	// Load mesh file as a PolygonMesh
+	if (io::loadPolygonFile(path_file, *mesh) == 0)
 	{
-		PCL_ERROR("Failed to load STL file\n");
+		PCL_ERROR("Failed to load mesh file\n");
 		exit(1);
 	}
 }
@@ -951,8 +947,9 @@ void saveCloud(string cloud_name, PointCloud<PointXYZ>::Ptr cloud)
 		cerr << "WARNING! Point Cloud Final is empty" << endl;
 }
 
-void printProgBar(int percent) 
+string printProgBar(int percent) 
 {
+	stringstream prog;
 	string bar;
 
 	for (int i = 0; i < 50; i++) {
@@ -966,17 +963,18 @@ void printProgBar(int percent)
 			bar.replace(i, 1, " ");
 		}
 	}
+	prog << "\r" "[" << bar << "] ";
+	prog.width(3);
+	prog << percent << "%     " << flush;
 
-	cout << "\r" "[" << bar << "] ";
-	cout.width(3);
-	cout << percent << "%     " << flush;
+	return prog.str();
 }
 
 string returnTime(duration<double> timer)
 {
-	int sec = (int)timer.count() % 60;
+	int sec = (int) timer.count() % 60;
 	string seconds = sec < 10 ? "0" + to_string(sec) : to_string(sec);
-	string minutes = to_string((int)(((int)timer.count() / 60) % 60));
+	string minutes = to_string((int) timer.count() / 60);
 
 	return minutes + ":" + seconds + " s";
 }
