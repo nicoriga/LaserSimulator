@@ -66,8 +66,12 @@ struct SimulationParams
 	float scan_speed;
 	float inclination_coefficient;
 	float aperture_coefficient;
+	float man_thresh;
 	int number_of_line;
 	int scan_direction;
+	int roi_1_start;
+	int roi_2_start;
+	int roi_dimension;
 	bool distortion_flag;
 };
 
@@ -141,6 +145,8 @@ void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Ve
 
 int getLowerBound(float* array_points, int array_size, float threshold);
 
+int getUpperBound(float* array_points, int array_size, float threshold, const SimulationParams &params);
+
 int getUpperBound(float* array_points, int array_size, float threshold);
 
 void findBigTriangles(const PolygonMesh &mesh, const MeshBounds &bounds, const SimulationParams &params, vector<Triangle> *big_triangles_vec,
@@ -165,8 +171,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points,
 	uchar* output_hits, float* max_point_triangle);
 
-void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
-	PointCloud<PointXYZ>::Ptr cloud_out);
+void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out);
 
 void loadMesh(string path_file, PolygonMesh *mesh);
 

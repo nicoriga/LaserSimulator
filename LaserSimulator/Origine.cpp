@@ -127,7 +127,7 @@ int main(int argc, char** argv)
 			imwrite("../imgOut/out_" + to_string(z) + ".png", image);
 
 		/*************************** Convert image to point cloud *********************************************/
-		imageToCloud(camera, params, plane_1, plane_2, pin_hole, &image, 0, camera.image_height / 2, camera.image_height / 2, cloud_out);
+		imageToCloud(camera, params, plane_1, plane_2, pin_hole, &image, cloud_out);
 
 
 		// Make a backup of point cloud that contains (all) intersections

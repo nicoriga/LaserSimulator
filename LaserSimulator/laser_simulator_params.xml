@@ -13,11 +13,15 @@
 <laser_aperture>45.</laser_aperture>		    <!-- [30, 45] gradi -->
 <laser_inclination>60.</laser_inclination>	<!-- [60, 70] gradi -->
 <number_of_line>550</number_of_line>	     	<!-- Sparse: 250, Dense: 550 -->
+<man_thresh>25</man_thresh>
 <scan_speed>100.</scan_speed>				        <!-- [100, 1000] mm/s -->
 <scan_direction>1</scan_direction>		    	<!-- Asse Y = 1, Asse X = 0 -->
 <distortion_flag>0</distortion_flag>        <!-- Uso matrice distorsione = 1 -->
 <snapshot_save_flag>0</snapshot_save_flag>	<!-- Salvataggio foto attivo = 1 -->
-
+<roi_1_start>0</roi_1_start>                <!-- Inizio ROI 1 -->
+<roi_2_start>544</roi_2_start>              <!-- Inizio ROI 2 -->
+<roi_dimension>544</roi_dimension>          <!-- Dimensione ROI -->
+  
 
 <!-- Parametri della camera -->
 <camera_fps>100.</camera_fps>               <!-- [100, 500] fps -->

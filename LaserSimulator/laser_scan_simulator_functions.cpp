@@ -50,11 +50,15 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 		fs["height_to_mesh"] >> params->height_to_mesh;
 		fs["laser_aperture"] >> params->laser_aperture;
 		fs["laser_inclination"] >> params->laser_inclination;
+		fs["man_thresh"] >> params->man_thresh;
 		fs["number_of_line"] >> params->number_of_line;
 		fs["scan_speed"] >> params->scan_speed;
 		fs["scan_direction"] >> params->scan_direction;
 		fs["distortion_flag"] >> params->distortion_flag;
 		fs["snapshot_save_flag"] >> *snapshot_save_flag;
+		fs["roi_1_start"] >> params->roi_1_start;
+		fs["roi_2_start"] >> params->roi_2_start;
+		fs["roi_dimension"] >> params->roi_dimension;
 		fs["camera_fps"] >> camera->fps;
 		fs["image_width"] >> camera->image_width;
 		fs["image_height"] >> camera->image_height;
@@ -66,7 +70,7 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 	}
 	else
 	{
-		cerr << "Error: cannot read the parameters" << endl;
+		cerr << "Errore: Lettura file XML fallita" << endl;
 		exit(1);
 	}
 
@@ -75,6 +79,12 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 	{
 		params->scan_direction = DIRECTION_SCAN_AXIS_Y;
 		cerr << "WARNING: Direzione di scansione non valida (verra' impostato automaticamente l'asse Y)" << endl << endl;
+	}
+
+	if ((params->roi_1_start + params->roi_dimension) > params->roi_2_start || (params->roi_2_start + params->roi_dimension) > camera->image_height)
+	{
+		cerr << "Errore: Valori ROI non validi" << endl;
+		exit(1);
 	}
 
 	if (params->scan_speed < 100)
@@ -242,11 +252,11 @@ void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh 
 
 		if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 		{
-			if (point_1.y < point_2.y && point_1.y < point_3.y)
+			if (point_1.y > point_2.y && point_1.y > point_3.y)
 				max_point_triangle[i] = point_1.y;
 			else
 			{
-				if (point_2.y < point_3.y)
+				if (point_2.y > point_3.y)
 					max_point_triangle[i] = point_2.y;
 				else
 					max_point_triangle[i] = point_3.y;
@@ -348,7 +358,22 @@ int getLowerBound(float* array_points, int array_size, float threshold)
 	return index;
 }
 
-int getUpperBound(float* array_points, int array_size, float threshold) 
+int getUpperBound(float* array_points, int array_size, float threshold, const SimulationParams &params)
+{
+	int index = 0;
+
+	for (int i = array_size - 1; i > 0; i--)
+	{
+		if (array_points[i] < threshold + params.man_thresh) {
+			index = i;
+			break;
+		}
+	}
+
+	return index;
+}
+
+int getUpperBound(float* array_points, int array_size, float threshold)
 {
 	int index = 0;
 
@@ -655,12 +680,12 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 	{
 		case (LASER_1):
 			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_max_z);
-			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_min_z);
+			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_min_z, params);
 			break;
 
 		case (LASER_2):
 			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_min_z);
-			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_max_z);
+			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_max_z, params);
 			break;
 	}
 
@@ -860,8 +885,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	*img = image;
 }
 
-void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, int roi1_start, int roi2_start, int roi_dimension,
-	PointCloud<PointXYZ>::Ptr cloud_out) 
+void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out) 
 {
 	PointXYZ point;    // The point to add at the cloud
 	float dx, dy, dz;  // Directional vector for the line pin_hole - point in the sensor
@@ -903,7 +927,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &p
 	// Project the ROI1 points on the first plane
 	for (int j = 0; j < image->cols; j++)
 	{
-		for (int i = roi1_start; i < roi1_start + roi_dimension; i++)
+		for (int i = params.roi_1_start; i < params.roi_1_start + params.roi_dimension; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// Check the color of the pixels
@@ -938,7 +962,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &p
 	// Project the ROI2 points on the second plane
 	for (int j = 0; j < image->cols; j++)
 	{
-		for (int i = roi2_start; i < roi2_start + roi_dimension; i++)
+		for (int i = params.roi_2_start; i < params.roi_2_start + params.roi_dimension; i++)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// Check the color of the pixels
