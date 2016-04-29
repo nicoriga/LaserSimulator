@@ -127,7 +127,7 @@ int main(int argc, char** argv)
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
 	// INIZIO AFFETTATURA
-	int slice_number = 20;
+	int slice_number = 10;
 	float slice_length = (bounds.max_y - laser_origin_1.y) / slice_number;
 	vector<int> *triangles_index = new vector<int>[slice_number * 2];
 	int *slice_bound = new int[slice_number * 2];

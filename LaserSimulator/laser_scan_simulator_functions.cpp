@@ -765,7 +765,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 			}
 		}
 
-		computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
+		/*computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
 
 		int n = (int)(ceil((size_big_array / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n; h++)
@@ -782,7 +782,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 					first_intersec.b = 0;
 				}
 			}
-		}
+		}*/
 		
 		if (first_intersec.z > VTK_FLOAT_MIN)
 			cloud_intersection->push_back(first_intersec);
