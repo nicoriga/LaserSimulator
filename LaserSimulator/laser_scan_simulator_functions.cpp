@@ -408,7 +408,7 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 		for (int i = 0; i < slice_number; ++i)
 		{
 			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D <= -slice_length * i &&
-				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length >= -slice_length * i)
+				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length > -slice_length * i)
 			{
 				return i+slice_number;
 			}
@@ -713,6 +713,8 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	int lower_bound, upper_bound;
 
 	int k = getSliceIndex(laser_point, origin_plane, laser_number, slice_length, slice_number, params);
+	if (k < 0)
+		return;
 
 	if (k == 0)
 		lower_bound = 0;

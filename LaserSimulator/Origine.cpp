@@ -49,6 +49,115 @@ int intermediatePlanesPoints(const PolygonMesh &mesh, const Plane &plane, float 
 	return triangles_index->size();
 }
 
+int findMaxPoint(PointXYZ point_1, PointXYZ point_2, PointXYZ point_3, const SimulationParams &params)
+{
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+	{
+		if (point_1.x > point_2.x && point_1.x > point_3.x)
+			return 0;
+		else
+		{
+			if (point_2.x > point_3.x)
+				return 1;
+			else
+				return 2;
+		}
+	}
+
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+	{
+		if (point_1.y > point_2.y && point_1.y > point_3.y)
+			return 0;
+		else
+		{
+			if (point_2.y > point_3.y)
+				return 1;
+			else
+				return 2;
+		}
+	}
+}
+
+int findMinPoint(PointXYZ point_1, PointXYZ point_2, PointXYZ point_3, const SimulationParams &params)
+{
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+	{
+		if (point_1.x < point_2.x && point_1.x < point_3.x)
+			return 0;
+		else
+		{
+			if (point_2.x < point_3.x)
+				return 1;
+			else
+				return 2;
+		}
+	}
+
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+	{
+		if (point_1.y < point_2.y && point_1.y < point_3.y)
+			return 0;
+		else
+		{
+			if (point_2.y < point_3.y)
+				return 1;
+			else
+				return 2;
+		}
+	}
+}
+
+void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
+{
+	PointCloud<PointXYZ> cloud_mesh;
+	PointXYZ point1, point2, point3, min_point, max_point;
+
+	// Convert mesh in a point cloud (only vertex)
+	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
+
+	// Search minimum and maximum points on X, Y and Z axis
+	for (int i = 0; i < mesh.polygons.size(); i++)
+	{
+		point1.x = cloud_mesh.points[mesh.polygons[i].vertices[0]].x;
+		point1.y = cloud_mesh.points[mesh.polygons[i].vertices[0]].y;
+		point1.z = cloud_mesh.points[mesh.polygons[i].vertices[0]].z;
+
+		point2.x = cloud_mesh.points[mesh.polygons[i].vertices[1]].x;
+		point2.y = cloud_mesh.points[mesh.polygons[i].vertices[1]].y;
+		point2.z = cloud_mesh.points[mesh.polygons[i].vertices[1]].z;
+
+		point3.x = cloud_mesh.points[mesh.polygons[i].vertices[2]].x;
+		point3.y = cloud_mesh.points[mesh.polygons[i].vertices[2]].y;
+		point3.z = cloud_mesh.points[mesh.polygons[i].vertices[2]].z;
+
+		// Cerco quali sono i punti minimi e massimi del triangolo
+		int min_point_index = findMinPoint(point1, point2, point3, params);
+		int max_point_index = findMaxPoint(point1, point2, point3, params);
+
+		// Salvo i punti minimi e massimi del triangolo
+		min_point.x = cloud_mesh.points[mesh.polygons[i].vertices[min_point_index]].x;
+		min_point.y = cloud_mesh.points[mesh.polygons[i].vertices[min_point_index]].y;
+		min_point.z = cloud_mesh.points[mesh.polygons[i].vertices[min_point_index]].z;
+
+		max_point.x = cloud_mesh.points[mesh.polygons[i].vertices[max_point_index]].x;
+		max_point.y = cloud_mesh.points[mesh.polygons[i].vertices[max_point_index]].y;
+		max_point.z = cloud_mesh.points[mesh.polygons[i].vertices[max_point_index]].z;
+
+		// Guardo questi valori in che fetta devono finire
+		int min_slice = getSliceIndex(min_point, origin_plane, laser_number, slice_length, slice_number, params);
+		int max_slice = getSliceIndex(max_point, origin_plane, laser_number, slice_length, slice_number, params);
+
+		// Assegno il triango alle fette corrispondenti
+		if (min_slice != -1 && max_slice != -1)
+		{
+			for (int z = min_slice; z <= max_slice; z++)
+			{
+				triangles_index[z].push_back(i);
+			}
+		}
+	}
+}
+
 void createAllTriangleArray2(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array)
 {
 	PointCloud<PointXYZ> meshVertices;
@@ -117,17 +226,10 @@ int main(int argc, char** argv)
 	/********** Print minimum and maximum points of mesh *********************/
 	cout << "Estremi della mesh:" << endl << getMeshBoundsValues(bounds);
 
-
-	// Remove "big" triangles from all triangles array
-	//int array_size = mesh.polygons.size();// - big_triangles_index.size();
-	//removeDuplicate(max_point_triangle, max_point_triangle_index, mesh.polygons.size(), big_triangles_index);
-	// Sort arrays to have more efficency in the search
-	//sortArrays(max_point_triangle, max_point_triangle_index, array_size);
-
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
 	// INIZIO AFFETTATURA
-	int slice_number = 30;
+	int slice_number = 50;
 	float slice_length = (bounds.max_y - laser_origin_1.y) / slice_number;
 	vector<int> *triangles_index = new vector<int>[slice_number * 2];
 	int *slice_bound = new int[slice_number * 2];
@@ -136,7 +238,7 @@ int main(int argc, char** argv)
 	/*********************** Find "big" triangles ****************************/
 	vector<Triangle> big_triangles_vec;
 	vector<int> big_triangles_index;
-	findBigTriangles(mesh, bounds, params, &big_triangles_vec, &big_triangles_index, mesh.polygons.size(), slice_length);
+	//findBigTriangles(mesh, bounds, params, &big_triangles_vec, &big_triangles_index, mesh.polygons.size(), slice_length);
 
 	// Put big triangles in a Triangle array
 	int big_array_size = big_triangles_vec.size();
@@ -159,51 +261,34 @@ int main(int argc, char** argv)
 
 	Plane plane_1, plane_2;
 
-		plane_1.A = 0;
-		plane_1.B = tan(deg2rad(params.laser_inclination));//1.73205081;
-		plane_1.C = 1;
-		plane_1.D = -plane_1.A * laser_origin_1.x - plane_1.B * laser_origin_1.y - plane_1.C * laser_origin_1.z;
-		cout << "Piano 1    A " << plane_1.A << " B " << plane_1.B << " C " << plane_1.C << " D " << plane_1.D << endl;
+	// Affetta per il LASER 1
+	fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
+	// Affetta per il LASER 2
+	fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
+
+	// Costruisco l'array di bound
+	for (int i = 0; i < slice_number; i++)
+	{
+		total_triangle += triangles_index[i].size();
+		slice_bound[i] = total_triangle;
+		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
+		//int index = getSliceIndex(laser_origin_1, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
+		//laser_origin_1.y += slice_length;
+		//cout << "L'indice si trova nella fetta " << index << endl;
+	}
+
+	for (int i = slice_number; i < slice_number * 2; i++)
+	{
+		total_triangle += triangles_index[i].size();
+		slice_bound[i] = total_triangle;
+		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
+		//int index = getSliceIndex(laser_origin_2, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
+		//laser_origin_2.y += slice_length;
+		//cout << "L'indice si trova nella fetta " << index << endl;
+	}
 
 
-		for (int i = 0; i < slice_number; i++)
-		{
-			int triangle_number = intermediatePlanesPoints(mesh, plane_1, slice_length, params, LASER_1, &triangles_index[i]);
-			total_triangle += triangle_number;
-			slice_bound[i] = total_triangle;
-			cout << "Numero triangoli nella fetta " << i << " = " << triangle_number << endl;
-			int index = getSliceIndex(laser_origin_1, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
-			cout << "L'indice si trova nella fetta " << i << endl;
-			laser_origin_1.y += slice_length;
-
-			plane_1.D = -plane_1.A * laser_origin_1.x - plane_1.B * laser_origin_1.y - plane_1.C * laser_origin_1.z;
-		}
-
-		// FETTE PER IL LASER 2
-
-		plane_2.A = 0;
-		plane_2.B = -tan(deg2rad(params.laser_inclination));//1.73205081;
-		plane_2.C = 1;
-		plane_2.D = -plane_2.A * laser_origin_2.x - plane_2.B * laser_origin_2.y - plane_2.C * laser_origin_2.z;
-		cout << "Piano 1    A " << plane_2.A << " B " << plane_2.B << " C " << plane_2.C << " D " << plane_2.D << endl;
-
-
-		for (int i = slice_number; i < slice_number * 2; i++)
-		{
-			int triangle_number = intermediatePlanesPoints(mesh, plane_2, slice_length, params, LASER_2, &triangles_index[i]);
-			total_triangle += triangle_number;
-			slice_bound[i] = total_triangle;
-			cout << "Numero triangoli nella fetta " << i << " = " << triangle_number << endl;
-			int index = getSliceIndex(laser_origin_2, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
-			cout << "L'indice si trova nella fetta " << i << endl;
-			laser_origin_2.y += slice_length;
-
-			plane_2.D = -plane_2.A * laser_origin_2.x - plane_2.B * laser_origin_2.y - plane_2.C * laser_origin_2.z;
-		}
-
-
-		cout << "TOTAL TRIANGLE: " << total_triangle;
-
+	cout << "TOTAL TRIANGLE: " << total_triangle << endl;
 
 	Triangle *array_laser = new Triangle[total_triangle];
 	createAllTriangleArray2(mesh, array_laser, triangles_index, slice_number * 2);
