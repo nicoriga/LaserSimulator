@@ -388,14 +388,43 @@ int getUpperBound(float* array_points, int array_size, float threshold)
 	return index;
 }
 
+int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
+{
+	slice_length = slice_length *tan(deg2rad(params.laser_inclination));
+
+	if (laser_number == LASER_1)
+	{
+		for (int i = 0; i < slice_number; i++)
+		{
+			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - slice_length <= slice_length * i &&
+				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= slice_length * i)
+			{
+				return i;
+			}
+		}
+	}
+	if (laser_number == LASER_2)
+	{
+		for (int i = slice_number; i < slice_number * 2; i++)
+		{
+			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D <= slice_length * i &&
+				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length >= slice_length * i)
+			{
+				return i;
+			}
+		}
+	}
+}
+
 void findBigTriangles(const PolygonMesh &mesh, const MeshBounds &bounds, const SimulationParams &params, vector<Triangle> *big_triangles_vec,
-	vector<int> *big_triangles_index, int size_array)
+	vector<int> *big_triangles_index, int size_array, float slice_length)
 {
 	PointCloud<PointXYZ> mesh_vertices;
 	PointXYZ point;
 	Triangle triangle;
 
-	float projection_distance = (bounds.max_z - bounds.min_z) * params.inclination_coefficient;
+	float projection_distance = slice_length;
+	//float projection_distance = (bounds.max_z - bounds.min_z) * params.inclination_coefficient;
 
 	fromPCLPointCloud2(mesh.cloud, mesh_vertices);
 
@@ -643,8 +672,8 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 }
 
 void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point,
-	const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
-	const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array)
+	const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, Plane* plane,
+	const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array, float slice_length, int slice_number, const int *slice_bound)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
@@ -681,18 +710,14 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 
 	int lower_bound, upper_bound;
 
-	switch (laser_number)
-	{
-	case (LASER_1):
-		lower_bound = 0;
-		upper_bound = 15;
-		break;
+	int k = getSliceIndex(laser_point, origin_plane, laser_number, slice_length, slice_number, params);
 
-	case (LASER_2):
-		lower_bound = 25;
-		upper_bound = 30;
-		break;
-	}
+	if (k == 0)
+		lower_bound = 0;
+	else
+		lower_bound = slice_bound[k-1];
+	
+	upper_bound = slice_bound[k];
 
 
 	int diff = upper_bound - lower_bound;
@@ -740,7 +765,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 			}
 		}
 
-		/*computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
+		computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
 
 		int n = (int)(ceil((size_big_array / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n; h++)
@@ -757,7 +782,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 					first_intersec.b = 0;
 				}
 			}
-		}*/
+		}
 		
 		if (first_intersec.z > VTK_FLOAT_MIN)
 			cloud_intersection->push_back(first_intersec);

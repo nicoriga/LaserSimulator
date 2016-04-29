@@ -151,8 +151,10 @@ int getUpperBound(float* array_points, int array_size, float threshold, const Si
 
 int getUpperBound(float* array_points, int array_size, float threshold);
 
+int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params);
+
 void findBigTriangles(const PolygonMesh &mesh, const MeshBounds &bounds, const SimulationParams &params, vector<Triangle> *big_triangles_vec,
-	vector<int> *big_triangles_index, int size_array);
+	vector<int> *big_triangles_index, int size_array, float slice_length);
 
 void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, int max_point_array_dimension, vector<int> &big_triangles_index);
 
@@ -162,8 +164,8 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 
 void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, int array_select);
 
-void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
-	const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array);
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, Plane* plane,
+	const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array, float slice_length, int slice_number, const int *slice_bound);
 
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
 	Vec3* output_points, uchar* output_hits);
