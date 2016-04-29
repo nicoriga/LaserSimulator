@@ -188,6 +188,28 @@ void createAllTriangleArray2(const PolygonMesh &mesh, Triangle* triangles, vecto
 	}
 }
 
+void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int * total_triangle, int slice_number)
+{
+	for (int i = 0; i < slice_number; i++)
+	{
+		*total_triangle += triangles_index[i].size();
+		slice_bound[i] = *total_triangle;
+		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
+		//int index = getSliceIndex(laser_origin_1, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
+		//laser_origin_1.y += slice_length;
+		//cout << "L'indice si trova nella fetta " << index << endl;
+	}
+
+	for (int i = slice_number; i < slice_number * 2; i++)
+	{
+		*total_triangle += triangles_index[i].size();
+		slice_bound[i] = *total_triangle;
+		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
+		//int index = getSliceIndex(laser_origin_2, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
+		//laser_origin_2.y += slice_length;
+		//cout << "L'indice si trova nella fetta " << index << endl;
+	}
+}
 int main(int argc, char** argv)
 {
 	PolygonMesh mesh;
@@ -267,25 +289,7 @@ int main(int argc, char** argv)
 	fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
 
 	// Costruisco l'array di bound
-	for (int i = 0; i < slice_number; i++)
-	{
-		total_triangle += triangles_index[i].size();
-		slice_bound[i] = total_triangle;
-		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
-		//int index = getSliceIndex(laser_origin_1, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
-		//laser_origin_1.y += slice_length;
-		//cout << "L'indice si trova nella fetta " << index << endl;
-	}
-
-	for (int i = slice_number; i < slice_number * 2; i++)
-	{
-		total_triangle += triangles_index[i].size();
-		slice_bound[i] = total_triangle;
-		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
-		//int index = getSliceIndex(laser_origin_2, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
-		//laser_origin_2.y += slice_length;
-		//cout << "L'indice si trova nella fetta " << index << endl;
-	}
+	createSliceBoundArray(slice_bound, triangles_index, &total_triangle, slice_number);
 
 
 	cout << "TOTAL TRIANGLE: " << total_triangle << endl;
