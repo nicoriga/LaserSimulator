@@ -160,7 +160,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big);
 
-void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits,
 	const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
 	float* max_point_triangle, const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array);
 

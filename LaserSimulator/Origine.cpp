@@ -111,10 +111,10 @@ int main(int argc, char** argv)
 
 		/******************************* Look for intersection with mesh **************************************/
 		// For laser 1
-		getIntersectionOpenCL(&data, all_triangles, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
+		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
 			&plane_1, max_point_triangle, LASER_1, bounds, array_size, big_array_size);
 		// For laser 2
-		getIntersectionOpenCL(&data, all_triangles, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
+		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
 			&plane_2, max_point_triangle, LASER_2, bounds, array_size, big_array_size);
 
 
