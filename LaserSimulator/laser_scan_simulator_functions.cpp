@@ -391,10 +391,10 @@ int getUpperBound(float* array_points, int array_size, float threshold)
 int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
 {
 	slice_length = slice_length *tan(deg2rad(params.laser_inclination));
-
+	
 	if (laser_number == LASER_1)
 	{
-		for (int i = 0; i < slice_number; i++)
+		for (int i = 0; i < slice_number; ++i)
 		{
 			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - slice_length <= slice_length * i &&
 				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= slice_length * i)
@@ -403,17 +403,18 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 			}
 		}
 	}
-	if (laser_number == LASER_2)
+	else
 	{
-		for (int i = slice_number; i < slice_number * 2; i++)
+		for (int i = 0; i < slice_number; ++i)
 		{
-			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D <= slice_length * i &&
-				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length >= slice_length * i)
+			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D <= -slice_length * i &&
+				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length >= -slice_length * i)
 			{
-				return i;
+				return i+slice_number;
 			}
 		}
 	}
+	return -1;
 }
 
 void findBigTriangles(const PolygonMesh &mesh, const MeshBounds &bounds, const SimulationParams &params, vector<Triangle> *big_triangles_vec,
@@ -588,23 +589,24 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 		// Size, in bytes, of each vector
 		//data->triangles_size = array_lenght * sizeof(Triangle);
 		data->array_laser_size = array_lenght * sizeof(Triangle);
-		
-		data->big_triangles_size = big_array_lenght * sizeof(Triangle);
 		data->points_size = array_size_hits * sizeof(Vec3);
 		data->hits_size = array_size_hits * sizeof(uchar);
 
 		// Create device memory buffers
-		//data->device_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->triangles_size);
 		data->device_array_laser = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->array_laser_size);
-		
-		data->device_big_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->big_triangles_size);
 		data->device_output_points = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->points_size);
 		data->device_output_hits = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->hits_size);
 
 		// Bind memory buffers
-		//data->queue.enqueueWriteBuffer(data->device_triangle_array, CL_TRUE, 0, data->triangles_size, triangle_array);
 		data->queue.enqueueWriteBuffer(data->device_array_laser, CL_TRUE, 0, data->array_laser_size, array_laser);
-		data->queue.enqueueWriteBuffer(data->device_big_triangle_array, CL_TRUE, 0, data->big_triangles_size, big_triangle_array);
+
+		if (big_array_lenght > 0)
+		{
+			data->big_triangles_size = big_array_lenght * sizeof(Triangle);
+			data->device_big_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->big_triangles_size);
+			data->queue.enqueueWriteBuffer(data->device_big_triangle_array, CL_TRUE, 0, data->big_triangles_size, big_triangle_array);
+		}
+
 		data->queue.finish();
 
 		// Create kernel object
@@ -719,8 +721,9 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	
 	upper_bound = slice_bound[k];
 
-
 	int diff = upper_bound - lower_bound;
+	//cout << "k : " << k << endl;
+	//cout << "diff : " << diff<<endl;
 
 	for (int j = 0; j < params.number_of_line; j++)
 	{
@@ -742,7 +745,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 		ray_direction.points[d1] = i;
 		ray_direction.points[d2] = laser_number * params.inclination_coefficient;
 		ray_direction.points[Z] = -1;
-
+		
 		if (diff > 0)
 		{
 			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction, 1);
@@ -765,25 +768,28 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 			}
 		}
 
-		/*computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
-
-		int n = (int)(ceil((size_big_array / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
-		for (int h = 0; h < n; h++)
+		if (size_big_array > 0)
 		{
-			if (output_hits[h] == 1)
+			computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
+
+			int n = (int)(ceil((size_big_array / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
+			for (int h = 0; h < n; h++)
 			{
-				if (output_points[h].points[Z] >= first_intersec.z)
+				if (output_hits[h] == 1)
 				{
-					first_intersec.x = output_points[h].points[X];
-					first_intersec.y = output_points[h].points[Y];
-					first_intersec.z = output_points[h].points[Z];
-					first_intersec.r = 255;
-					first_intersec.g = 0;
-					first_intersec.b = 0;
+					if (output_points[h].points[Z] >= first_intersec.z)
+					{
+						first_intersec.x = output_points[h].points[X];
+						first_intersec.y = output_points[h].points[Y];
+						first_intersec.z = output_points[h].points[Z];
+						first_intersec.r = 255;
+						first_intersec.g = 0;
+						first_intersec.b = 0;
+					}
 				}
 			}
-		}*/
-		
+		}
+
 		if (first_intersec.z > VTK_FLOAT_MIN)
 			cloud_intersection->push_back(first_intersec);
 	}
