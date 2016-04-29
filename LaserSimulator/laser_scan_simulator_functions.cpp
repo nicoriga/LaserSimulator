@@ -507,7 +507,7 @@ void createAllTriangleArray(const PolygonMesh &mesh, Triangle* triangles, int* m
 	}
 }
 
-void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits) 
+void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser_1, int array_1_lenght, Triangle* array_laser_2, int array_2_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits)
 {
 	cl_int err = CL_SUCCESS;
 
@@ -557,19 +557,25 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 		free(kernelSource);
 
 		// Size, in bytes, of each vector
-		data->triangles_size = array_lenght * sizeof(Triangle);
+		//data->triangles_size = array_lenght * sizeof(Triangle);
+		data->array_laser_1_size = array_1_lenght * sizeof(Triangle);
+		data->array_laser_2_size = array_2_lenght * sizeof(Triangle);
 		data->big_triangles_size = big_array_lenght * sizeof(Triangle);
 		data->points_size = array_size_hits * sizeof(Vec3);
 		data->hits_size = array_size_hits * sizeof(uchar);
 
 		// Create device memory buffers
-		data->device_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->triangles_size);
+		//data->device_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->triangles_size);
+		data->device_array_laser_1 = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->array_laser_1_size);
+		data->device_array_laser_2 = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->array_laser_2_size);
 		data->device_big_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->big_triangles_size);
 		data->device_output_points = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->points_size);
 		data->device_output_hits = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->hits_size);
 
 		// Bind memory buffers
-		data->queue.enqueueWriteBuffer(data->device_triangle_array, CL_TRUE, 0, data->triangles_size, triangle_array);
+		//data->queue.enqueueWriteBuffer(data->device_triangle_array, CL_TRUE, 0, data->triangles_size, triangle_array);
+		data->queue.enqueueWriteBuffer(data->device_array_laser_1, CL_TRUE, 0, data->array_laser_1_size, array_laser_1);
+		data->queue.enqueueWriteBuffer(data->device_array_laser_2, CL_TRUE, 0, data->array_laser_2_size, array_laser_2);
 		data->queue.enqueueWriteBuffer(data->device_big_triangle_array, CL_TRUE, 0, data->big_triangles_size, big_triangle_array);
 		data->queue.finish();
 
@@ -596,15 +602,19 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_leng
 
 }
 
-void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big) 
+void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, int array_select) 
 {
 	cl_int err = CL_SUCCESS;
 
-	if (big)
-		err = data->kernel.setArg(0, data->device_big_triangle_array);
+	if (array_select == 1)
+		err = data->kernel.setArg(0, data->device_array_laser_1);
+		//err = data->kernel.setArg(0, data->device_big_triangle_array);
 
-	else
-		err = data->kernel.setArg(0, data->device_triangle_array);
+	if (array_select == -1)
+		err = data->kernel.setArg(0, data->device_array_laser_2);
+		//err = data->kernel.setArg(0, data->device_triangle_array);
+	if (array_select == 2)
+		err = data->kernel.setArg(0, data->device_big_triangle_array);
 
 	err = data->kernel.setArg(3, start_index);
 	err = data->kernel.setArg(4, array_lenght);
@@ -636,9 +646,9 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
 }
 
-void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
-	const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
-	float* max_point_triangle, const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array)
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point,
+	const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
+	const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
@@ -676,7 +686,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 	int lower_bound, upper_bound;
 
 	// Bounds calculated due to laser
-	switch (laser_number)
+	/*switch (laser_number)
 	{
 		case (LASER_1):
 			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_max_z);
@@ -687,6 +697,19 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 			lower_bound = getLowerBound(max_point_triangle, size_array, laser_intersect_min_z);
 			upper_bound = getUpperBound(max_point_triangle, size_array, laser_intersect_max_z, params);
 			break;
+	}*/
+
+	switch (laser_number)
+	{
+	case (LASER_1):
+		lower_bound = 0;
+		upper_bound = 15;
+		break;
+
+	case (LASER_2):
+		lower_bound = 25;
+		upper_bound = 30;
+		break;
 	}
 
 
@@ -715,7 +738,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 
 		if (diff > 0)
 		{
-			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction, FALSE);
+			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction, laser_number);
 
 			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 			for (int h = 0; h < n_max; h++)
@@ -735,7 +758,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* outp
 			}
 		}
 
-		computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, TRUE);
+		computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
 
 		int n = (int)(ceil((size_big_array / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n; h++)
@@ -803,7 +826,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_p
 }
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
-	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points,
+	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Vec3* output_points,
 	uchar* output_hits, float* max_point_triangle) 
 {
 	// Initialize a white image
@@ -871,7 +894,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
 			{
-				if (!(isOccluded(cloud_intersection->at(i), pin_hole, max_point_triangle, polygon_size, openCLData, all_triangles, output_points, output_hits)))
+				//if (!(isOccluded(cloud_intersection->at(i), pin_hole, max_point_triangle, polygon_size, openCLData, all_triangles, output_points, output_hits)))
 				{
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;

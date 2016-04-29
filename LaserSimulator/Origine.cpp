@@ -11,6 +11,32 @@
 #include <iostream>
 
 
+int getLowerIndexBand(const PointXYZ &laser_point, int laser_number)
+{
+	if (laser_number == LASER_1)
+	{
+
+	}
+
+	else
+	{
+
+	}
+}
+
+int getUpperIndexBand(const PointXYZ &laser_point, int laser_number)
+{
+	if (laser_number == LASER_1)
+	{
+
+	}
+
+	else
+	{
+
+	}
+}
+
 int main(int argc, char** argv)
 {
 	PolygonMesh mesh;
@@ -52,7 +78,6 @@ int main(int argc, char** argv)
 	/*********************** Find "big" triangles ****************************/
 	vector<Triangle> big_triangles_vec;
 	vector<int> big_triangles_index;
-	
 	findBigTriangles(mesh, bounds,params, &big_triangles_vec, &big_triangles_index, mesh.polygons.size());
 
 	// Put big triangles in a Triangle array
@@ -64,20 +89,27 @@ int main(int argc, char** argv)
 	cout << "Numero triangoli \"grandi\": " << big_array_size << endl << endl;
 
 	// Remove "big" triangles from all triangles array
-	int array_size = mesh.polygons.size() - big_triangles_index.size();
-	removeDuplicate(max_point_triangle, max_point_triangle_index, mesh.polygons.size(), big_triangles_index);
+	int array_size = mesh.polygons.size();// - big_triangles_index.size();
+	//removeDuplicate(max_point_triangle, max_point_triangle_index, mesh.polygons.size(), big_triangles_index);
 
 	// Sort arrays to have more efficency in the search
-	sortArrays(max_point_triangle, max_point_triangle_index, array_size);
+	//sortArrays(max_point_triangle, max_point_triangle_index, array_size);
 
 	/************************* Initialize OpenCL *****************************/
-	Triangle *all_triangles = new Triangle[array_size];
-	createAllTriangleArray(mesh, all_triangles, max_point_triangle_index, array_size);
+	//Triangle *all_triangles = new Triangle[array_size];
+	//createAllTriangleArray(mesh, all_triangles, max_point_triangle_index, array_size);
+
+	Triangle *array_laser_1;
+	Triangle *array_laser_2;
+
+	int array_1_lenght; //se sono uguali allora array_size e array_size_hits sono a posto
+	int array_2_lenght;
+
 
 	int array_size_hits = (int) (ceil(array_size / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];
 	uchar* output_hits = new uchar[array_size_hits];
-	initializeOpenCL(&data, all_triangles, array_size, big_triangles, big_array_size, array_size_hits);
+	initializeOpenCL(&data, array_laser_1, array_1_lenght, array_laser_2, array_2_lenght, big_triangles, big_array_size, array_size_hits);
 
 
 	/**************** Set initial position for camera and lasers *****************/
@@ -111,15 +143,15 @@ int main(int argc, char** argv)
 
 		/******************************* Look for intersection with mesh **************************************/
 		// For laser 1
-		getIntersectionOpenCL(&data, all_triangles, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
-			&plane_1, max_point_triangle, LASER_1, bounds, array_size, big_array_size);
+		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection,
+			&plane_1, LASER_1, bounds, array_size, big_array_size);
 		// For laser 2
-		getIntersectionOpenCL(&data, all_triangles, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
-			&plane_2, max_point_triangle, LASER_2, bounds, array_size, big_array_size);
+		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection,
+			&plane_2, LASER_2, bounds, array_size, big_array_size);
 
 
 		/************************************ Take snapshot  **************************************************/
-		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, array_size, &data, all_triangles, output_points,
+		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, array_size, &data, output_points,
 			output_hits, max_point_triangle);
 
 		// Save snapshot (only for debug) 
@@ -158,9 +190,9 @@ int main(int argc, char** argv)
 
 	/***************************** Visualize cloud ***************************************/
 	visualization::PCLVisualizer viewer("PCL viewer");
-//	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
+	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
 	viewer.addCoordinateSystem(100, "PCL viewer");
-	//viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
+	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
 	viewer.addPointCloud<PointXYZ>(cloud_out, "Cloud");
 
 	// Print total time of computation 

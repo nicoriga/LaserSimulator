@@ -104,12 +104,16 @@ struct MeshBounds
 };
 
 struct OpenCLDATA {
-	cl::Buffer device_triangle_array;
+	//cl::Buffer device_triangle_array;
+	cl::Buffer device_array_laser_1;
+	cl::Buffer device_array_laser_2;
 	cl::Buffer device_big_triangle_array;
 	cl::Buffer device_output_points;
 	cl::Buffer device_output_hits;
 
-	size_t triangles_size;
+	//size_t triangles_size;
+	size_t array_laser_1_size;
+	size_t array_laser_2_size;
 	size_t big_triangles_size;
 	size_t points_size;
 	size_t hits_size;
@@ -156,19 +160,20 @@ void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, i
 
 void createAllTriangleArray(const PolygonMesh &mesh, Triangle* triangles, int* max_point_triangle_index, int size_array);
 
-void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits);
+void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser_1, int array_1_lenght, Triangle* array_laser_2, int array_2_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits);
 
-void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, bool big);
+//void initializeOpenCL(OpenCLDATA* data, Triangle* triangle_array, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits);
 
-void getIntersectionOpenCL(OpenCLDATA* data, Triangle* all_triangles, Vec3* output_points, uchar* output_hits,
-	const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
-	float* max_point_triangle, const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array);
+void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, int array_select);
+
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Plane* plane,
+	const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array);
 
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
 	Vec3* output_points, uchar* output_hits);
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
-	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles, Vec3* output_points,
+	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData,  Vec3* output_points,
 	uchar* output_hits, float* max_point_triangle);
 
 void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out);
