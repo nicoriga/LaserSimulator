@@ -131,30 +131,33 @@ int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const
 		point3.y = cloud_mesh.points[mesh.polygons[i].vertices[2]].y;
 		point3.z = cloud_mesh.points[mesh.polygons[i].vertices[2]].z;
 
-		// Cerco quali sono i punti minimi e massimi del triangolo
-		int min_point_index = findMinPoint(point1, point2, point3, params);
-		int max_point_index = findMaxPoint(point1, point2, point3, params);
-
-		// Salvo i punti minimi e massimi del triangolo
-		min_point.x = cloud_mesh.points[mesh.polygons[i].vertices[min_point_index]].x;
-		min_point.y = cloud_mesh.points[mesh.polygons[i].vertices[min_point_index]].y;
-		min_point.z = cloud_mesh.points[mesh.polygons[i].vertices[min_point_index]].z;
-
-		max_point.x = cloud_mesh.points[mesh.polygons[i].vertices[max_point_index]].x;
-		max_point.y = cloud_mesh.points[mesh.polygons[i].vertices[max_point_index]].y;
-		max_point.z = cloud_mesh.points[mesh.polygons[i].vertices[max_point_index]].z;
 
 		// Guardo questi valori in che fetta devono finire
-		int min_slice = getSliceIndex(min_point, origin_plane, laser_number, slice_length, slice_number, params);
-		int max_slice = getSliceIndex(max_point, origin_plane, laser_number, slice_length, slice_number, params);
+		int slice_point1 = getSliceIndex(point1, origin_plane, laser_number, slice_length, slice_number, params);
+		int slice_point2 = getSliceIndex(point2, origin_plane, laser_number, slice_length, slice_number, params);
+		int slice_point3 = getSliceIndex(point3, origin_plane, laser_number, slice_length, slice_number, params);
+		
+		int min_slice, max_slice;
+
+		if (slice_point1 < slice_point2 && slice_point1 < slice_point3)
+			min_slice = slice_point1;
+		else if (slice_point2 < slice_point3)
+			min_slice = slice_point2;
+		else
+			min_slice = slice_point3;
+
+		if (slice_point1 > slice_point2 && slice_point1 > slice_point3)
+			max_slice = slice_point1;
+		else if (slice_point2 > slice_point3)
+			max_slice = slice_point2;
+		else
+			max_slice = slice_point3;
 
 		// Assegno il triango alle fette corrispondenti
 		if (min_slice != -1 && max_slice != -1)
 		{
 			for (int z = min_slice; z <= max_slice; z++)
-			{
 				triangles_index[z].push_back(i);
-			}
 		}
 		else
 		{
@@ -258,8 +261,9 @@ int main(int argc, char** argv)
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
 	// INIZIO AFFETTATURA
-	int slice_number = 50;
-	float slice_length = (bounds.max_y - laser_origin_1.y) / slice_number;
+	int slice_number = 1000;
+	float fp = bounds.max_y + (bounds.min_y - laser_origin_2.y);
+	float slice_length = (fp - laser_origin_1.y) / slice_number;
 	vector<int> *triangles_index = new vector<int>[slice_number * 2];
 	int *slice_bound = new int[slice_number * 2];
 	int total_triangle = 0;
