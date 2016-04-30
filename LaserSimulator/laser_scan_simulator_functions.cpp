@@ -341,6 +341,44 @@ void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Ve
 	p->D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
 }
 
+void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params)
+{
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+	{
+		if (laser_number == LASER_1)
+		{
+			plane->A = tan(deg2rad(params.laser_inclination));
+			plane->B = 0;
+			plane->C = 1;
+			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
+		}
+		if (laser_number == LASER_2)
+		{
+			plane->A = -tan(deg2rad(params.laser_inclination));
+			plane->B = 0;
+			plane->C = 1;
+			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
+		}
+	}
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+	{
+		if (laser_number == LASER_1)
+		{
+			plane->A = 0;
+			plane->B = tan(deg2rad(params.laser_inclination));
+			plane->C = 1;
+			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
+		}
+		if (laser_number == LASER_2)
+		{
+			plane->A = 0;
+			plane->B = -tan(deg2rad(params.laser_inclination));
+			plane->C = 1;
+			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
+		}
+	}
+}
+
 int getLowerBound(float* array_points, int array_size, float threshold) 
 {
 	int index = array_size - 1;
@@ -689,9 +727,10 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	{
 		d1 = 0;
 		d2 = 1;
-		Vector3d line_1(-params.aperture_coefficient + 0 * ray_density, laser_number * params.inclination_coefficient, -1);
+		/*Vector3d line_1(-params.aperture_coefficient + 0 * ray_density, laser_number * params.inclination_coefficient, -1);
 		Vector3d line_2(-params.aperture_coefficient + 10 * ray_density, laser_number * params.inclination_coefficient, -1);
-		getPlaneCoefficents(laser_point, line_1, line_2, plane);
+		getPlaneCoefficents(laser_point, line_1, line_2, plane);*/
+		getPlaneCoefficents(laser_point, plane, laser_number, params);
 	}
 
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
