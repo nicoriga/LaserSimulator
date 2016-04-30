@@ -148,6 +148,8 @@ int main(int argc, char** argv)
 	cout << endl << endl << "Numero di punti cloud rossa opencl: " << cloud_intersection_backup->points.size() << endl;
 	cout << endl << "Numero di punti della point cloud: " << cloud_out->points.size() << endl;
 
+	// Print total time of computation 
+	cout << endl << "Durata: " << returnTime(high_resolution_clock::now() - start) << endl;
 
 	// Save cloud 
 	if (cloud_intersection_backup->size() > 0)
@@ -168,8 +170,7 @@ int main(int argc, char** argv)
 	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
 	viewer.addPointCloud<PointXYZ>(cloud_out, "Cloud");
 
-	// Print total time of computation 
-	cout << endl << "Durata: " << returnTime(high_resolution_clock::now() - start) << endl;
+
 
 	viewer.spin();
 
