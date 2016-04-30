@@ -23,7 +23,6 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 		fs["height_to_mesh"] >> params->height_to_mesh;
 		fs["laser_aperture"] >> params->laser_aperture;
 		fs["laser_inclination"] >> params->laser_inclination;
-		fs["man_thresh"] >> params->man_thresh;
 		fs["number_of_line"] >> params->number_of_line;
 		fs["scan_speed"] >> params->scan_speed;
 		fs["scan_direction"] >> params->scan_direction;

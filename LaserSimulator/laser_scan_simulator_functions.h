@@ -66,7 +66,6 @@ struct SimulationParams
 	float scan_speed;
 	float inclination_coefficient;
 	float aperture_coefficient;
-	float man_thresh;
 	int number_of_line;
 	int scan_direction;
 	int roi_1_start;
