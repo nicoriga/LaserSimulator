@@ -50,7 +50,7 @@ int main(int argc, char** argv)
 	// INIZIO AFFETTATURA
 	Plane origin_plane_laser1, origin_plane_laser2;
 
-	int slice_number = 1000;
+	int slice_number = 100;
 	float fp = bounds.max_y + (bounds.min_y - laser_origin_2.y);
 	float slice_length = (fp - laser_origin_1.y) / slice_number;
 	vector<int> *triangles_index = new vector<int>[slice_number * 2];
@@ -78,7 +78,6 @@ int main(int argc, char** argv)
 	
 	int array_size = total_triangle;
 	
-	float *max_point_triangle;
 
 	int array_size_hits = (int) (ceil(array_size / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];
@@ -125,8 +124,8 @@ int main(int argc, char** argv)
 
 
 		/************************************ Take snapshot  **************************************************/
-		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, array_size, &data, output_points,
-			output_hits, max_point_triangle);
+		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, &data, output_points,
+			origin_plane_laser1, origin_plane_laser2, slice_length, slice_number, slice_bound, output_hits);
 
 		// Save snapshot (only for debug) 
 		if (snapshot_save_flag)

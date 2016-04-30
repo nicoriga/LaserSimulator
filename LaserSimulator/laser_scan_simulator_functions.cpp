@@ -587,9 +587,56 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	}
 }
 
-bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
-	Vec3* output_points, uchar* output_hits) 
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SimulationParams &params, const Plane &origin_plane_1,
+	const Plane &origin_plane_2, float slice_length, int slice_number, const int *slice_bound, Vec3* output_points, uchar* output_hits)
 {
+
+	int lower_bound, upper_bound;
+	PointXYZ point_to_check;
+	point_to_check.x = point.x;
+	point_to_check.y = point.y;
+	point_to_check.z = point.z;
+
+	int slice_of_point, slice_of_pinhole;
+
+	if (pin_hole.y < point_to_check.y)
+	{
+		slice_of_point = getSliceIndex(point_to_check, origin_plane_1, LASER_1, slice_length, slice_number, params);
+		slice_of_pinhole = getSliceIndex(pin_hole, origin_plane_1, LASER_1, slice_length, slice_number, params);
+	}
+	else
+	{
+		slice_of_point = getSliceIndex(point_to_check, origin_plane_2, LASER_2, slice_length, slice_number, params);
+		slice_of_pinhole = getSliceIndex(pin_hole, origin_plane_2, LASER_2, slice_length, slice_number, params);
+	}
+
+	// Nel caso non trovi la fetta (non dovrebbe accadere) considero il punto occluso
+	if (slice_of_point < 0 || slice_of_pinhole < 0)
+		return FALSE;
+
+	// Imposto lower e upper bound in base alle fette trovate
+	if (slice_of_point < slice_of_pinhole)
+	{
+		if (slice_of_point == 0)
+			lower_bound = 0;
+		else
+			lower_bound = slice_bound[slice_of_point - 1];
+
+		upper_bound = slice_bound[slice_of_pinhole];
+	}
+	else
+	{
+		if (slice_of_pinhole == 0)
+			lower_bound = 0;
+		else
+			lower_bound = slice_bound[slice_of_pinhole - 1];
+
+		upper_bound = slice_bound[slice_of_point];
+	}
+
+	// Controllo la differenza di bound
+	int diff = upper_bound - lower_bound;
+
 	Vec3 origin;
 	origin.points[X] = point.x;
 	origin.points[Y] = point.y;
@@ -599,21 +646,6 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_p
 	direction.points[X] = pin_hole.x - point.x;
 	direction.points[Y] = pin_hole.y - point.y;
 	direction.points[Z] = pin_hole.z - point.z;
-
-	int lower_bound, upper_bound;
-
-	if (pin_hole.y < origin.points[Y])
-	{
-		//lower_bound = getLowerBound(max_point_triangle, polygon_size, pin_hole.y);
-		//upper_bound = getUpperBound(max_point_triangle, polygon_size, origin.points[Y]);
-	}
-	else
-	{
-		//lower_bound = getLowerBound(max_point_triangle, polygon_size, origin.points[Y]);
-		//upper_bound = getUpperBound(max_point_triangle, polygon_size, pin_hole.y);
-	}
-
-	int diff = upper_bound - lower_bound;
 
 	if (diff > 0)
 	{
@@ -631,8 +663,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_p
 }
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
-	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData, Vec3* output_points,
-	uchar* output_hits, float* max_point_triangle) 
+	Mat* img, const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &origin_plane_1,
+	const Plane &origin_plane_2, float slice_length, int slice_number, const int *slice_bound, uchar* output_hits)
 {
 	// Initialize a white image
 	Mat image(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
@@ -699,7 +731,8 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
 			{
-				//if (!(isOccluded(cloud_intersection->at(i), pin_hole, max_point_triangle, polygon_size, openCLData, all_triangles, output_points, output_hits)))
+				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, params, origin_plane_1,
+					origin_plane_2, slice_length, slice_number, slice_bound, output_points, output_hits)))
 				{
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;

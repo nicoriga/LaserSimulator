@@ -152,12 +152,12 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, Plane* plane,
 	const int laser_number, const MeshBounds &bounds, float slice_length, int slice_number, const int *slice_bound);
 
-bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_point_triangle, int polygon_size, OpenCLDATA* openCLData, Triangle* all_triangles,
-	Vec3* output_points, uchar* output_hits);
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SimulationParams &params, const Plane &origin_plane_1,
+	const Plane &origin_plane_2, float slice_length, int slice_number, const int *slice_bound, Vec3* output_points, uchar* output_hits);
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
-	Mat* img, const SimulationParams &params, int polygon_size, OpenCLDATA* openCLData,  Vec3* output_points,
-	uchar* output_hits, float* max_point_triangle);
+	Mat* img, const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &origin_plane_1,
+	const Plane &origin_plane_2, float slice_length, int slice_number, const int *slice_bound, uchar* output_hits);
 
 void imageToCloud(Camera &camera, const SimulationParams &params, const Plane &plane_1, const Plane &plane_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out);
 
