@@ -9,33 +9,6 @@
 #include "laser_scan_simulator_functions.h"
 
 
-
-bool isBigTriangle(const Triangle &triangle, float projection_distance) 
-{
-	float diff_x, diff_y, diff_z;
-	Vec3 ret;
-
-	diff_x = triangle.vertex_1.points[0] - triangle.vertex_2.points[0];
-	diff_y = triangle.vertex_1.points[1] - triangle.vertex_2.points[1];
-	diff_z = triangle.vertex_1.points[2] - triangle.vertex_2.points[2];
-
-	ret.points[0] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
-
-	diff_x = triangle.vertex_1.points[0] - triangle.vertex_3.points[0];
-	diff_y = triangle.vertex_1.points[1] - triangle.vertex_3.points[1];
-	diff_z = triangle.vertex_1.points[2] - triangle.vertex_3.points[2];
-
-	ret.points[1] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
-
-	diff_x = triangle.vertex_2.points[0] - triangle.vertex_3.points[0];
-	diff_y = triangle.vertex_2.points[1] - triangle.vertex_3.points[1];
-	diff_z = triangle.vertex_2.points[2] - triangle.vertex_3.points[2];
-
-	ret.points[2] = sqrt(diff_x*diff_x + diff_y*diff_y + diff_z*diff_z);
-
-	return (ret.points[0] > projection_distance || ret.points[1] > projection_distance || ret.points[2] > projection_distance);
-}
-
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file)
 {
 	camera->distortion = Mat::zeros(5, 1, CV_64F);
@@ -128,66 +101,6 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 	params->aperture_coefficient = tan(deg2rad(params->laser_aperture / 2.f));
 }
 
-void arraysMerge(float *a, int *b, int low, int high, int mid, float *c, int *d)
-{
-	int i = low;
-	int k = low;
-	int j = mid + 1;
-
-	while (i <= mid && j <= high)
-	{
-		if (a[i] < a[j])
-		{
-			c[k] = a[i];
-			d[k++] = b[i++];
-		}
-		else
-		{
-			c[k] = a[j];
-			d[k++] = b[j++];
-		}
-	}
-
-	while (i <= mid)
-	{
-		c[k] = a[i];
-		d[k++] = b[i++];
-	}
-
-	while (j <= high)
-	{
-		c[k] = a[j];
-		d[k++] = b[j++];
-	}
-
-	for (i = low; i < k; ++i)
-	{
-		a[i] = c[i];
-		b[i] = d[i];
-	}
-}
-
-void arraysMergesort(float *a, int* b, int low, int high, float *tmp_a, int *tmp_b)
-{
-	int mid;
-
-	if (low < high)
-	{
-		mid = (low + high) / 2;
-		arraysMergesort(a, b, low, mid, tmp_a, tmp_b);
-		arraysMergesort(a, b, mid + 1, high, tmp_a, tmp_b);
-		arraysMerge(a, b, low, high, mid, tmp_a, tmp_b);
-	}
-}
-
-void sortArrays(float *a, int* b, int array_size)
-{
-	float *tmp_a = new float[array_size];
-	int *tmp_b = new int[array_size];
-	arraysMergesort(a, b, 0, array_size - 1, tmp_a, tmp_b);
-	delete[] tmp_a, tmp_b;
-}
-
 void updateMinMax(PointXYZRGB point, MeshBounds *bounds) 
 {
 	if (point.x < bounds->min_x)
@@ -206,7 +119,7 @@ void updateMinMax(PointXYZRGB point, MeshBounds *bounds)
 		bounds->max_z = point.z;
 }
 
-void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh mesh, int* max_point_triangle_index, float* max_point_triangle, MeshBounds *bounds) 
+void calculateBoundaries(const SimulationParams &params, PolygonMesh mesh, MeshBounds *bounds) 
 {
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZRGB point_1, point_2, point_3;
@@ -234,34 +147,6 @@ void calculateBoundariesAndArrayMax(const SimulationParams &params, PolygonMesh 
 		point_3.z = cloud_mesh.points[mesh.polygons[i].vertices[2]].z;
 
 		updateMinMax(point_3, bounds);
-
-		max_point_triangle_index[i] = i;
-
-		if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
-		{
-			if (point_1.x > point_2.x && point_1.x > point_3.x)
-				max_point_triangle[i] = point_1.x;
-			else
-			{
-				if (point_2.x > point_3.x)
-					max_point_triangle[i] = point_2.x;
-				else
-					max_point_triangle[i] = point_3.x;
-			}
-		}
-
-		if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
-		{
-			if (point_1.y > point_2.y && point_1.y > point_3.y)
-				max_point_triangle[i] = point_1.y;
-			else
-			{
-				if (point_2.y > point_3.y)
-					max_point_triangle[i] = point_2.y;
-				else
-					max_point_triangle[i] = point_3.y;
-			}
-		}
 	}
 }
 
@@ -321,26 +206,6 @@ void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ*
 	pin_hole->z = laser_origin_1->z;
 }
 
-float getLinePlaneIntersection(const PointXYZ &source, const Vector3d &direction, float plane_coordinate, int scan_direction) 
-{
-	if (scan_direction == DIRECTION_SCAN_AXIS_Y)
-		return direction[1] * (plane_coordinate - source.z) / direction[2] + source.y;
-
-	if (scan_direction == DIRECTION_SCAN_AXIS_X)
-		return direction[0] * (plane_coordinate - source.z) / direction[2] + source.x;
-
-	return 0;
-}
-
-void getPlaneCoefficents(const PointXYZ &laser, const Vector3d &line_1, const Vector3d &line_2, Plane *p) 
-{
-	Vector3d plane_normal = line_1.cross(line_2);
-	p->A = plane_normal[0];
-	p->B = plane_normal[1];
-	p->C = plane_normal[2];
-	p->D = -plane_normal[0] * laser.x - plane_normal[1] * laser.y - plane_normal[2] * laser.z;
-}
-
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params)
 {
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
@@ -379,51 +244,110 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 	}
 }
 
-int getLowerBound(float* array_points, int array_size, float threshold) 
+int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
 {
-	int index = array_size - 1;
+	PointCloud<PointXYZ> cloud_mesh;
+	PointXYZ point1, point2, point3, min_point, max_point;
 
-	for (int i = 0; i < array_size; i++)
+	int lost_triangle = 0;
+	// Convert mesh in a point cloud (only vertex)
+	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
+
+	// Search minimum and maximum points on X, Y and Z axis
+	for (int i = 0; i < mesh.polygons.size(); i++)
 	{
-		if (array_points[i] > threshold) {
-			index = i - 1;
-			break;
-		}
-	}
-	if (index < 0)
-		index = 0;
+		point1.x = cloud_mesh.points[mesh.polygons[i].vertices[0]].x;
+		point1.y = cloud_mesh.points[mesh.polygons[i].vertices[0]].y;
+		point1.z = cloud_mesh.points[mesh.polygons[i].vertices[0]].z;
 
-	return index;
+		point2.x = cloud_mesh.points[mesh.polygons[i].vertices[1]].x;
+		point2.y = cloud_mesh.points[mesh.polygons[i].vertices[1]].y;
+		point2.z = cloud_mesh.points[mesh.polygons[i].vertices[1]].z;
+
+		point3.x = cloud_mesh.points[mesh.polygons[i].vertices[2]].x;
+		point3.y = cloud_mesh.points[mesh.polygons[i].vertices[2]].y;
+		point3.z = cloud_mesh.points[mesh.polygons[i].vertices[2]].z;
+
+
+		// Guardo questi valori in che fetta devono finire
+		int slice_point1 = getSliceIndex(point1, origin_plane, laser_number, slice_length, slice_number, params);
+		int slice_point2 = getSliceIndex(point2, origin_plane, laser_number, slice_length, slice_number, params);
+		int slice_point3 = getSliceIndex(point3, origin_plane, laser_number, slice_length, slice_number, params);
+
+		int min_slice, max_slice;
+
+		if (slice_point1 < slice_point2 && slice_point1 < slice_point3)
+			min_slice = slice_point1;
+		else if (slice_point2 < slice_point3)
+			min_slice = slice_point2;
+		else
+			min_slice = slice_point3;
+
+		if (slice_point1 > slice_point2 && slice_point1 > slice_point3)
+			max_slice = slice_point1;
+		else if (slice_point2 > slice_point3)
+			max_slice = slice_point2;
+		else
+			max_slice = slice_point3;
+
+		// Assegno il triango alle fette corrispondenti
+		if (min_slice != -1 && max_slice != -1)
+		{
+			for (int z = min_slice; z <= max_slice; z++)
+				triangles_index[z].push_back(i);
+		}
+		else
+			lost_triangle++;
+	}
+
+	return lost_triangle;
 }
 
-int getUpperBound(float* array_points, int array_size, float threshold, const SimulationParams &params)
+void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array)
 {
-	int index = 0;
+	PointCloud<PointXYZ> meshVertices;
+	fromPCLPointCloud2(mesh.cloud, meshVertices);
 
-	for (int i = array_size - 1; i > 0; i--)
+	PointXYZ tmp;
+	int count = 0;
+	for (int i = 0; i < num_triangles_index_array; i++)
 	{
-		if (array_points[i] < threshold + params.man_thresh) {
-			index = i;
-			break;
+		for (int k = 0; k < triangles_index[i].size(); k++)
+		{
+			tmp = meshVertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[0]];
+			triangles[count].vertex_1.points[X] = tmp.x;
+			triangles[count].vertex_1.points[Y] = tmp.y;
+			triangles[count].vertex_1.points[Z] = tmp.z;
+
+			tmp = meshVertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[1]];
+			triangles[count].vertex_2.points[X] = tmp.x;
+			triangles[count].vertex_2.points[Y] = tmp.y;
+			triangles[count].vertex_2.points[Z] = tmp.z;
+
+			tmp = meshVertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[2]];
+			triangles[count].vertex_3.points[X] = tmp.x;
+			triangles[count].vertex_3.points[Y] = tmp.y;
+			triangles[count].vertex_3.points[Z] = tmp.z;
+			count++;
 		}
 	}
-
-	return index;
 }
 
-int getUpperBound(float* array_points, int array_size, float threshold)
+void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int * total_triangle, int slice_number)
 {
-	int index = 0;
-
-	for (int i = array_size - 1; i > 0; i--)
+	for (int i = 0; i < slice_number; i++)
 	{
-		if (array_points[i] < threshold) {
-			index = i;
-			break;
-		}
+		*total_triangle += triangles_index[i].size();
+		slice_bound[i] = *total_triangle;
+		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
 	}
 
-	return index;
+	for (int i = slice_number; i < slice_number * 2; i++)
+	{
+		*total_triangle += triangles_index[i].size();
+		slice_bound[i] = *total_triangle;
+		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
+	}
 }
 
 int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
@@ -455,127 +379,7 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 	return -1;
 }
 
-void findBigTriangles(const PolygonMesh &mesh, const MeshBounds &bounds, const SimulationParams &params, vector<Triangle> *big_triangles_vec,
-	vector<int> *big_triangles_index, int size_array, float slice_length)
-{
-	PointCloud<PointXYZ> mesh_vertices;
-	PointXYZ point;
-	Triangle triangle;
-
-	float projection_distance = slice_length;
-	//float projection_distance = (bounds.max_z - bounds.min_z) * params.inclination_coefficient;
-
-	fromPCLPointCloud2(mesh.cloud, mesh_vertices);
-
-	for (int i = 0; i < size_array; i++)
-	{
-		// Take Vertex 1
-		point = mesh_vertices.points[mesh.polygons[i].vertices[0]];
-		triangle.vertex_1.points[X] = point.x;
-		triangle.vertex_1.points[Y] = point.y;
-		triangle.vertex_1.points[Z] = point.z;
-
-		// Take Vertex 2
-		point = mesh_vertices.points[mesh.polygons[i].vertices[1]];
-		triangle.vertex_2.points[X] = point.x;
-		triangle.vertex_2.points[Y] = point.y;
-		triangle.vertex_2.points[Z] = point.z;
-
-		// Take Vertex 3
-		point = mesh_vertices.points[mesh.polygons[i].vertices[2]];
-		triangle.vertex_3.points[X] = point.x;
-		triangle.vertex_3.points[Y] = point.y;
-		triangle.vertex_3.points[Z] = point.z;
-
-		// Check if the triangle is a "Big Triangle" and save its index
-		if (isBigTriangle(triangle, projection_distance))
-		{
-			big_triangles_vec->push_back(triangle);
-			big_triangles_index->push_back(i);
-		}
-	}
-}
-
-void removeDuplicate(float* max_point_triangle, int* max_point_triangle_index, int max_point_array_dimension, vector<int> &big_triangles_index)
-{
-	int diff_size = max_point_array_dimension - big_triangles_index.size();
-	float *max_removed = new float[diff_size];
-	int *max_index_removed = new int[diff_size];
-
-	for (int i = 0; i < max_point_array_dimension; i++)
-	{
-		for (int j = 0; j < big_triangles_index.size(); j++)
-		{
-			if (max_point_triangle_index[i] == big_triangles_index[j])
-			{
-				max_point_triangle_index[i] = -1;
-			}
-		}
-	}
-
-	int count = 0;
-	for (int i = 0; i < max_point_array_dimension; i++)
-	{
-		if (max_point_triangle_index[i] != -1)
-		{
-			max_removed[count] = max_point_triangle[i];
-			max_index_removed[count] = max_point_triangle_index[i];
-			count++;
-		}
-	}
-
-	for (int i = 0; i < diff_size; i++)
-	{
-		max_point_triangle[i] = max_removed[i];
-		max_point_triangle_index[i] = max_index_removed[i];
-	}
-
-
-	/*int current_position = 0;
-
-	for (int i = 0; i < big_triangles_index.size(); i++)
-	{
-		for (int j = 0; j < max_point_array_dimension; j++)
-		{
-			// Find the duplicate
-			if (big_triangles_index[i] != max_point_triangle_index[j])
-			{
-				max_point_triangle[current_position] = max_point_triangle[j];
-				max_point_triangle_index[current_position] = max_point_triangle_index[j];
-				current_position++;
-				break;
-			}
-		}
-	}*/
-}
-
-void createAllTriangleArray(const PolygonMesh &mesh, Triangle* triangles, int* max_point_triangle_index, int size_array)
-{
-	PointCloud<PointXYZ> meshVertices;
-	fromPCLPointCloud2(mesh.cloud, meshVertices);
-
-	PointXYZ tmp;
-
-	for (int k = 0; k < size_array; k++)
-	{
-		tmp = meshVertices.points[mesh.polygons[max_point_triangle_index[k]].vertices[0]];
-		triangles[k].vertex_1.points[X] = tmp.x;
-		triangles[k].vertex_1.points[Y] = tmp.y;
-		triangles[k].vertex_1.points[Z] = tmp.z;
-
-		tmp = meshVertices.points[mesh.polygons[max_point_triangle_index[k]].vertices[1]];
-		triangles[k].vertex_2.points[X] = tmp.x;
-		triangles[k].vertex_2.points[Y] = tmp.y;
-		triangles[k].vertex_2.points[Z] = tmp.z;
-
-		tmp = meshVertices.points[mesh.polygons[max_point_triangle_index[k]].vertices[2]];
-		triangles[k].vertex_3.points[X] = tmp.x;
-		triangles[k].vertex_3.points[Y] = tmp.y;
-		triangles[k].vertex_3.points[Z] = tmp.z;
-	}
-}
-
-void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght, Triangle* big_triangle_array, int big_array_lenght, int array_size_hits)
+void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght, int array_size_hits)
 {
 	cl_int err = CL_SUCCESS;
 
@@ -625,7 +429,6 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 		free(kernelSource);
 
 		// Size, in bytes, of each vector
-		//data->triangles_size = array_lenght * sizeof(Triangle);
 		data->array_laser_size = array_lenght * sizeof(Triangle);
 		data->points_size = array_size_hits * sizeof(Vec3);
 		data->hits_size = array_size_hits * sizeof(uchar);
@@ -637,20 +440,13 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 
 		// Bind memory buffers
 		data->queue.enqueueWriteBuffer(data->device_array_laser, CL_TRUE, 0, data->array_laser_size, array_laser);
-
-		if (big_array_lenght > 0)
-		{
-			data->big_triangles_size = big_array_lenght * sizeof(Triangle);
-			data->device_big_triangle_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->big_triangles_size);
-			data->queue.enqueueWriteBuffer(data->device_big_triangle_array, CL_TRUE, 0, data->big_triangles_size, big_triangle_array);
-		}
-
 		data->queue.finish();
 
 		// Create kernel object
 		data->kernel = cl::Kernel(data->program_, "kernelTriangleIntersection", &err);
 
 		// Bind kernel arguments to kernel
+		err = data->kernel.setArg(0, data->device_array_laser);
 		err = data->kernel.setArg(1, data->device_output_points);
 		err = data->kernel.setArg(2, data->device_output_hits);
 
@@ -670,16 +466,9 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 
 }
 
-void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction, int array_select) 
+void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction) 
 {
 	cl_int err = CL_SUCCESS;
-
-	if (array_select == 1)
-		err = data->kernel.setArg(0, data->device_array_laser);
-	
-
-	if (array_select == 2)
-		err = data->kernel.setArg(0, data->device_big_triangle_array);
 
 	err = data->kernel.setArg(3, start_index);
 	err = data->kernel.setArg(4, array_lenght);
@@ -713,12 +502,10 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 
 void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point,
 	const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, Plane* plane,
-	const int laser_number, const MeshBounds &bounds, int size_array, int size_big_array, float slice_length, int slice_number, const int *slice_bound)
+	const int laser_number, const MeshBounds &bounds, float slice_length, int slice_number, const int *slice_bound)
 {
 	PointCloud<PointXYZ> meshVertices;
 	fromPCLPointCloud2(mesh.cloud, meshVertices);
-
-	int array_size_hits = (int)(ceil(size_array / (float)RUN));
 
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
 
@@ -727,9 +514,6 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	{
 		d1 = 0;
 		d2 = 1;
-		/*Vector3d line_1(-params.aperture_coefficient + 0 * ray_density, laser_number * params.inclination_coefficient, -1);
-		Vector3d line_2(-params.aperture_coefficient + 10 * ray_density, laser_number * params.inclination_coefficient, -1);
-		getPlaneCoefficents(laser_point, line_1, line_2, plane);*/
 		getPlaneCoefficents(laser_point, plane, laser_number, params);
 	}
 
@@ -737,17 +521,9 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	{
 		d1 = 1;
 		d2 = 0;
-		Vector3d line_1(laser_number * params.inclination_coefficient, -params.aperture_coefficient + 0 * ray_density, -1);
-		Vector3d line_2(laser_number * params.inclination_coefficient, -params.aperture_coefficient + 10 * ray_density, -1);
-		getPlaneCoefficents(laser_point, line_1, line_2, plane);
+		getPlaneCoefficents(laser_point, plane, laser_number, params);
 	}
 
-	Vector3d laser_direction;
-	laser_direction[d1] = -params.aperture_coefficient;
-	laser_direction[d2] = laser_number * params.inclination_coefficient;
-	laser_direction[2] = -1;
-	float laser_intersect_min_z = getLinePlaneIntersection(laser_point, laser_direction, bounds.min_z, params.scan_direction);
-	float laser_intersect_max_z = getLinePlaneIntersection(laser_point, laser_direction, bounds.max_z, params.scan_direction);
 
 	int lower_bound, upper_bound;
 
@@ -763,8 +539,6 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	upper_bound = slice_bound[k];
 
 	int diff = upper_bound - lower_bound;
-	//cout << "k : " << k << endl;
-	//cout << "diff : " << diff<<endl;
 
 	for (int j = 0; j < params.number_of_line; j++)
 	{
@@ -789,32 +563,10 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 		
 		if (diff > 0)
 		{
-			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction, 1);
+			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction);
 
 			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 			for (int h = 0; h < n_max; h++)
-			{
-				if (output_hits[h] == 1)
-				{
-					if (output_points[h].points[Z] >= first_intersec.z)
-					{
-						first_intersec.x = output_points[h].points[X];
-						first_intersec.y = output_points[h].points[Y];
-						first_intersec.z = output_points[h].points[Z];
-						first_intersec.r = 255;
-						first_intersec.g = 0;
-						first_intersec.b = 0;
-					}
-				}
-			}
-		}
-
-		if (size_big_array > 0)
-		{
-			computeOpenCL(data, output_points, output_hits, 0, size_big_array, ray_origin, ray_direction, 2);
-
-			int n = (int)(ceil((size_big_array / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
-			for (int h = 0; h < n; h++)
 			{
 				if (output_hits[h] == 1)
 				{
@@ -853,20 +605,20 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, float* max_p
 
 	if (pin_hole.y < origin.points[Y])
 	{
-		lower_bound = getLowerBound(max_point_triangle, polygon_size, pin_hole.y);
-		upper_bound = getUpperBound(max_point_triangle, polygon_size, origin.points[Y]);
+		//lower_bound = getLowerBound(max_point_triangle, polygon_size, pin_hole.y);
+		//upper_bound = getUpperBound(max_point_triangle, polygon_size, origin.points[Y]);
 	}
 	else
 	{
-		lower_bound = getLowerBound(max_point_triangle, polygon_size, origin.points[Y]);
-		upper_bound = getUpperBound(max_point_triangle, polygon_size, pin_hole.y);
+		//lower_bound = getLowerBound(max_point_triangle, polygon_size, origin.points[Y]);
+		//upper_bound = getUpperBound(max_point_triangle, polygon_size, pin_hole.y);
 	}
 
 	int diff = upper_bound - lower_bound;
 
 	if (diff > 0)
 	{
-		computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction, FALSE);
+		computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
 
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int k = 0; k < n_max; k++)
