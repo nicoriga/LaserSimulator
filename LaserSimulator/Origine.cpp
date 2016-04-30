@@ -107,11 +107,12 @@ int findMinPoint(PointXYZ point_1, PointXYZ point_2, PointXYZ point_3, const Sim
 	}
 }
 
-void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
+int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
 {
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZ point1, point2, point3, min_point, max_point;
 
+	int lost_triangle = 0;
 	// Convert mesh in a point cloud (only vertex)
 	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
 
@@ -155,7 +156,12 @@ void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, cons
 				triangles_index[z].push_back(i);
 			}
 		}
+		else
+		{
+			lost_triangle++;
+		}
 	}
+	return lost_triangle;
 }
 
 void createAllTriangleArray2(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array)
@@ -210,6 +216,7 @@ void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *
 		//cout << "L'indice si trova nella fetta " << index << endl;
 	}
 }
+
 int main(int argc, char** argv)
 {
 	PolygonMesh mesh;
@@ -283,15 +290,17 @@ int main(int argc, char** argv)
 
 	Plane plane_1, plane_2;
 
+	int lost_triangle;
 	// Affetta per il LASER 1
-	fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
+	lost_triangle = fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
 	// Affetta per il LASER 2
-	fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
+	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
+
 
 	// Costruisco l'array di bound
 	createSliceBoundArray(slice_bound, triangles_index, &total_triangle, slice_number);
 
-
+	cout << "LOST TRIANGLE: " << lost_triangle << endl;
 	cout << "TOTAL TRIANGLE: " << total_triangle << endl;
 
 	Triangle *array_laser = new Triangle[total_triangle];
