@@ -48,33 +48,35 @@ int main(int argc, char** argv)
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
 	// INIZIO AFFETTATURA
-	Plane origin_plane_laser1, origin_plane_laser2;
+	Plane origin_plane_laser1, origin_plane_laser2, vertical_plane;
 
-	int slice_number = 100;
-	float fp = bounds.max_y + (bounds.min_y - laser_origin_2.y);
-	float slice_length = (fp - laser_origin_1.y) / slice_number;
-	vector<int> *triangles_index = new vector<int>[slice_number * 2];
-	int *slice_bound = new int[slice_number * 2];
+	float fp = bounds.max_y + (bounds.min_y - laser_origin_1.y);
+	float slice_length = (fp - laser_origin_1.y) / SLICE_NUMBER;
+	float vertical_slice_length = (fp - laser_origin_1.y) / VERTICAL_SLICE_NUMBER;
+	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
+	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int total_triangle = 0;
 
 	getPlaneCoefficents(laser_origin_1, &origin_plane_laser1, LASER_1, params);
-	getPlaneCoefficents(laser_origin_2, &origin_plane_laser2 , LASER_2, params);
+	getPlaneCoefficents(laser_origin_2, &origin_plane_laser2, LASER_2, params);
+	getPlaneCoefficents(laser_origin_1, &vertical_plane, VERTICAL_LINE, params);
 
-	int lost_triangle;
+	int lost_triangle = 0;
 	// Affetta per il LASER 1
-	lost_triangle = fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser1, LASER_1, slice_length, slice_number, params);
+	/*lost_triangle =*/ fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser1, LASER_1, slice_length, vertical_slice_length, params);
 	// Affetta per il LASER 2
-	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
-
+	/*lost_triangle +=*/ fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, vertical_slice_length, params);
+	// Affetta verticalmente per ottimizzare le occlusioni
+	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, vertical_plane, VERTICAL_LINE, slice_length, vertical_slice_length, params);
 
 	// Create slice bound array
-	createSliceBoundArray(slice_bound, triangles_index, &total_triangle, slice_number);
+	createSliceBoundArray(slice_bound, triangles_index, &total_triangle);
 
 	cout << "LOST TRIANGLE: " << lost_triangle << endl;
 	cout << "TOTAL TRIANGLE: " << total_triangle << endl;
 
 	Triangle *array_laser = new Triangle[total_triangle];
-	createTrianglesArray(mesh, array_laser, triangles_index, slice_number * 2);
+	createTrianglesArray(mesh, array_laser, triangles_index, SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER);
 	
 	int array_size = total_triangle;
 	
@@ -113,19 +115,20 @@ int main(int argc, char** argv)
 		setLasersAndPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, params);
 		current_position += increment;
 
-
+		//int slice_point1 = getSliceIndex(laser_origin_1, vertical_plane, VERTICAL_LINE, slice_length, vertical_slice_length, params);
+		//cout << "Il pin hole è nella fetta " << slice_point1 - 2* SLICE_NUMBER << endl;
 		/******************************* Look for intersection with mesh **************************************/
 		// For laser 1
 		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection, origin_plane_laser1,
-			LASER_1, bounds, slice_length, slice_number, slice_bound);
+			LASER_1, bounds, slice_length, SLICE_NUMBER, slice_bound);
 		// For laser 2
 		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection, origin_plane_laser2,
-			LASER_2, bounds, slice_length, slice_number, slice_bound);
+			LASER_2, bounds, slice_length, SLICE_NUMBER, slice_bound);
 
 
 		/************************************ Take snapshot  **************************************************/
-		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, &data, output_points,
-			origin_plane_laser1, origin_plane_laser2, slice_length, slice_number, slice_bound, output_hits);
+		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, &data, output_points, vertical_plane, vertical_slice_length, 
+			slice_bound, output_hits);
 
 		// Save snapshot (only for debug) 
 		if (snapshot_save_flag)

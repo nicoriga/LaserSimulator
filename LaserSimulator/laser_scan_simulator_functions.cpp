@@ -223,6 +223,13 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 			plane->C = 1;
 			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
 		}
+		if (laser_number == VERTICAL_LINE)
+		{
+			plane->A = 1;
+			plane->B = 0;
+			plane->C = 0;
+			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
+		}
 	}
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
@@ -240,10 +247,17 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 			plane->C = 1;
 			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
 		}
+		if (laser_number == VERTICAL_LINE)
+		{
+			plane->A = 0;
+			plane->B = 1;
+			plane->C = 0;
+			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
+		}
 	}
 }
 
-int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
+int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, float vertical_slice_length, const SimulationParams &params)
 {
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZ point1, point2, point3, min_point, max_point;
@@ -268,9 +282,9 @@ int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const
 
 
 		// Guardo questi valori in che fetta devono finire
-		int slice_point1 = getSliceIndex(point1, origin_plane, laser_number, slice_length, slice_number, params);
-		int slice_point2 = getSliceIndex(point2, origin_plane, laser_number, slice_length, slice_number, params);
-		int slice_point3 = getSliceIndex(point3, origin_plane, laser_number, slice_length, slice_number, params);
+		int slice_point1 = getSliceIndex(point1, origin_plane, laser_number, slice_length, vertical_slice_length, params);
+		int slice_point2 = getSliceIndex(point2, origin_plane, laser_number, slice_length, vertical_slice_length, params);
+		int slice_point3 = getSliceIndex(point3, origin_plane, laser_number, slice_length, vertical_slice_length, params);
 
 		int min_slice, max_slice;
 
@@ -333,16 +347,23 @@ void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<i
 	}
 }
 
-void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int * total_triangle, int slice_number)
+void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int * total_triangle)
 {
-	for (int i = 0; i < slice_number; i++)
+	for (int i = 0; i < SLICE_NUMBER; i++)
 	{
 		*total_triangle += triangles_index[i].size();
 		slice_bound[i] = *total_triangle;
 		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
 	}
 
-	for (int i = slice_number; i < slice_number * 2; i++)
+	for (int i = SLICE_NUMBER; i < SLICE_NUMBER * 2; i++)
+	{
+		*total_triangle += triangles_index[i].size();
+		slice_bound[i] = *total_triangle;
+		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
+	}
+
+	for (int i = SLICE_NUMBER * 2; i < SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER; i++)
 	{
 		*total_triangle += triangles_index[i].size();
 		slice_bound[i] = *total_triangle;
@@ -350,29 +371,40 @@ void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *
 	}
 }
 
-int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, const int slice_number, const SimulationParams &params)
+int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, float vertical_slice_length, const SimulationParams &params)
 {
 	slice_length = slice_length *tan(deg2rad(params.laser_inclination));
 	
 	if (laser_number == LASER_1)
 	{
-		for (int i = 0; i < slice_number; ++i)
+		for (int i = 0; i < SLICE_NUMBER; ++i)
 		{
-			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - slice_length <= slice_length * i &&
+			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - slice_length < slice_length * i &&
 				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= slice_length * i)
 			{
 				return i;
 			}
 		}
 	}
-	else
+	if (laser_number == LASER_2)
 	{
-		for (int i = 0; i < slice_number; ++i)
+		for (int i = 0; i < SLICE_NUMBER; ++i)
 		{
 			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D <= -slice_length * i &&
 				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length > -slice_length * i)
 			{
-				return i+slice_number;
+				return i + SLICE_NUMBER;
+			}
+		}
+	}
+	if (laser_number == VERTICAL_LINE)
+	{
+		for (int i = 0; i < VERTICAL_SLICE_NUMBER; ++i)
+		{
+			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - vertical_slice_length < vertical_slice_length * i &&
+				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= vertical_slice_length * i)
+			{
+				return i + SLICE_NUMBER * 2;
 			}
 		}
 	}
@@ -586,8 +618,8 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	}
 }
 
-bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SimulationParams &params, const Plane &origin_plane_1,
-	const Plane &origin_plane_2, float slice_length, int slice_number, const int *slice_bound, Vec3* output_points, uchar* output_hits)
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SimulationParams &params, const Plane &vertical_plane, 
+	float vertical_slice_length, const int *slice_bound, Vec3* output_points, uchar* output_hits)
 {
 
 	int lower_bound, upper_bound;
@@ -598,17 +630,11 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 
 	int slice_of_point, slice_of_pinhole;
 
-	if (pin_hole.y < point_to_check.y)
-	{
-		slice_of_point = getSliceIndex(point_to_check, origin_plane_1, LASER_1, slice_length, slice_number, params);
-		slice_of_pinhole = getSliceIndex(pin_hole, origin_plane_1, LASER_1, slice_length, slice_number, params);
-	}
-	else
-	{
-		slice_of_point = getSliceIndex(point_to_check, origin_plane_2, LASER_2, slice_length, slice_number, params);
-		slice_of_pinhole = getSliceIndex(pin_hole, origin_plane_2, LASER_2, slice_length, slice_number, params);
-	}
 
+	slice_of_point = getSliceIndex(point_to_check, vertical_plane, VERTICAL_LINE, 0, vertical_slice_length, params);
+	slice_of_pinhole = getSliceIndex(pin_hole, vertical_plane, VERTICAL_LINE, 0, vertical_slice_length, params);
+
+	//cout << "Indice fetta pin hole " << slice_of_pinhole << " Indice fetta punto " << slice_of_point << endl;
 	// Nel caso non trovi la fetta (non dovrebbe accadere) considero il punto occluso
 	if (slice_of_point < 0 || slice_of_pinhole < 0)
 		return FALSE;
@@ -661,9 +687,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 	return FALSE;
 }
 
-void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection,
-	Mat* img, const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &origin_plane_1,
-	const Plane &origin_plane_2, float slice_length, int slice_number, const int *slice_bound, uchar* output_hits)
+void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat* img, 
+	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &vertical_plane, float vertical_slice_length, const int *slice_bound, uchar* output_hits)
 {
 	// Initialize a white image
 	Mat image(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
@@ -732,8 +757,8 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
 			{
 				// Check if point is occluded
-				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, params, origin_plane_1,
-					origin_plane_2, slice_length, slice_number, slice_bound, output_points, output_hits)))
+				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, params, vertical_plane,
+					vertical_slice_length, slice_bound, output_points, output_hits)))
 				{
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
