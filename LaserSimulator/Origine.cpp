@@ -42,7 +42,7 @@ int main(int argc, char** argv)
 	calculateBoundaries(params, mesh, &bounds);
 
 
-	/********** Print minimum and maximum points of mesh *********************/
+	// Print minimum and maximum points of mesh
 	cout << "Estremi della mesh:" << endl << getMeshBoundsValues(bounds);
 
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, slice_number, params);
 
 
-	// Costruisco l'array di bound
+	// Create slice bound array
 	createSliceBoundArray(slice_bound, triangles_index, &total_triangle, slice_number);
 
 	cout << "LOST TRIANGLE: " << lost_triangle << endl;
@@ -79,6 +79,7 @@ int main(int argc, char** argv)
 	int array_size = total_triangle;
 	
 
+	/**************** Inititialize OpenCL *****************/
 	int array_size_hits = (int) (ceil(array_size / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];
 	uchar* output_hits = new uchar[array_size_hits];
@@ -96,7 +97,6 @@ int main(int argc, char** argv)
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection(new PointCloud<PointXYZRGB>);
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection_backup(new PointCloud<PointXYZRGB>);
 	Mat image;
-	Plane plane_1, plane_2;
 
 	/****************************************************************************************/
 	/************ CORE OF THE PROJECT: this cycle simulates the laser scan. *****************/
@@ -117,10 +117,10 @@ int main(int argc, char** argv)
 		/******************************* Look for intersection with mesh **************************************/
 		// For laser 1
 		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection, origin_plane_laser1,
-			&plane_1, LASER_1, bounds, slice_length, slice_number, slice_bound);
+			LASER_1, bounds, slice_length, slice_number, slice_bound);
 		// For laser 2
 		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection, origin_plane_laser2,
-			&plane_2, LASER_2, bounds, slice_length, slice_number, slice_bound);
+			LASER_2, bounds, slice_length, slice_number, slice_bound);
 
 
 		/************************************ Take snapshot  **************************************************/
@@ -132,7 +132,7 @@ int main(int argc, char** argv)
 			imwrite("../imgOut/out_" + to_string(z) + ".png", image);
 
 		/*************************** Convert image to point cloud *********************************************/
-		imageToCloud(camera, params, plane_1, plane_2, pin_hole, &image, cloud_out);
+		imageToCloud(camera, params, laser_origin_1, laser_origin_2, pin_hole, &image, cloud_out);
 
 
 		// Make a backup of point cloud that contains (all) intersections
