@@ -40,7 +40,7 @@
 #define Z 2
 
 #define SLICE_NUMBER 1000
-#define VERTICAL_SLICE_NUMBER 50
+#define VERTICAL_SLICE_NUMBER 75
 
 using namespace cv;
 using namespace std;
@@ -153,7 +153,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 
 void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction);
 
-void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane,
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane,
 	const int laser_number, const MeshBounds &bounds, float slice_length, int slice_number, const int *slice_bound);
 
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SimulationParams &params, const Plane &vertical_plane,

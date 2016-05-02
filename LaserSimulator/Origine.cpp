@@ -55,7 +55,7 @@ int main(int argc, char** argv)
 	float vertical_slice_length = (fp - laser_origin_1.y) / VERTICAL_SLICE_NUMBER;
 	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
-	int total_triangle = 0;
+	int array_size = 0;
 
 	getPlaneCoefficents(laser_origin_1, &origin_plane_laser1, LASER_1, params);
 	getPlaneCoefficents(laser_origin_2, &origin_plane_laser2, LASER_2, params);
@@ -70,26 +70,29 @@ int main(int argc, char** argv)
 	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, vertical_plane, VERTICAL_LINE, slice_length, vertical_slice_length, params);
 
 	// Create slice bound array
-	createSliceBoundArray(slice_bound, triangles_index, &total_triangle);
+	createSliceBoundArray(slice_bound, triangles_index, &array_size);
 
 	cout << "LOST TRIANGLE: " << lost_triangle << endl;
-	cout << "TOTAL TRIANGLE: " << total_triangle << endl;
+	cout << "TOTAL TRIANGLE: " << array_size << endl;
 
-	Triangle *array_laser = new Triangle[total_triangle];
-	createTrianglesArray(mesh, array_laser, triangles_index, SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER);
+	// Create triangles array used by OpenCL
+	Triangle *triangles_array = new Triangle[array_size];
+	createTrianglesArray(mesh, triangles_array, triangles_index, SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER);
 	
-	int array_size = total_triangle;
+	// Delete mesh and triangles index array from memory
+	mesh.~PolygonMesh();
+	delete[] triangles_index;
 	
-
+	
 	/**************** Inititialize OpenCL *****************/
 	int array_size_hits = (int) (ceil(array_size / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];
 	uchar* output_hits = new uchar[array_size_hits];
-	initializeOpenCL(&data, array_laser, array_size, array_size_hits);
+	initializeOpenCL(&data, triangles_array, array_size, array_size_hits);
 
+	// Delete array	written in OpenCL buffer
+	delete[] triangles_array;
 
-	/**************** Set initial position for camera and lasers *****************/
-	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
 	// Set current position, calculate final position and number of iterations
 	float increment, current_position, number_of_iterations, final_pos;
@@ -105,7 +108,7 @@ int main(int argc, char** argv)
 	/******** In every iteration finds intersection with mesh, take a camera snapshot *******/
 	/******** and reconstruct the points in the 3D space ************************************/
 	/****************************************************************************************/
-	for (int z = 0; (current_position - params.baseline) < final_pos; z++)
+	for (int z = 0; z <= number_of_iterations; z++)
 	{
 		// Print progression bar and number of iteration completed
 		cout << printProgBar((int) ((z / number_of_iterations) * 100 + 0.5));
@@ -119,10 +122,10 @@ int main(int argc, char** argv)
 		//cout << "Il pin hole è nella fetta " << slice_point1 - 2* SLICE_NUMBER << endl;
 		/******************************* Look for intersection with mesh **************************************/
 		// For laser 1
-		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_1, params, cloud_intersection, origin_plane_laser1,
+		getIntersectionOpenCL(&data, output_points, output_hits, laser_origin_1, params, cloud_intersection, origin_plane_laser1,
 			LASER_1, bounds, slice_length, SLICE_NUMBER, slice_bound);
 		// For laser 2
-		getIntersectionOpenCL(&data, output_points, output_hits, mesh, laser_origin_2, params, cloud_intersection, origin_plane_laser2,
+		getIntersectionOpenCL(&data, output_points, output_hits, laser_origin_2, params, cloud_intersection, origin_plane_laser2,
 			LASER_2, bounds, slice_length, SLICE_NUMBER, slice_bound);
 
 

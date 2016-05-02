@@ -353,21 +353,18 @@ void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *
 	{
 		*total_triangle += triangles_index[i].size();
 		slice_bound[i] = *total_triangle;
-		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
 	}
 
 	for (int i = SLICE_NUMBER; i < SLICE_NUMBER * 2; i++)
 	{
 		*total_triangle += triangles_index[i].size();
 		slice_bound[i] = *total_triangle;
-		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
 	}
 
 	for (int i = SLICE_NUMBER * 2; i < SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER; i++)
 	{
 		*total_triangle += triangles_index[i].size();
 		slice_bound[i] = *total_triangle;
-		cout << "Numero triangoli nella fetta " << i << " = " << triangles_index[i].size() << endl;
 	}
 }
 
@@ -532,13 +529,10 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
 }
 
-void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PolygonMesh &mesh, const PointXYZ &laser_point,
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point,
 	const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, 
 	const int laser_number, const MeshBounds &bounds, float slice_length, int slice_number, const int *slice_bound)
 {
-	PointCloud<PointXYZ> meshVertices;
-	fromPCLPointCloud2(mesh.cloud, meshVertices);
-
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
 
 	int d1, d2;
