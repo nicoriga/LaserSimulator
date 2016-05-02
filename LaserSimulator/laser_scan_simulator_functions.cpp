@@ -214,6 +214,24 @@ void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ*
 	pin_hole->z = laser_origin_1->z;
 }
 
+void setSliceParams(SliceParams* slice_params, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2, const SimulationParams &params, const MeshBounds &bounds)
+{
+	float fp;
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+		fp = bounds.max_y + (bounds.min_y - laser_origin_1.y) - laser_origin_1.y;
+
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+		fp = bounds.max_y + (bounds.min_y - laser_origin_1.x) - laser_origin_1.x;
+
+	slice_params->slice_length = fp / SLICE_NUMBER;
+	slice_params->vertical_slice_length = fp / VERTICAL_SLICE_NUMBER;
+
+
+	getPlaneCoefficents(laser_origin_1, &slice_params->origin_plane_laser1, LASER_1, params);
+	getPlaneCoefficents(laser_origin_2, &slice_params->origin_plane_laser2, LASER_2, params);
+	getPlaneCoefficents(laser_origin_1, &slice_params->origin_vertical_plane, VERTICAL_LINE, params);
+}
+
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params)
 {
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
@@ -266,7 +284,7 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 	}
 }
 
-int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, float vertical_slice_length, const SimulationParams &params)
+int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZ point1, point2, point3, min_point, max_point;
@@ -291,9 +309,9 @@ int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const
 
 
 		// Guardo questi valori in che fetta devono finire
-		int slice_point1 = getSliceIndex(point1, origin_plane, laser_number, slice_length, vertical_slice_length, params);
-		int slice_point2 = getSliceIndex(point2, origin_plane, laser_number, slice_length, vertical_slice_length, params);
-		int slice_point3 = getSliceIndex(point3, origin_plane, laser_number, slice_length, vertical_slice_length, params);
+		int slice_point1 = getSliceIndex(point1, origin_plane, laser_number, slice_params, params);
+		int slice_point2 = getSliceIndex(point2, origin_plane, laser_number, slice_params, params);
+		int slice_point3 = getSliceIndex(point3, origin_plane, laser_number, slice_params, params);
 
 		int min_slice, max_slice;
 
@@ -377,10 +395,11 @@ void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *
 	}
 }
 
-int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, float vertical_slice_length, const SimulationParams &params)
+int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
-	slice_length = slice_length *tan(deg2rad(params.laser_inclination));
-	
+	float slice_length = slice_params.slice_length *tan(deg2rad(params.laser_inclination));
+	float vertical_slice_length = slice_params.vertical_slice_length;
+
 	if (laser_number == LASER_1)
 	{
 		for (int i = 0; i < SLICE_NUMBER; ++i)
@@ -538,9 +557,8 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
 }
 
-void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params,
-	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const MeshBounds &bounds, float slice_length,
-	int slice_number, const int *slice_bound)
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
+	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const MeshBounds &bounds, const int *slice_bound)
 {
 	
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
@@ -561,7 +579,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 
 	int lower_bound, upper_bound;
 
-	int k = getSliceIndex(laser_point, origin_plane, laser_number, slice_length, slice_number, params);
+	int k = getSliceIndex(laser_point, origin_plane, laser_number, slice_params, params);
 	if (k < 0)
 		return;
 
@@ -618,8 +636,8 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	}
 }
 
-bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SimulationParams &params, const Plane &vertical_plane, 
-	float vertical_slice_length, const int *slice_bound, Vec3* output_points, uchar* output_hits)
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SliceParams &slice_params, const SimulationParams &params, 
+	const Plane &vertical_plane, const int *slice_bound, Vec3* output_points, uchar* output_hits)
 {
 	int slice_of_point, slice_of_pinhole;
 	int lower_bound, upper_bound;
@@ -630,8 +648,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 	point_to_check.y = point.y;
 	point_to_check.z = point.z;
 
-	slice_of_point = getSliceIndex(point_to_check, vertical_plane, VERTICAL_LINE, 0, vertical_slice_length, params);
-	slice_of_pinhole = getSliceIndex(pin_hole, vertical_plane, VERTICAL_LINE, 0, vertical_slice_length, params);
+	slice_of_point = getSliceIndex(point_to_check, vertical_plane, VERTICAL_LINE, slice_params, params);
+	slice_of_pinhole = getSliceIndex(pin_hole, vertical_plane, VERTICAL_LINE, slice_params, params);
 
 	// Nel caso non trovi la fetta (non dovrebbe accadere) considero il punto occluso
 	if (slice_of_point < 0 || slice_of_pinhole < 0)
@@ -702,7 +720,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 }
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat* img, 
-	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &vertical_plane, float vertical_slice_length, const int *slice_bound, uchar* output_hits)
+	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &vertical_plane, const SliceParams &slice_params, const int *slice_bound, uchar* output_hits)
 {
 	// Initialize a white image
 	Mat image(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
@@ -772,8 +790,8 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
 			{
 				// Check if point is occluded
-				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, params, vertical_plane,
-					vertical_slice_length, slice_bound, output_points, output_hits)))
+				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, slice_params, params, vertical_plane, 
+					slice_bound, output_points, output_hits)))
 				{
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;

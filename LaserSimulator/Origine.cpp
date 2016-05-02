@@ -21,6 +21,7 @@ int main(int argc, char** argv)
 	bool snapshot_save_flag;
 	string path_read_file, path_save_file;
 	OpenCLDATA data;
+	SliceParams slice_params;
 
 	// Origin point of laser 1, laser 2 and camera pin hole
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
@@ -47,33 +48,21 @@ int main(int argc, char** argv)
 
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
-	// INIZIO AFFETTATURA
-	Plane origin_plane_laser1, origin_plane_laser2, vertical_plane;
-
-	float fp;
-	if(params.scan_direction == DIRECTION_SCAN_AXIS_Y)
-		fp = bounds.max_y + (bounds.min_y - laser_origin_1.y) - laser_origin_1.y;
-
-	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
-		fp = bounds.max_y + (bounds.min_y - laser_origin_1.x) - laser_origin_1.x;
-
-	float slice_length = fp / SLICE_NUMBER;
-	float vertical_slice_length = fp / VERTICAL_SLICE_NUMBER;
+	/************* Start slicing optimization *****************************/
+	// Set the parameter for the slice optimization
+	setSliceParams(&slice_params, laser_origin_1, laser_origin_2, params, bounds);
+	
 	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int array_size = 0;
-
-	getPlaneCoefficents(laser_origin_1, &origin_plane_laser1, LASER_1, params);
-	getPlaneCoefficents(laser_origin_2, &origin_plane_laser2, LASER_2, params);
-	getPlaneCoefficents(laser_origin_1, &vertical_plane, VERTICAL_LINE, params);
-
 	int lost_triangle = 0;
-	// Affetta per il LASER 1
-	/*lost_triangle =*/ fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser1, LASER_1, slice_length, vertical_slice_length, params);
-	// Affetta per il LASER 2
-	/*lost_triangle +=*/ fillSliceWithTriangles(mesh, triangles_index, origin_plane_laser2, LASER_2, slice_length, vertical_slice_length, params);
-	// Affetta verticalmente per ottimizzare le occlusioni
-	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, vertical_plane, VERTICAL_LINE, slice_length, vertical_slice_length, params);
+
+	// Slice for LASER 1
+	lost_triangle = fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser1, LASER_1, slice_params, params);
+	// Slice for LASER 2
+	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser2, LASER_2, slice_params, params);
+	// Vertical slice for occlusion optimization
+	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_vertical_plane, VERTICAL_LINE, slice_params, params);
 
 	// Create slice bound array
 	createSliceBoundArray(slice_bound, triangles_index, &array_size);
@@ -128,15 +117,15 @@ int main(int argc, char** argv)
 		//cout << "Il pin hole è nella fetta " << slice_point1 - 2* SLICE_NUMBER << endl;
 		/******************************* Look for intersection with mesh **************************************/
 		// For laser 1
-		getIntersectionOpenCL(&data, output_points, output_hits, laser_origin_1, params, cloud_intersection, origin_plane_laser1,
-			LASER_1, bounds, slice_length, SLICE_NUMBER, slice_bound);
+		getIntersectionOpenCL(&data, output_points, output_hits, laser_origin_1, params, slice_params, cloud_intersection, slice_params.origin_plane_laser1,
+			LASER_1, bounds, slice_bound);
 		// For laser 2
-		getIntersectionOpenCL(&data, output_points, output_hits, laser_origin_2, params, cloud_intersection, origin_plane_laser2,
-			LASER_2, bounds, slice_length, SLICE_NUMBER, slice_bound);
+		getIntersectionOpenCL(&data, output_points, output_hits, laser_origin_2, params, slice_params, cloud_intersection, slice_params.origin_plane_laser2,
+			LASER_2, bounds, slice_bound);
 
 
 		/************************************ Take snapshot  **************************************************/
-		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, &data, output_points, vertical_plane, vertical_slice_length, 
+		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, &data, output_points, slice_params.origin_vertical_plane, slice_params,
 			slice_bound, output_hits);
 
 		// Save snapshot (only for debug) 

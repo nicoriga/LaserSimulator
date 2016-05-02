@@ -79,7 +79,8 @@ struct SimulationParams
 	bool distortion_flag;
 };
 
-struct Plane {
+struct Plane 
+{
 	float A;
 	float B;
 	float C;
@@ -91,7 +92,8 @@ struct Vec3
 	float points[3];
 };
 
-struct Triangle {
+struct Triangle 
+{
 	Vec3 vertex_1;
 	Vec3 vertex_2;
 	Vec3 vertex_3;
@@ -107,7 +109,8 @@ struct MeshBounds
 	float max_z = VTK_FLOAT_MIN;
 };
 
-struct OpenCLDATA {
+struct OpenCLDATA 
+{
 	//cl::Buffer device_triangle_array;
 	cl::Buffer device_array_laser;
 	cl::Buffer device_output_points;
@@ -127,6 +130,15 @@ struct OpenCLDATA {
 	vector<cl::Platform> platforms;
 };
 
+struct SliceParams
+{
+	Plane origin_plane_laser1;
+	Plane origin_plane_laser2;
+	Plane origin_vertical_plane;
+	float slice_length;
+	float vertical_slice_length;
+};
+
 
 /************************* FUNCTIONS for the program **************************/
 
@@ -140,28 +152,30 @@ void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* 
 
 void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float current_position, const SimulationParams &params);
 
+void setSliceParams(SliceParams* slice_params, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2, const SimulationParams &params, const MeshBounds &bounds);
+
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params);
 
-int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, float slice_length, float vertical_slice_length, const SimulationParams &params);
+int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
 
 void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array);
 
 void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int * total_triangle);
 
-int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, float slice_length, float vertical_slice_length, const SimulationParams &params);
+int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
 
 void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght, int array_size_hits);
 
 void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction);
 
-void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane,
-	const int laser_number, const MeshBounds &bounds, float slice_length, int slice_number, const int *slice_bound);
+void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
+	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const MeshBounds &bounds, const int *slice_bound);
 
-bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SimulationParams &params, const Plane &vertical_plane,
-	float vertical_slice_length, const int *slice_bound, Vec3* output_points, uchar* output_hits);
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SliceParams &slice_params, const SimulationParams &params,
+	const Plane &vertical_plane, const int *slice_bound, Vec3* output_points, uchar* output_hits);
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat* img,
-	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &vertical_plane, float vertical_slice_length, const int *slice_bound, uchar* output_hits);
+	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &vertical_plane, const SliceParams &slice_params, const int *slice_bound, uchar* output_hits);
 
 void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ &laser_1, const PointXYZ &laser_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out);
 
