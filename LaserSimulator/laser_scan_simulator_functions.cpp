@@ -678,6 +678,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 	if (diff > 0)
 	{
 		PointXYZ first_intersec;
+		first_intersec.z = VTK_FLOAT_MIN;
 		computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n_max; h++)
