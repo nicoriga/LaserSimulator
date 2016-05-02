@@ -50,9 +50,15 @@ int main(int argc, char** argv)
 	// INIZIO AFFETTATURA
 	Plane origin_plane_laser1, origin_plane_laser2, vertical_plane;
 
-	float fp = bounds.max_y + (bounds.min_y - laser_origin_1.y);
-	float slice_length = (fp - laser_origin_1.y) / SLICE_NUMBER;
-	float vertical_slice_length = (fp - laser_origin_1.y) / VERTICAL_SLICE_NUMBER;
+	float fp;
+	if(params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+		fp = bounds.max_y + (bounds.min_y - laser_origin_1.y) - laser_origin_1.y;
+
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+		fp = bounds.max_y + (bounds.min_y - laser_origin_1.x) - laser_origin_1.x;
+
+	float slice_length = fp / SLICE_NUMBER;
+	float vertical_slice_length = fp / VERTICAL_SLICE_NUMBER;
 	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int array_size = 0;
