@@ -118,6 +118,15 @@ void updateMinMax(PointXYZRGB point, MeshBounds *bounds)
 		bounds->max_z = point.z;
 }
 
+float pointsDistance(PointXYZ point1, PointXYZ point2)
+{
+	float diff_x = point1.x - point2.x;
+	float diff_y = point1.y - point2.y;
+	float diff_z = point1.z - point2.z;
+
+	return sqrt(diff_x * diff_x + diff_y * diff_y + diff_z * diff_z);
+}
+
 void calculateBoundaries(const SimulationParams &params, PolygonMesh mesh, MeshBounds *bounds) 
 {
 	PointCloud<PointXYZ> cloud_mesh;
@@ -668,16 +677,26 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 
 	if (diff > 0)
 	{
+		PointXYZ first_intersec;
 		computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
-
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
-		for (int k = 0; k < n_max; k++)
+		for (int h = 0; h < n_max; h++)
 		{
-			if (output_hits[k] == 1)
-				return TRUE;
+			if (output_hits[h] == 1)
+			{
+				if (output_points[h].points[Z] >= first_intersec.z)
+				{
+					first_intersec.x = output_points[h].points[X];
+					first_intersec.y = output_points[h].points[Y];
+					first_intersec.z = output_points[h].points[Z];
+				}
+			}
 		}
-	}
 
+		if (first_intersec.z > VTK_FLOAT_MIN)
+			if (pointsDistance(first_intersec, point_to_check) <= EPSILON_OCCLUSION)
+				return FALSE;
+	}
 	return FALSE;
 }
 
