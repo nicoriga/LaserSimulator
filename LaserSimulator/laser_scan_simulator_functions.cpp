@@ -694,8 +694,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 		}
 
 		if (first_intersec.z > VTK_FLOAT_MIN)
-			if (pointsDistance(first_intersec, point_to_check) <= EPSILON_OCCLUSION)
-				return FALSE;
+			if (pointsDistance(first_intersec, point_to_check) > EPSILON_OCCLUSION)
+				return TRUE;
 	}
 	return FALSE;
 }
