@@ -169,9 +169,9 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 
 void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght, int array_size_hits);
 
-void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction);
+void executeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction);
 
-void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
+void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const int *slice_bound);
 
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SliceParams &slice_params, const SimulationParams &params,

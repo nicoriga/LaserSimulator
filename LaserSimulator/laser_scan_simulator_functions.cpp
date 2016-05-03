@@ -466,7 +466,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 			{
 				catched = true;
 			}
-			if(!catched)
+			if (!catched)
 				break;
 		}
 		
@@ -543,7 +543,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 
 }
 
-void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction) 
+void executeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction) 
 {
 	cl_int err = CL_SUCCESS;
 
@@ -559,8 +559,8 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 	}
 
 	// Number of work items in each local work group
-
 	cl::NDRange localSize(LOCAL_SIZE, 1, 1);
+
 	// Number of total work items - localSize must be divisor
 	int global_size = (int)(ceil((array_lenght / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 	cl::NDRange globalSize(global_size, 1, 1);
@@ -577,7 +577,7 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
 }
 
-void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
+void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const int *slice_bound)
 {
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
@@ -633,7 +633,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 			ray_direction.points[Z] = -1;
 
 			// Start calculation of intersections with OpenCL
-			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction);
+			executeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction);
 
 			// Find higher intersection point among all intersection points
 			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
@@ -715,7 +715,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 		PointXYZ higher_intersection;
 		higher_intersection.z = VTK_FLOAT_MIN;
 
-		computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
+		executeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n_max; ++h)
 		{
