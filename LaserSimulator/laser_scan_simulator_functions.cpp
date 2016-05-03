@@ -286,25 +286,25 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 
 void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
-	PointCloud<PointXYZ> cloud_mesh;
+	PointCloud<PointXYZ> mesh_vertices;
 	PointXYZ point1, point2, point3;
 
-	// Convert mesh in a point cloud (only vertex)
-	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
+	// Convert mesh in a point cloud (only vertices)
+	fromPCLPointCloud2(mesh.cloud, mesh_vertices);
 
 	for (int i = 0; i < mesh.polygons.size(); ++i)
 	{
-		point1.x = cloud_mesh.points[mesh.polygons[i].vertices[0]].x;
-		point1.y = cloud_mesh.points[mesh.polygons[i].vertices[0]].y;
-		point1.z = cloud_mesh.points[mesh.polygons[i].vertices[0]].z;
+		point1.x = mesh_vertices.points[mesh.polygons[i].vertices[0]].x;
+		point1.y = mesh_vertices.points[mesh.polygons[i].vertices[0]].y;
+		point1.z = mesh_vertices.points[mesh.polygons[i].vertices[0]].z;
 
-		point2.x = cloud_mesh.points[mesh.polygons[i].vertices[1]].x;
-		point2.y = cloud_mesh.points[mesh.polygons[i].vertices[1]].y;
-		point2.z = cloud_mesh.points[mesh.polygons[i].vertices[1]].z;
+		point2.x = mesh_vertices.points[mesh.polygons[i].vertices[1]].x;
+		point2.y = mesh_vertices.points[mesh.polygons[i].vertices[1]].y;
+		point2.z = mesh_vertices.points[mesh.polygons[i].vertices[1]].z;
 
-		point3.x = cloud_mesh.points[mesh.polygons[i].vertices[2]].x;
-		point3.y = cloud_mesh.points[mesh.polygons[i].vertices[2]].y;
-		point3.z = cloud_mesh.points[mesh.polygons[i].vertices[2]].z;
+		point3.x = mesh_vertices.points[mesh.polygons[i].vertices[2]].x;
+		point3.y = mesh_vertices.points[mesh.polygons[i].vertices[2]].y;
+		point3.z = mesh_vertices.points[mesh.polygons[i].vertices[2]].z;
 
 
 		// Guardo questi valori in che fetta devono finire
@@ -341,29 +341,33 @@ void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, cons
 
 void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array)
 {
-	PointCloud<PointXYZ> meshVertices;
-	fromPCLPointCloud2(mesh.cloud, meshVertices);
+	PointCloud<PointXYZ> mesh_vertices;
+
+	// Convert mesh in a point cloud (only vertices)
+	fromPCLPointCloud2(mesh.cloud, mesh_vertices);
 
 	PointXYZ tmp;
 	int count = 0;
+
 	for (int i = 0; i < num_triangles_index_array; ++i)
 	{
 		for (int k = 0; k < triangles_index[i].size(); ++k)
 		{
-			tmp = meshVertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[0]];
+			tmp = mesh_vertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[0]];
 			triangles[count].vertex_1.points[X] = tmp.x;
 			triangles[count].vertex_1.points[Y] = tmp.y;
 			triangles[count].vertex_1.points[Z] = tmp.z;
 
-			tmp = meshVertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[1]];
+			tmp = mesh_vertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[1]];
 			triangles[count].vertex_2.points[X] = tmp.x;
 			triangles[count].vertex_2.points[Y] = tmp.y;
 			triangles[count].vertex_2.points[Z] = tmp.z;
 
-			tmp = meshVertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[2]];
+			tmp = mesh_vertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[2]];
 			triangles[count].vertex_3.points[X] = tmp.x;
 			triangles[count].vertex_3.points[Y] = tmp.y;
 			triangles[count].vertex_3.points[Z] = tmp.z;
+
 			count++;
 		}
 	}
@@ -431,7 +435,7 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 	return -1;
 }
 
-void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght, int array_size_hits)
+void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_lenght, int array_size_hits)
 {
 	cl_int err = CL_SUCCESS;
 
@@ -502,24 +506,24 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 		free(kernelSource);
 
 		// Size, in bytes, of each vector
-		data->array_laser_size = array_lenght * sizeof(Triangle);
+		data->triangles_array_size = array_lenght * sizeof(Triangle);
 		data->points_size = array_size_hits * sizeof(Vec3);
 		data->hits_size = array_size_hits * sizeof(uchar);
 
 		// Create device memory buffers
-		data->device_array_laser = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->array_laser_size);
+		data->device_triangles_array = cl::Buffer(data->context, CL_MEM_READ_ONLY, data->triangles_array_size);
 		data->device_output_points = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->points_size);
 		data->device_output_hits = cl::Buffer(data->context, CL_MEM_WRITE_ONLY, data->hits_size);
 
 		// Bind memory buffers
-		data->queue.enqueueWriteBuffer(data->device_array_laser, CL_TRUE, 0, data->array_laser_size, array_laser);
+		data->queue.enqueueWriteBuffer(data->device_triangles_array, CL_TRUE, 0, data->triangles_array_size, triangles_array);
 		data->queue.finish();
 
 		// Create kernel object
 		data->kernel = cl::Kernel(data->program_, "kernelTriangleIntersection", &err);
 
 		// Bind kernel arguments to kernel
-		err = data->kernel.setArg(0, data->device_array_laser);
+		err = data->kernel.setArg(0, data->device_triangles_array);
 		err = data->kernel.setArg(1, data->device_output_points);
 		err = data->kernel.setArg(2, data->device_output_hits);
 
@@ -558,14 +562,14 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 
 	cl::NDRange localSize(LOCAL_SIZE, 1, 1);
 	// Number of total work items - localSize must be divisor
-	int global_size = (int) (ceil((array_lenght / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
+	int global_size = (int)(ceil((array_lenght / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 	cl::NDRange globalSize(global_size, 1, 1);
 
 	// Enqueue kernel
 	cl::Event event;
 	data->queue.enqueueNDRangeKernel(data->kernel, cl::NullRange, globalSize, localSize, NULL, &event);
 
-	// Block until kernel completion
+	// Block until kernel completation
 	event.wait();
 
 	// Read back device_output_point, device_output_hit
@@ -576,7 +580,6 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const int *slice_bound)
 {
-	
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
 
 	char d_1 = 0;
@@ -607,49 +610,52 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 	
 	upper_bound = slice_bound[k];
 
+	// Amount of triangles to find intersection with
 	int diff = upper_bound - lower_bound;
 
-	PointXYZRGB first_intersec;
+	PointXYZRGB higher_intersection;
 	Vec3 ray_origin, ray_direction;
+
 	ray_origin.points[X] = laser_point.x;
 	ray_origin.points[Y] = laser_point.y;
 	ray_origin.points[Z] = laser_point.z;
-	float i;
-
+	
+	// Cycle that examines the lines of the same laser beam
 	for (int j = 0; j < params.number_of_line; ++j)
 	{
-		first_intersec.z = VTK_FLOAT_MIN;
+		higher_intersection.z = VTK_FLOAT_MIN;
 
-		i = -params.aperture_coefficient + j * ray_density;
-
-		ray_direction.points[d_1] = i;
-		ray_direction.points[d_2] = laser_number * params.inclination_coefficient;
-		ray_direction.points[Z] = -1;
-		
 		if (diff > 0)
 		{
+			// Set line direction
+			ray_direction.points[d_1] = -params.aperture_coefficient + j * ray_density;
+			ray_direction.points[d_2] = laser_number * params.inclination_coefficient;
+			ray_direction.points[Z] = -1;
+
+			// Start calculation of intersections with OpenCL
 			computeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction);
 
+			// Find higher intersection point among all intersection points
 			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 			for (int h = 0; h < n_max; ++h)
 			{
 				if (output_hits[h] == HIT)
 				{
-					if (output_points[h].points[Z] >= first_intersec.z)
+					if (output_points[h].points[Z] >= higher_intersection.z)
 					{
-						first_intersec.x = output_points[h].points[X];
-						first_intersec.y = output_points[h].points[Y];
-						first_intersec.z = output_points[h].points[Z];
-						first_intersec.r = 255;
-						first_intersec.g = 0;
-						first_intersec.b = 0;
+						higher_intersection.x = output_points[h].points[X];
+						higher_intersection.y = output_points[h].points[Y];
+						higher_intersection.z = output_points[h].points[Z];
+						higher_intersection.r = 255;
+						higher_intersection.g = 0;
+						higher_intersection.b = 0;
 					}
 				}
 			}
 		}
 
-		if (first_intersec.z > VTK_FLOAT_MIN)
-			cloud_intersection->push_back(first_intersec);
+		if (higher_intersection.z > VTK_FLOAT_MIN)
+			cloud_intersection->push_back(higher_intersection);
 	}
 }
 
@@ -660,11 +666,11 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 	int lower_bound, upper_bound;
 	PointXYZ point_to_check;
 
-
 	point_to_check.x = point.x;
 	point_to_check.y = point.y;
 	point_to_check.z = point.z;
 
+	// Get slices of point to check and pin hole
 	slice_of_point = getSliceIndex(point_to_check, vertical_plane, VERTICAL_LINE, slice_params, params);
 	slice_of_pinhole = getSliceIndex(pin_hole, vertical_plane, VERTICAL_LINE, slice_params, params);
 
@@ -691,7 +697,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 		upper_bound = slice_bound[slice_of_point];
 	}
 
-	// Check bound difference
+	// Amount of triangles to find intersection with
 	int diff = upper_bound - lower_bound;
 
 	Vec3 origin;
@@ -706,8 +712,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 
 	if (diff > 0)
 	{
-		PointXYZ intersection;
-		intersection.z = VTK_FLOAT_MIN;
+		PointXYZ higher_intersection;
+		higher_intersection.z = VTK_FLOAT_MIN;
 
 		computeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
@@ -715,18 +721,18 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 		{
 			if (output_hits[h] == HIT)
 			{
-				if (output_points[h].points[Z] >= intersection.z)
+				if (output_points[h].points[Z] >= higher_intersection.z)
 				{
-					intersection.x = output_points[h].points[X];
-					intersection.y = output_points[h].points[Y];
-					intersection.z = output_points[h].points[Z];
+					higher_intersection.x = output_points[h].points[X];
+					higher_intersection.y = output_points[h].points[Y];
+					higher_intersection.z = output_points[h].points[Z];
 				}
 			}
 		}
 		// If point obtained is very close to the point to check, then they are the same point,
-		// else are different points. Therefore the point to check is really occluded.
-		if (intersection.z > VTK_FLOAT_MIN)
-			if (pointsDistance(intersection, point_to_check) > EPSILON_OCCLUSION)
+		// else are different points. In this case the point to check is really occluded.
+		if (higher_intersection.z > VTK_FLOAT_MIN)
+			if (pointsDistance(higher_intersection, point_to_check) > EPSILON_OCCLUSION)
 				return TRUE;
 	}
 
@@ -737,48 +743,45 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const Plane &vertical_plane, const SliceParams &slice_params, const int *slice_bound, uchar* output_hits)
 {
 	// Initialize a white image
-	Mat image(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
+	*img = Mat(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
 
-	PointCloud<PointXYZ>::Ptr cloud_src(new PointCloud<PointXYZ>);
+	PointCloud<PointXYZ>::Ptr cloud_source(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
 
-	cloud_src->push_back(pin_hole);
-	cloud_src->push_back(laser_1);
-	cloud_src->push_back(laser_2);
+	cloud_source->push_back(pin_hole);
+	cloud_source->push_back(laser_1);
+	cloud_source->push_back(laser_2);
 
 	PointXYZ c, p_1, p_2;
 
 	// Camera
-	c.x = 0;
-	c.y = 0;
-	c.z = 0;
-	cloud_target->push_back(c);
-
+	c.x = c.y = c.z = 0;
+	
 	// Laser 1
-	p_1.x = 0;
+	p_1.x = p_1.z = 0;
 	p_1.y = -params.baseline;
-	p_1.z = 0;
 
 	// Laser 2
-	p_2.x = 0;
+	p_2.x = p_2.z = 0;
 	p_2.y = params.baseline;
-	p_2.z = 0;
 
-
+	cloud_target->push_back(c);
 	cloud_target->push_back(p_1);
 	cloud_target->push_back(p_2);
 
 	// Calculate trasformation matrix
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  trans_est;
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 transform_mat;
-	trans_est.estimateRigidTransformation(*cloud_src, *cloud_target, transform_mat);
+	trans_est.estimateRigidTransformation(*cloud_source, *cloud_target, transform_mat);
 
+	// Points to project
 	vector<Point3d> points;
 	vector<Point2d> output_point;
+	Eigen::Vector4f v_point, v_point_final;
 
 	for (int i = 0; i < cloud_intersection->size(); ++i)
 	{
-		Eigen::Vector4f v_point, v_point_final;
+		
 		v_point[0] = cloud_intersection->points[i].x;
 		v_point[1] = cloud_intersection->points[i].y;
 		v_point[2] = cloud_intersection->points[i].z;
@@ -787,9 +790,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 		v_point_final[2] = -v_point_final[2];
 
-		Point3f p(v_point_final[0], v_point_final[1], v_point_final[2]);
-
-		points.push_back(p);
+		points.push_back(Point3f(v_point_final[0], v_point_final[1], v_point_final[2]));
 	}
 
 	if (cloud_intersection->size() > 0)
@@ -804,30 +805,27 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 			pixel.x += 0.5;
 			pixel.y += 0.5;
 
-			if ((pixel.y >= 0) && (pixel.y < image.rows) && (pixel.x >= 0) && (pixel.x < image.cols))
+			if ((pixel.y >= 0) && (pixel.y < img->rows) && (pixel.x >= 0) && (pixel.x < img->cols))
 			{
 				// Check if point is occluded
-				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, slice_params, params, vertical_plane, 
+				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, slice_params, params, vertical_plane,
 					slice_bound, output_points, output_hits)))
 				{
-					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
-					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
-					image.at<Vec3b>((int)(pixel.y), (int)(pixel.x))[2] = 0;
+					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
+					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
+					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[2] = 0;
 				}
 			}
 		}
-
 	}
-
-	*img = image;
 }
 
 void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ &laser_1, const PointXYZ &laser_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out)
 {
-	PointXYZ point;    // The point to add at the cloud
-	float dx, dy, dz;  // Directional vector for the line pin_hole - point in the sensor
-	float x_sensor_origin = 0;
-	float y_sensor_origin = 0; // Origin of the sensor in the space
+	PointXYZ point;				// The point to add at the cloud
+	float dx, dy, dz;			// Directional vector for the line pin_hole - point in the sensor
+	float x_sensor_origin = 0;	// Origin of the sensor in the space
+	float y_sensor_origin = 0;
 
 	// Sensor - pin hole offset
 	float delta_x = ((image->cols / 2) - camera.camera_matrix.at<double>(0, 2)) * camera.pixel_dimension;
@@ -872,17 +870,21 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 		for (int i = params.roi_1_start; i < params.roi_1_start + params.roi_dimension; ++i)
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
+
 			// Check the color of the pixels
 			if (color[0] != 255 && color[1] != 255 && color[2] != 255) {
+
 				// Put the points of the image in the virtual sensor in the space
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_X) {
 					point.x = i * camera.pixel_dimension + x_sensor_origin;
 					point.y = j * camera.pixel_dimension + y_sensor_origin;
 				}
+
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y) {
 					point.x = x_sensor_origin - j * camera.pixel_dimension;
 					point.y = i * camera.pixel_dimension + y_sensor_origin;
 				}
+
 				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;
@@ -910,7 +912,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 			// Check the color of the pixels
 			if (color[0] != 255 && color[1] != 255 && color[2] != 255)
 			{
-				// Put the points of the image in the virtual sensor in the space
+				// Put the points of the image on the virtual sensor in the space
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 				{
 					point.x = i * camera.pixel_dimension + x_sensor_origin;

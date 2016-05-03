@@ -55,7 +55,7 @@ using boost::chrono::duration;
 
 Eigen::Matrix<double, 3, 1> typedef Vector3d;
 
-/*************************** STRUCTS for the program *************************/
+/*************************** STRUCTS needed by program *************************/
 struct Camera
 {
 	Mat camera_matrix;
@@ -115,13 +115,12 @@ struct MeshBounds
 
 struct OpenCLDATA 
 {
-	//cl::Buffer device_triangle_array;
-	cl::Buffer device_array_laser;
+	cl::Buffer device_triangles_array;
 	cl::Buffer device_output_points;
 	cl::Buffer device_output_hits;
 
 	//size_t triangles_size;
-	size_t array_laser_size;
+	size_t triangles_array_size;
 	size_t points_size;
 	size_t hits_size;
 
