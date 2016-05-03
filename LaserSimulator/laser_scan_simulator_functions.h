@@ -27,7 +27,9 @@
 // OpenCL parameter
 #define RUN 256
 #define LOCAL_SIZE 128
-#define EPSILON 0.000001
+#define HIT 1
+#define MISS 0
+#define EPSILON 0.000001f
 #define EPSILON_OCCLUSION 0.1
 
 #define DIRECTION_SCAN_AXIS_X 0

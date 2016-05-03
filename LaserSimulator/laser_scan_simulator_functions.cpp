@@ -444,6 +444,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 			exit(1);
 		}
 		
+		// Choose first platform available
 		for (int i = 0; i < data->platforms.size(); ++i)
 		{
 			bool catched = false;
@@ -451,7 +452,6 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 			{
 				// Get list of devices on default platform and create context
 				cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(data->platforms[i])(), 0 };
-
 				data->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
 				data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
 
@@ -467,14 +467,18 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 		}
 		
 
-		
-
 		FILE* programHandle;
 		size_t kernelSourceSize;
 		char *kernelSource;
 
 		// Get size of kernel source
-		fopen_s(&programHandle, "IntersectionTriangle.cl", "rb");
+		int j = fopen_s(&programHandle, "IntersectionTriangle.cl", "rb");
+		if (j != 0)
+		{
+			cerr << "File kernel OpenCL non trovato" << endl;
+			exit(1);
+		}
+		 
 		fseek(programHandle, 0, SEEK_END);
 		kernelSourceSize = ftell(programHandle);
 		rewind(programHandle);
@@ -529,7 +533,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 
 	catch (cl::Error er)
 	{
-		cerr << "ERRORE OpenCL: scelta platform" << endl;
+		cerr << "ERRORE OpenCL: inizializzazione" << endl;
 		exit(1);
 	}
 
@@ -628,7 +632,7 @@ void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_
 			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 			for (int h = 0; h < n_max; ++h)
 			{
-				if (output_hits[h] == 1)
+				if (output_hits[h] == HIT)
 				{
 					if (output_points[h].points[Z] >= first_intersec.z)
 					{
@@ -663,12 +667,9 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 	slice_of_point = getSliceIndex(point_to_check, vertical_plane, VERTICAL_LINE, slice_params, params);
 	slice_of_pinhole = getSliceIndex(pin_hole, vertical_plane, VERTICAL_LINE, slice_params, params);
 
-	// Nel caso non trovi la fetta (non dovrebbe accadere) considero il punto occluso
 	if (slice_of_point < 0 || slice_of_pinhole < 0)
-	{
-		cout << endl << "a riporcoddio" << endl;
 		return FALSE;
-	}
+	
 	// Set lower and upper bound due to slices found
 	if (slice_of_point < slice_of_pinhole)
 	{
@@ -711,7 +712,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n_max; ++h)
 		{
-			if (output_hits[h] == 1)
+			if (output_hits[h] == HIT)
 			{
 				if (output_points[h].points[Z] >= intersection.z)
 				{
@@ -766,9 +767,10 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	cloud_target->push_back(p_1);
 	cloud_target->push_back(p_2);
 
+	// Calculate trasformation matrix
 	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>  trans_est;
-	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 trans;
-	trans_est.estimateRigidTransformation(*cloud_src, *cloud_target, trans);
+	registration::TransformationEstimationSVD<PointXYZ, PointXYZ>::Matrix4 transform_mat;
+	trans_est.estimateRigidTransformation(*cloud_src, *cloud_target, transform_mat);
 
 	vector<Point3d> points;
 	vector<Point2d> output_point;
@@ -780,7 +782,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 		v_point[1] = cloud_intersection->points[i].y;
 		v_point[2] = cloud_intersection->points[i].z;
 		v_point[3] = 1;
-		v_point_final = trans * v_point;
+		v_point_final = transform_mat * v_point;
 
 		v_point_final[2] = -v_point_final[2];
 
@@ -796,6 +798,8 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 		for (int i = 0; i < output_point.size(); ++i)
 		{
 			pixel = output_point.at(i);
+
+			// Add 0.5 for a correct rounding
 			pixel.x += 0.5;
 			pixel.y += 0.5;
 
@@ -823,11 +827,11 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	float dx, dy, dz;  // Directional vector for the line pin_hole - point in the sensor
 	float x_sensor_origin, y_sensor_origin; // Origin of the sensor in the space
 
-	// Amount of traslate of the sensor compared to the pinhole
+	// Sensor pin hole offset
 	float delta_x = ((image->cols / 2) - camera.camera_matrix.at<double>(0, 2)) * camera.pixel_dimension;
 	float delta_y = ((image->rows / 2) - camera.camera_matrix.at<double>(1, 2)) * camera.pixel_dimension;
 
-	// Computation of the focal_length
+	// Calculate focal length
 	float focal_length_x = camera.camera_matrix.at<double>(0, 0) * camera.pixel_dimension;
 	float focal_length_y = camera.camera_matrix.at<double>(1, 1) * camera.pixel_dimension;
 	float focal_length = (focal_length_x + focal_length_y) / 2;

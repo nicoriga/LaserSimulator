@@ -118,11 +118,11 @@ __kernel void kernelTriangleIntersection(__global Triangle *input, __global Vec3
 
 	Vec3 local_hit_point, hight_hit_point;
 	uchar local_hit = MISS;
-	int j,t;
+	int j, t;
 	int l = k * RUN + start_index;
-	int final_index = num_triangle+start_index;
+	int final_index = num_triangle + start_index;
 
-	for(j = 0; j<RUN && (l + j) < final_index; ++j)
+	for(j = 0; j < RUN && (l + j) < final_index; ++j)
 	{
 		t = l + j;
 
