@@ -127,7 +127,7 @@ float pointsDistance(PointXYZ point1, PointXYZ point2)
 	return sqrt(diff_x * diff_x + diff_y * diff_y + diff_z * diff_z);
 }
 
-void calculateBoundaries(const SimulationParams &params, PolygonMesh mesh, MeshBounds *bounds) 
+void calculateBoundaries(PolygonMesh mesh, MeshBounds *bounds) 
 {
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZRGB point_1, point_2, point_3;
@@ -216,15 +216,15 @@ void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ*
 
 void setSliceParams(SliceParams* slice_params, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2, const SimulationParams &params, const MeshBounds &bounds)
 {
-	float fp;
+	float total_length = 0;
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
-		fp = bounds.max_y + (bounds.min_y - laser_origin_1.y) - laser_origin_1.y;
+		total_length = bounds.max_y + (bounds.min_y - laser_origin_1.y) - laser_origin_1.y;
 
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
-		fp = bounds.max_y + (bounds.min_y - laser_origin_1.x) - laser_origin_1.x;
+		total_length = bounds.max_y + (bounds.min_y - laser_origin_1.x) - laser_origin_1.x;
 
-	slice_params->slice_length = fp / SLICE_NUMBER;
-	slice_params->vertical_slice_length = fp / VERTICAL_SLICE_NUMBER;
+	slice_params->slice_length = total_length / SLICE_NUMBER;
+	slice_params->vertical_slice_length = total_length / VERTICAL_SLICE_NUMBER;
 
 
 	getPlaneCoefficents(laser_origin_1, &slice_params->origin_plane_laser1, LASER_1, params);
@@ -574,12 +574,13 @@ void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 }
 
 void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
-	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const MeshBounds &bounds, const int *slice_bound)
+	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const int *slice_bound)
 {
 	
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
 
-	char d_1, d_2;
+	char d_1 = 0;
+	char d_2 = 0;
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		d_1 = 0;
@@ -825,9 +826,10 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 {
 	PointXYZ point;    // The point to add at the cloud
 	float dx, dy, dz;  // Directional vector for the line pin_hole - point in the sensor
-	float x_sensor_origin, y_sensor_origin; // Origin of the sensor in the space
+	float x_sensor_origin = 0;
+	float y_sensor_origin = 0; // Origin of the sensor in the space
 
-	// Sensor pin hole offset
+	// Sensor - pin hole offset
 	float delta_x = ((image->cols / 2) - camera.camera_matrix.at<double>(0, 2)) * camera.pixel_dimension;
 	float delta_y = ((image->rows / 2) - camera.camera_matrix.at<double>(1, 2)) * camera.pixel_dimension;
 
@@ -836,7 +838,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	float focal_length_y = camera.camera_matrix.at<double>(1, 1) * camera.pixel_dimension;
 	float focal_length = (focal_length_x + focal_length_y) / 2;
 
-	// Traslation of the sensor
+	// Sensor translation
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		x_sensor_origin = pin_hole.x - (image->rows * camera.pixel_dimension) / 2 - delta_y;
@@ -859,11 +861,12 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	else
 		flip(*image, *image, 0);
 
+	// Calculate laser planes
 	Plane plane_1, plane_2;
 	getPlaneCoefficents(laser_1, &plane_1, LASER_1, params);
 	getPlaneCoefficents(laser_2, &plane_2, LASER_2, params);
 
-	// Project the ROI1 points on the first plane
+	// Project the ROI 1 points on the first plane
 	for (int j = 0; j < image->cols; ++j)
 	{
 		for (int i = params.roi_1_start; i < params.roi_1_start + params.roi_dimension; ++i)
@@ -905,16 +908,21 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// Check the color of the pixels
-			if (color[0] != 255 && color[1] != 255 && color[2] != 255) {
+			if (color[0] != 255 && color[1] != 255 && color[2] != 255)
+			{
 				// Put the points of the image in the virtual sensor in the space
-				if (params.scan_direction == DIRECTION_SCAN_AXIS_X) {
+				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+				{
 					point.x = i * camera.pixel_dimension + x_sensor_origin;
 					point.y = j * camera.pixel_dimension + y_sensor_origin;
 				}
-				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y) {
+
+				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+				{
 					point.x = x_sensor_origin - j * camera.pixel_dimension;
 					point.y = i * camera.pixel_dimension + y_sensor_origin;
 				}
+				
 				point.z = pin_hole.z + focal_length;
 
 				dx = pin_hole.x - point.x;

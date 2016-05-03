@@ -21,8 +21,10 @@
 #include <pcl/ros/conversions.h>
 #include <pcl/conversions.h>
 #include <pcl/common/angles.h>
+#include <pcl/exceptions.h>
 #include <pcl/registration/transformation_estimation_svd.h>
 #include <CL/cl.hpp>
+
 
 // OpenCL parameter
 #define RUN 256
@@ -148,7 +150,7 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 
 void updateMinMax(PointXYZRGB point, MeshBounds *bounds);
 
-void calculateBoundaries(const SimulationParams &params, PolygonMesh mesh, MeshBounds *bounds);
+void calculateBoundaries(PolygonMesh mesh, MeshBounds *bounds);
 
 void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, const SimulationParams &params, const MeshBounds &bounds);
 
@@ -171,7 +173,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 void computeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction);
 
 void getIntersectionOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
-	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const MeshBounds &bounds, const int *slice_bound);
+	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const Plane &origin_plane, const int laser_number, const int *slice_bound);
 
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SliceParams &slice_params, const SimulationParams &params,
 	const Plane &vertical_plane, const int *slice_bound, Vec3* output_points, uchar* output_hits);
