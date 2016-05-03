@@ -441,7 +441,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 	cl_int err = CL_SUCCESS;
 
 	try {
-		// Query platforms
+		// Query mms
 		cl::Platform::get(&data->platforms);
 		if (data->platforms.size() == 0)
 		{
@@ -449,13 +449,30 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght,
 			exit(1);
 		}
 		
-		// Get list of devices on default platform and create context
-		cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(data->platforms[0])(), 0 };
-		data->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
-		data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
+		for (int i = 0; i < data->platforms.size(); ++i)
+		{
+			bool catched = false;
+			try
+			{
+				// Get list of devices on default platform and create context
+				cl_context_properties properties[] = { CL_CONTEXT_PLATFORM, (cl_context_properties)(data->platforms[i])(), 0 };
 
-		// Create command queue for first device
-		data->queue = cl::CommandQueue(data->context, data->devices[0], 0, &err);
+				data->context = cl::Context(CL_DEVICE_TYPE_CPU, properties);
+				data->devices = data->context.getInfo<CL_CONTEXT_DEVICES>();
+
+				// Create command queue for first device
+				data->queue = cl::CommandQueue(data->context, data->devices[0], 0, &err);
+			}
+			catch (cl::Error er)
+			{
+				catched = true;
+			}
+			if(!catched)
+				break;
+		}
+		
+
+		
 
 		FILE* programHandle;
 		size_t kernelSourceSize;
