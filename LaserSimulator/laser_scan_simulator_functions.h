@@ -156,7 +156,7 @@ void setSliceParams(SliceParams* slice_params, const PointXYZ &laser_origin_1, c
 
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params);
 
-int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
+void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
 
 void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array);
 

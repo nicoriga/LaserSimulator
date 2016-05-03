@@ -284,16 +284,15 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 	}
 }
 
-int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
+void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
 	PointCloud<PointXYZ> cloud_mesh;
-	PointXYZ point1, point2, point3, min_point, max_point;
+	PointXYZ point1, point2, point3;
 
-	int lost_triangle = 0;
 	// Convert mesh in a point cloud (only vertex)
 	fromPCLPointCloud2(mesh.cloud, cloud_mesh);
 
-	for (int i = 0; i < mesh.polygons.size(); i++)
+	for (int i = 0; i < mesh.polygons.size(); ++i)
 	{
 		point1.x = cloud_mesh.points[mesh.polygons[i].vertices[0]].x;
 		point1.y = cloud_mesh.points[mesh.polygons[i].vertices[0]].y;
@@ -334,14 +333,10 @@ int fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const
 		// Assign triangle to the correct slices
 		if (min_slice != -1 && max_slice != -1)
 		{
-			for (int z = min_slice; z <= max_slice; z++)
+			for (int z = min_slice; z <= max_slice; ++z)
 				triangles_index[z].push_back(i);
 		}
-		else
-			lost_triangle++;
 	}
-
-	return lost_triangle;
 }
 
 void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array)
@@ -351,9 +346,9 @@ void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<i
 
 	PointXYZ tmp;
 	int count = 0;
-	for (int i = 0; i < num_triangles_index_array; i++)
+	for (int i = 0; i < num_triangles_index_array; ++i)
 	{
-		for (int k = 0; k < triangles_index[i].size(); k++)
+		for (int k = 0; k < triangles_index[i].size(); ++k)
 		{
 			tmp = meshVertices.points[mesh.polygons[triangles_index[i].at(k)].vertices[0]];
 			triangles[count].vertex_1.points[X] = tmp.x;
@@ -778,7 +773,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	vector<Point3d> points;
 	vector<Point2d> output_point;
 
-	for (int i = 0; i < cloud_intersection->size(); i++)
+	for (int i = 0; i < cloud_intersection->size(); ++i)
 	{
 		Eigen::Vector4f v_point, v_point_final;
 		v_point[0] = cloud_intersection->points[i].x;
@@ -798,7 +793,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	{
 		projectPoints(points, Mat::zeros(3, 1, CV_64F), Mat::zeros(3, 1, CV_64F), camera.camera_matrix, camera.distortion, output_point);
 		Point2d pixel;
-		for (int i = 0; i < output_point.size(); i++)
+		for (int i = 0; i < output_point.size(); ++i)
 		{
 			pixel = output_point.at(i);
 			pixel.x += 0.5;
@@ -968,7 +963,7 @@ string printProgBar(int percent)
 	stringstream prog;
 	string bar;
 
-	for (int i = 0; i < 50; i++) {
+	for (int i = 0; i < 50; ++i) {
 		if (i < (percent / 2)) {
 			bar.replace(i, 1, "=");
 		}

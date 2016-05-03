@@ -55,19 +55,17 @@ int main(int argc, char** argv)
 	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	int array_size = 0;
-	int lost_triangle = 0;
 
 	// Slice for LASER 1
-	lost_triangle = fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser1, LASER_1, slice_params, params);
+	fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser1, LASER_1, slice_params, params);
 	// Slice for LASER 2
-	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser2, LASER_2, slice_params, params);
+	fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser2, LASER_2, slice_params, params);
 	// Vertical slice for occlusion optimization
-	lost_triangle += fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_vertical_plane, VERTICAL_LINE, slice_params, params);
+	fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_vertical_plane, VERTICAL_LINE, slice_params, params);
 
 	// Create slice bound array
 	createSliceBoundArray(slice_bound, triangles_index, &array_size);
 
-	cout << "LOST TRIANGLE: " << lost_triangle << endl;
 	cout << "TOTAL TRIANGLE: " << array_size << endl;
 
 	// Create triangles array used by OpenCL
