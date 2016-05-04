@@ -20,13 +20,13 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 		fs["path_read_file"] >> *path_read_file;
 		fs["path_save_file"] >> *path_save_file;
 		fs["baseline"] >> params->baseline;
-		fs["height_to_mesh"] >> params->height_to_mesh;
+		fs["height_from_mesh"] >> params->height_from_mesh;
 		fs["laser_aperture"] >> params->laser_aperture;
 		fs["laser_inclination"] >> params->laser_inclination;
 		fs["number_of_line"] >> params->number_of_line;
 		fs["scan_speed"] >> params->scan_speed;
 		fs["scan_direction"] >> params->scan_direction;
-		fs["distortion_flag"] >> params->distortion_flag;
+		fs["undistortion_flag"] >> params->undistortion_flag;
 		fs["snapshot_save_flag"] >> *snapshot_save_flag;
 		fs["roi_1_start"] >> params->roi_1_start;
 		fs["roi_2_start"] >> params->roi_2_start;
@@ -37,7 +37,7 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 		fs["pixel_dimension"] >> camera->pixel_dimension;
 		fs["camera_matrix"] >> camera->camera_matrix;
 
-		if(params->distortion_flag)
+		if(params->undistortion_flag)
 			fs["camera_distortion"] >> camera->distortion;
 	}
 	else
@@ -163,7 +163,7 @@ void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* 
 {
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
-		laser_origin_1->z = bounds.max_z + params.height_to_mesh;
+		laser_origin_1->z = bounds.max_z + params.height_from_mesh;
 		laser_origin_1->x = (bounds.max_x + bounds.min_x) / 2;
 		laser_origin_1->y = bounds.min_y - (laser_origin_1->z - bounds.min_z) * params.inclination_coefficient;
 
@@ -178,7 +178,7 @@ void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* 
 
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
-		laser_origin_1->z = bounds.max_z + params.height_to_mesh;
+		laser_origin_1->z = bounds.max_z + params.height_from_mesh;
 		laser_origin_1->y = (bounds.max_y + bounds.min_y) / 2;
 		laser_origin_1->x = bounds.min_x - (laser_origin_1->z - bounds.min_z) * params.inclination_coefficient;
 
@@ -773,7 +773,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const SliceParams &slice_params, const int *slice_bound, uchar* output_hits)
 {
 	// Initialize a white image
-	*img = Mat(camera.image_height, camera.image_width, CV_8UC3, Scalar(0, 0, 0));
+	*img = Mat::zeros(camera.image_height, camera.image_width, CV_8UC3);
 
 	PointCloud<PointXYZ>::Ptr cloud_source(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
@@ -885,7 +885,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	}
 
 	// Undistort the image accord with the camera disortion parameters
-	if (params.distortion_flag)
+	if (params.undistortion_flag)
 	{
 		Mat image_undistort;
 		undistort(*image, image_undistort, camera.camera_matrix, camera.distortion);
@@ -1071,4 +1071,13 @@ string getMeshBoundsValues(const MeshBounds &bounds)
 	stream << "Z: [" << bounds.min_z << ", " << bounds.max_z << "]" << endl << endl;
 
 	return stream.str();
+}
+
+
+void visualizeCloud(PointCloud<PointXYZ>::Ptr cloud)
+{
+	visualization::PCLVisualizer viewer("Viewer");
+	viewer.addCoordinateSystem(100, "Viewer");
+	viewer.addPointCloud<PointXYZ>(cloud, "Cloud");
+	viewer.spin();
 }

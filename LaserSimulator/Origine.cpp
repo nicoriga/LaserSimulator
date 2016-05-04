@@ -10,6 +10,8 @@
 #include "laser_scan_simulator_functions.h"
 #include <iostream>
 
+
+
 int main(int argc, char** argv)
 {
 	PolygonMesh mesh;
@@ -23,7 +25,7 @@ int main(int argc, char** argv)
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 
 
-	/********* Read data from XML parameters file ****************************/
+	/********* Read data from parameters XML file ****************************/
 	readParamsFromXML(&camera, &params, &snapshot_save_flag, &path_read_file, &path_save_file);
 
 
@@ -36,7 +38,7 @@ int main(int argc, char** argv)
 	cout << "Dimensione della mesh (n. triangoli): " << mesh.polygons.size() << endl << endl;
 
 
-	/************* Find minimum and mixiumum points of 3 axis **********************/
+	/*********** Find minimum and mixiumum points of the 3 axis ***************/
 	calculateBoundaries(mesh, &bounds);
 
 	// Print minimum and maximum points of mesh
@@ -44,8 +46,8 @@ int main(int argc, char** argv)
 
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
-	/********************** Start slicing optimization **************************/
-	cout << "Inizio ottimizzazione..." << endl;
+	/********************** Start slicing optimization ************************/
+	cout << "Inizio ottimizzazione...";
 
 	// Set the parameter for the slice optimization
 	setSliceParams(&slice_params, laser_origin_1, laser_origin_2, params, bounds);
@@ -54,7 +56,8 @@ int main(int argc, char** argv)
 	Triangle *triangles_array;
 	int array_size = makeOptiziationSlice(mesh, slice_params, params, slice_bound, &triangles_array);
 
-	/**************** Inititialize OpenCL *****************/
+
+	/********************** Inititialize OpenCL ********************************/
 	int array_size_hits = (int) (ceil(array_size / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];
 	uchar* output_hits = new uchar[array_size_hits];
@@ -109,21 +112,22 @@ int main(int argc, char** argv)
 		if (snapshot_save_flag)
 			imwrite("../imgOut/out_" + to_string(z) + ".png", image);
 
+
 		/*************************** Convert image to point cloud *********************************************/
 		imageToCloud(camera, params, laser_origin_1, laser_origin_2, pin_hole, &image, cloud_out);
 
 
 		// Make a backup of point cloud that contains (all) intersections
-		for (int i = 0; i < cloud_intersection->size(); i++)
-			cloud_intersection_backup->push_back(cloud_intersection->at(i));
+		//for (int i = 0; i < cloud_intersection->size(); i++)
+		//	cloud_intersection_backup->push_back(cloud_intersection->at(i));
 
 		// Clear current intersections
 		cloud_intersection->clear();
 	}
 
 
-	// Points of the cloud 
-	cout << endl << endl << "Numero di punti cloud rossa opencl: " << cloud_intersection_backup->points.size() << endl;
+	// Points of cloud 
+	//cout << endl << endl << "Numero di punti cloud rossa opencl: " << cloud_intersection_backup->points.size() << endl;
 	cout << endl << "Numero di punti della point cloud: " << cloud_out->points.size() << endl;
 
 	// Print total time of computation 
@@ -132,17 +136,10 @@ int main(int argc, char** argv)
 	// Save cloud 
 	saveCloud(path_save_file, cloud_out);
 
-
 	/***************************** Visualize cloud ***************************************/
-	visualization::PCLVisualizer viewer("PCL viewer");
-	visualization::PointCloudColorHandlerRGBField<PointXYZRGB> rgb(cloud_intersection_backup);
-	viewer.addCoordinateSystem(100, "PCL viewer");
-	viewer.addPointCloud<PointXYZRGB>(cloud_intersection_backup, rgb, "Intersection Cloud");
-	viewer.addPointCloud<PointXYZ>(cloud_out, "Cloud");
+	visualizeCloud(cloud_out);
 
 
-
-	viewer.spin();
 
 
 	return 0;

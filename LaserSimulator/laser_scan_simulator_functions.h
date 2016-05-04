@@ -70,7 +70,7 @@ struct Camera
 struct SimulationParams
 {
 	float baseline;
-	float height_to_mesh;
+	float height_from_mesh;
 	float laser_aperture;
 	float laser_inclination;
 	float scan_speed;
@@ -82,7 +82,7 @@ struct SimulationParams
 	int roi_1_start;
 	int roi_2_start;
 	int roi_dimension;
-	bool distortion_flag;
+	bool undistortion_flag;
 };
 
 struct Plane 
@@ -197,3 +197,5 @@ void getScanCycleParams(const SimulationParams &params, const Camera &camera, co
 	const MeshBounds &bounds, float *increment, float *current_position, float *number_of_iterations, float *final_pos);
 
 string getMeshBoundsValues(const MeshBounds &bounds);
+
+void visualizeCloud(PointCloud<PointXYZ>::Ptr cloud);
