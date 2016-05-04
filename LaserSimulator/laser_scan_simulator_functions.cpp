@@ -773,7 +773,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const SliceParams &slice_params, const int *slice_bound, uchar* output_hits)
 {
 	// Initialize a white image
-	*img = Mat(camera.image_height, camera.image_width, CV_8UC3, Scalar(255, 255, 255));
+	*img = Mat(camera.image_height, camera.image_width, CV_8UC3, Scalar(0, 0, 0));
 
 	PointCloud<PointXYZ>::Ptr cloud_source(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
@@ -843,7 +843,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 				{
 					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
-					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[2] = 0;
+					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[2] = 255;
 				}
 			}
 		}
@@ -909,7 +909,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 			Vec3b &color = image->at<Vec3b>(i, j);
 
 			// Check the color of the pixels
-			if (color[0] != 255 && color[1] != 255 && color[2] != 255)
+			if (color[2] != 0)
 			{
 
 				// Put the points of the image in the virtual sensor in the space
@@ -950,7 +950,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// Check the color of the pixels
-			if (color[0] != 255 && color[1] != 255 && color[2] != 255)
+			if (color[2] != 0)
 			{
 				// Put the points of the image on the virtual sensor in the space
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
