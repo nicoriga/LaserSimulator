@@ -57,13 +57,13 @@ int main(int argc, char** argv)
 	int array_size = 0;
 
 	// Slice for LASER 1
-	fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser1, LASER_1, slice_params, params);
+	fillSliceWithTriangles(mesh, triangles_index, LASER_1, slice_params, params);
 	
 	// Slice for LASER 2
-	fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_plane_laser2, LASER_2, slice_params, params);
+	fillSliceWithTriangles(mesh, triangles_index, LASER_2, slice_params, params);
 	
 	// Vertical slice for occlusion optimization
-	fillSliceWithTriangles(mesh, triangles_index, slice_params.origin_vertical_plane, VERTICAL_LINE, slice_params, params);
+	fillSliceWithTriangles(mesh, triangles_index, VERTICAL_LINE, slice_params, params);
 
 	// Create slice bound array
 	createSliceBoundArray(slice_bound, triangles_index, &array_size);
@@ -119,15 +119,15 @@ int main(int argc, char** argv)
 		/******************************* Look for intersection with mesh **************************************/
 		// For laser 1
 		getIntersectionPoints(&data, output_points, output_hits, laser_origin_1, params, slice_params, cloud_intersection,
-			slice_params.origin_plane_laser1, LASER_1, slice_bound);
+			LASER_1, slice_bound);
 		// For laser 2
 		getIntersectionPoints(&data, output_points, output_hits, laser_origin_2, params, slice_params, cloud_intersection,
-			slice_params.origin_plane_laser2, LASER_2, slice_bound);
+			LASER_2, slice_bound);
 
 
 		/************************************ Take snapshot  **************************************************/
 		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, &data, output_points,
-			slice_params.origin_vertical_plane, slice_params, slice_bound, output_hits);
+			slice_params, slice_bound, output_hits);
 
 		// Save snapshot (only for debug) 
 		if (snapshot_save_flag)
