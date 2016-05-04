@@ -14,7 +14,7 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 	camera->distortion = Mat::zeros(5, 1, CV_64F);
 
 	// Read input parameters from xml file
-	FileStorage fs("laser_simulator_params.xml", FileStorage::READ);
+	FileStorage fs("laser_scan_simulator_params.xml", FileStorage::READ);
 	if (fs.isOpened())
 	{
 		fs["path_read_file"] >> *path_read_file;
@@ -97,6 +97,7 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 
 	// Calculate inclination and angular coefficients
 	params->inclination_coefficient = tan(deg2rad(90.f - params->laser_inclination));
+	params->compl_inclination_coeff = tan(deg2rad(params->laser_inclination));
 	params->aperture_coefficient = tan(deg2rad(params->laser_aperture / 2.f));
 }
 
@@ -238,14 +239,14 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 	{
 		if (laser_number == LASER_1)
 		{
-			plane->A = tan(deg2rad(params.laser_inclination));
+			plane->A = params.compl_inclination_coeff;
 			plane->B = 0;
 			plane->C = 1;
 			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
 		}
 		if (laser_number == LASER_2)
 		{
-			plane->A = -tan(deg2rad(params.laser_inclination));
+			plane->A = -params.compl_inclination_coeff;
 			plane->B = 0;
 			plane->C = 1;
 			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
@@ -263,14 +264,14 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 		if (laser_number == LASER_1)
 		{
 			plane->A = 0;
-			plane->B = tan(deg2rad(params.laser_inclination));
+			plane->B = params.compl_inclination_coeff;
 			plane->C = 1;
 			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
 		}
 		if (laser_number == LASER_2)
 		{
 			plane->A = 0;
-			plane->B = -tan(deg2rad(params.laser_inclination));
+			plane->B = -params.compl_inclination_coeff;
 			plane->C = 1;
 			plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
 		}
@@ -287,48 +288,48 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
 	PointCloud<PointXYZ> mesh_vertices;
-	PointXYZ point1, point2, point3;
+	PointXYZ point_1, point_2, point_3;
+	int min_slice, max_slice;
+	int slice_point_1, slice_point_2, slice_point_3;
 
 	// Convert mesh in a point cloud (only vertices)
 	fromPCLPointCloud2(mesh.cloud, mesh_vertices);
 
 	for (int i = 0; i < mesh.polygons.size(); ++i)
 	{
-		point1.x = mesh_vertices.points[mesh.polygons[i].vertices[0]].x;
-		point1.y = mesh_vertices.points[mesh.polygons[i].vertices[0]].y;
-		point1.z = mesh_vertices.points[mesh.polygons[i].vertices[0]].z;
+		point_1.x = mesh_vertices.points[mesh.polygons[i].vertices[0]].x;
+		point_1.y = mesh_vertices.points[mesh.polygons[i].vertices[0]].y;
+		point_1.z = mesh_vertices.points[mesh.polygons[i].vertices[0]].z;
 
-		point2.x = mesh_vertices.points[mesh.polygons[i].vertices[1]].x;
-		point2.y = mesh_vertices.points[mesh.polygons[i].vertices[1]].y;
-		point2.z = mesh_vertices.points[mesh.polygons[i].vertices[1]].z;
+		point_2.x = mesh_vertices.points[mesh.polygons[i].vertices[1]].x;
+		point_2.y = mesh_vertices.points[mesh.polygons[i].vertices[1]].y;
+		point_2.z = mesh_vertices.points[mesh.polygons[i].vertices[1]].z;
 
-		point3.x = mesh_vertices.points[mesh.polygons[i].vertices[2]].x;
-		point3.y = mesh_vertices.points[mesh.polygons[i].vertices[2]].y;
-		point3.z = mesh_vertices.points[mesh.polygons[i].vertices[2]].z;
+		point_3.x = mesh_vertices.points[mesh.polygons[i].vertices[2]].x;
+		point_3.y = mesh_vertices.points[mesh.polygons[i].vertices[2]].y;
+		point_3.z = mesh_vertices.points[mesh.polygons[i].vertices[2]].z;
 
+		// Get slice indexes of the triangle vertices
+		slice_point_1 = getSliceIndex(point_1, origin_plane, laser_number, slice_params, params);
+		slice_point_2 = getSliceIndex(point_2, origin_plane, laser_number, slice_params, params);
+		slice_point_3 = getSliceIndex(point_3, origin_plane, laser_number, slice_params, params);
 
-		// Guardo questi valori in che fetta devono finire
-		int slice_point1 = getSliceIndex(point1, origin_plane, laser_number, slice_params, params);
-		int slice_point2 = getSliceIndex(point2, origin_plane, laser_number, slice_params, params);
-		int slice_point3 = getSliceIndex(point3, origin_plane, laser_number, slice_params, params);
-
-		int min_slice, max_slice;
 
 		// Find vertex with lower slice index
-		if (slice_point1 < slice_point2 && slice_point1 < slice_point3)
-			min_slice = slice_point1;
-		else if (slice_point2 < slice_point3)
-			min_slice = slice_point2;
+		if (slice_point_1 < slice_point_2 && slice_point_1 < slice_point_3)
+			min_slice = slice_point_1;
+		else if (slice_point_2 < slice_point_3)
+			min_slice = slice_point_2;
 		else
-			min_slice = slice_point3;
+			min_slice = slice_point_3;
 
 		// Find vertex with upper slice index
-		if (slice_point1 > slice_point2 && slice_point1 > slice_point3)
-			max_slice = slice_point1;
-		else if (slice_point2 > slice_point3)
-			max_slice = slice_point2;
+		if (slice_point_1 > slice_point_2 && slice_point_1 > slice_point_3)
+			max_slice = slice_point_1;
+		else if (slice_point_2 > slice_point_3)
+			max_slice = slice_point_2;
 		else
-			max_slice = slice_point3;
+			max_slice = slice_point_3;
 
 		// Assign triangle to the correct slices
 		if (min_slice != -1 && max_slice != -1)
@@ -373,7 +374,7 @@ void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<i
 	}
 }
 
-void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int * total_triangle)
+void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *total_triangle)
 {
 	for (int i = 0; i < SLICE_NUMBER; ++i)
 	{
@@ -396,7 +397,7 @@ void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *
 
 int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
-	float slice_length = slice_params.slice_length *tan(deg2rad(params.laser_inclination));
+	float slice_length = slice_params.slice_length * params.compl_inclination_coeff;
 	float vertical_slice_length = slice_params.vertical_slice_length;
 
 	if (laser_number == LASER_1)
@@ -405,9 +406,9 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 		{
 			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - slice_length < slice_length * i &&
 				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= slice_length * i)
-			{
+			
 				return i;
-			}
+			
 		}
 	}
 	if (laser_number == LASER_2)
@@ -416,9 +417,9 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 		{
 			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D <= -slice_length * i &&
 				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length > -slice_length * i)
-			{
+			
 				return i + SLICE_NUMBER;
-			}
+			
 		}
 	}
 	if (laser_number == VERTICAL_LINE)
@@ -427,11 +428,12 @@ int getSliceIndex(const PointXYZ &laser_point, const Plane &origin_plane, int la
 		{
 			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - vertical_slice_length < vertical_slice_length * i &&
 				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= vertical_slice_length * i)
-			{
+		
 				return i + SLICE_NUMBER * 2;
-			}
+			
 		}
 	}
+
 	return -1;
 }
 
@@ -440,7 +442,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 	cl_int err = CL_SUCCESS;
 
 	try {
-		// Query mms
+		// Check platforms available
 		cl::Platform::get(&data->platforms);
 		if (data->platforms.size() == 0)
 		{
@@ -476,7 +478,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 		char *kernelSource;
 
 		// Get size of kernel source
-		int j = fopen_s(&programHandle, "IntersectionTriangle.cl", "rb");
+		int j = fopen_s(&programHandle, "intersection_opencl.cl", "rb");
 		if (j != 0)
 		{
 			cerr << "File kernel OpenCL non trovato" << endl;
@@ -675,7 +677,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 	slice_of_pinhole = getSliceIndex(pin_hole, vertical_plane, VERTICAL_LINE, slice_params, params);
 
 	if (slice_of_point < 0 || slice_of_pinhole < 0)
-		return FALSE;
+		return TRUE;
 	
 	// Set lower and upper bound due to slices found
 	if (slice_of_point < slice_of_pinhole)
@@ -808,8 +810,8 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 			if ((pixel.y >= 0) && (pixel.y < img->rows) && (pixel.x >= 0) && (pixel.x < img->cols))
 			{
 				// Check if point is occluded
-				if (!(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, slice_params, params, vertical_plane,
-					slice_bound, output_points, output_hits)))
+				if ( !(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, slice_params, params,
+					vertical_plane, slice_bound, output_points, output_hits)) )
 				{
 					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
 					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
@@ -822,10 +824,16 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ &laser_1, const PointXYZ &laser_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out)
 {
-	PointXYZ point;				// The point to add at the cloud
-	float dx, dy, dz;			// Directional vector for the line pin_hole - point in the sensor
-	float x_sensor_origin = 0;	// Origin of the sensor in the space
-	float y_sensor_origin = 0;
+	// The point to add at the cloud
+	PointXYZ point;	
+
+	// Directional vector for the line pin_hole - point in the sensor
+	float dx, dy, dz;			
+
+	// Origin of the sensor in the space
+	float x_sensor_origin = 0;
+	float y_sensor_origin = 0;	
+
 
 	// Sensor - pin hole offset
 	float delta_x = ((image->cols / 2) - camera.camera_matrix.at<double>(0, 2)) * camera.pixel_dimension;
@@ -864,23 +872,27 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	getPlaneCoefficents(laser_1, &plane_1, LASER_1, params);
 	getPlaneCoefficents(laser_2, &plane_2, LASER_2, params);
 
+
 	// Project the ROI 1 points on the first plane
 	for (int j = 0; j < image->cols; ++j)
 	{
 		for (int i = params.roi_1_start; i < params.roi_1_start + params.roi_dimension; ++i)
 		{
-			Vec3b & color = image->at<Vec3b>(i, j);
+			Vec3b &color = image->at<Vec3b>(i, j);
 
 			// Check the color of the pixels
-			if (color[0] != 255 && color[1] != 255 && color[2] != 255) {
+			if (color[0] != 255 && color[1] != 255 && color[2] != 255)
+			{
 
 				// Put the points of the image in the virtual sensor in the space
-				if (params.scan_direction == DIRECTION_SCAN_AXIS_X) {
+				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+				{
 					point.x = i * camera.pixel_dimension + x_sensor_origin;
 					point.y = j * camera.pixel_dimension + y_sensor_origin;
 				}
 
-				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y) {
+				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+				{
 					point.x = x_sensor_origin - j * camera.pixel_dimension;
 					point.y = i * camera.pixel_dimension + y_sensor_origin;
 				}
@@ -946,7 +958,6 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 
 void loadMesh(string path_file, PolygonMesh *mesh)
 {
-	// Load mesh file as a PolygonMesh
 	if (io::loadPolygonFile(path_file, *mesh) == 0)
 	{
 		PCL_ERROR("Failed to load mesh file\n");

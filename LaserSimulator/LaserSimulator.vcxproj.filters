@@ -27,18 +27,18 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <none Include="IntersectionTriangle.cl">
+    <ClInclude Include="laser_scan_simulator_functions.h">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <none Include="intersection_opencl.cl">
       <Filter>OpenCL Files</Filter>
     </none>
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="laser_simulator_params.xml">
+    <Xml Include="laser_scan_simulator_params.xml">
       <Filter>File di risorse</Filter>
     </Xml>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="laser_scan_simulator_functions.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

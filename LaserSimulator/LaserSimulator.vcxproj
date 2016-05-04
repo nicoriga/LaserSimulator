@@ -163,10 +163,10 @@
     <ClCompile Include="Origine.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <none Include="IntersectionTriangle.cl" />
+    <none Include="intersection_opencl.cl" />
   </ItemGroup>
   <ItemGroup>
-    <Xml Include="laser_simulator_params.xml" />
+    <Xml Include="laser_scan_simulator_params.xml" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="laser_scan_simulator_functions.h" />

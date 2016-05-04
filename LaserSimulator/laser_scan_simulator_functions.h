@@ -74,6 +74,7 @@ struct SimulationParams
 	float laser_inclination;
 	float scan_speed;
 	float inclination_coefficient;
+	float compl_inclination_coeff;
 	float aperture_coefficient;
 	int number_of_line;
 	int scan_direction;
@@ -119,7 +120,6 @@ struct OpenCLDATA
 	cl::Buffer device_output_points;
 	cl::Buffer device_output_hits;
 
-	//size_t triangles_size;
 	size_t triangles_array_size;
 	size_t points_size;
 	size_t hits_size;
