@@ -128,7 +128,7 @@ float pointsDistance(PointXYZ point1, PointXYZ point2)
 	return sqrt(diff_x * diff_x + diff_y * diff_y + diff_z * diff_z);
 }
 
-void calculateBoundaries(PolygonMesh mesh, MeshBounds *bounds) 
+void calculateBoundaries(const PolygonMesh &mesh, MeshBounds *bounds)
 {
 	PointCloud<PointXYZ> cloud_mesh;
 	PointXYZRGB point_1, point_2, point_3;
@@ -280,7 +280,7 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 	plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
 }
 
-void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
+void fillSliceWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
 	PointCloud<PointXYZ> mesh_vertices;
 	PointXYZ point_1, point_2, point_3;
@@ -369,25 +369,27 @@ void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<i
 	}
 }
 
-void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *total_triangle)
+int createSliceBoundArray(int *slice_bound, vector<int> *triangles_index)
 {
+	int total_triangle = 0;
 	for (int i = 0; i < SLICE_NUMBER; ++i)
 	{
-		*total_triangle += triangles_index[i].size();
-		slice_bound[i] = *total_triangle;
+		total_triangle += triangles_index[i].size();
+		slice_bound[i] = total_triangle;
 	}
 
 	for (int i = SLICE_NUMBER; i < SLICE_NUMBER * 2; ++i)
 	{
-		*total_triangle += triangles_index[i].size();
-		slice_bound[i] = *total_triangle;
+		total_triangle += triangles_index[i].size();
+		slice_bound[i] = total_triangle;
 	}
 
 	for (int i = SLICE_NUMBER * 2; i < SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER; ++i)
 	{
-		*total_triangle += triangles_index[i].size();
-		slice_bound[i] = *total_triangle;
+		total_triangle += triangles_index[i].size();
+		slice_bound[i] = total_triangle;
 	}
+	return total_triangle;
 }
 
 int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
@@ -433,6 +435,34 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 	}
 
 	return -1;
+}
+
+int makeOptiziationSlice(const PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle** triangles_array)
+{
+	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
+
+	// Slice for LASER 1
+	fillSliceWithTriangles(mesh, triangles_index, LASER_1, slice_params, params);
+
+	// Slice for LASER 2
+	fillSliceWithTriangles(mesh, triangles_index, LASER_2, slice_params, params);
+
+	// Vertical slice for occlusion optimization
+	fillSliceWithTriangles(mesh, triangles_index, VERTICAL_LINE, slice_params, params);
+
+	// Create slice bound array
+	int array_size = createSliceBoundArray(slice_bound, triangles_index);
+
+
+	// Create triangles array used by OpenCL
+	*triangles_array = new Triangle[array_size];
+	createTrianglesArray(mesh, *triangles_array, triangles_index, SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER);
+
+	// Delete mesh and triangles index array from memory
+	mesh.~PolygonMesh();
+	delete[] triangles_index;
+
+	return array_size;
 }
 
 void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_lenght, int array_size_hits)

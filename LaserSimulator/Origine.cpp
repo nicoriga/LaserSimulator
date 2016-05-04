@@ -10,8 +10,6 @@
 #include "laser_scan_simulator_functions.h"
 #include <iostream>
 
-
-
 int main(int argc, char** argv)
 {
 	PolygonMesh mesh;
@@ -38,7 +36,7 @@ int main(int argc, char** argv)
 	cout << "Dimensione della mesh (n. triangoli): " << mesh.polygons.size() << endl << endl;
 
 
-	/************* Find minimum and mixiumum points of 3 axis *****************************/
+	/************* Find minimum and mixiumum points of 3 axis **********************/
 	calculateBoundaries(mesh, &bounds);
 
 	// Print minimum and maximum points of mesh
@@ -46,38 +44,16 @@ int main(int argc, char** argv)
 
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
-	/************* Start slicing optimization *****************************/
+	/********************** Start slicing optimization **************************/
 	cout << "Inizio ottimizzazione..." << endl;
 
 	// Set the parameter for the slice optimization
 	setSliceParams(&slice_params, laser_origin_1, laser_origin_2, params, bounds);
-	
-	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
+
 	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
-	int array_size = 0;
+	Triangle *triangles_array;
+	int array_size = makeOptiziationSlice(mesh, slice_params, params, slice_bound, &triangles_array);
 
-	// Slice for LASER 1
-	fillSliceWithTriangles(mesh, triangles_index, LASER_1, slice_params, params);
-	
-	// Slice for LASER 2
-	fillSliceWithTriangles(mesh, triangles_index, LASER_2, slice_params, params);
-	
-	// Vertical slice for occlusion optimization
-	fillSliceWithTriangles(mesh, triangles_index, VERTICAL_LINE, slice_params, params);
-
-	// Create slice bound array
-	createSliceBoundArray(slice_bound, triangles_index, &array_size);
-
-
-	// Create triangles array used by OpenCL
-	Triangle *triangles_array = new Triangle[array_size];
-	createTrianglesArray(mesh, triangles_array, triangles_index, SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER);
-	
-	// Delete mesh and triangles index array from memory
-	mesh.~PolygonMesh();
-	delete[] triangles_index;
-	
-	
 	/**************** Inititialize OpenCL *****************/
 	int array_size_hits = (int) (ceil(array_size / (float)RUN));
 	Vec3* output_points = new Vec3[array_size_hits];

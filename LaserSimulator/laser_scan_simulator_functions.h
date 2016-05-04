@@ -150,7 +150,7 @@ void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_
 
 void updateMinMax(PointXYZRGB point, MeshBounds *bounds);
 
-void calculateBoundaries(PolygonMesh mesh, MeshBounds *bounds);
+void calculateBoundaries(const PolygonMesh &mesh, MeshBounds *bounds);
 
 void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, const SimulationParams &params, const MeshBounds &bounds);
 
@@ -160,13 +160,15 @@ void setSliceParams(SliceParams* slice_params, const PointXYZ &laser_origin_1, c
 
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params);
 
-void fillSliceWithTriangles(PolygonMesh mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
+void fillSliceWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
 
 void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array);
 
-void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int * total_triangle);
+int createSliceBoundArray(int *slice_bound, vector<int> *triangles_index);
 
 int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
+
+int makeOptiziationSlice(const PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle** triangles_array);
 
 void initializeOpenCL(OpenCLDATA* data, Triangle* array_laser, int array_lenght, int array_size_hits);
 
