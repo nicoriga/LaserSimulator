@@ -44,10 +44,11 @@ int main(int argc, char** argv)
 	// Print minimum and maximum points of mesh
 	cout << "Estremi della mesh:" << endl << getMeshBoundsValues(bounds);
 
+	// Set initial position of camera - laser system
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
 	/********************** Start slicing optimization ************************/
-	cout << "Inizio ottimizzazione...";
+	cout << "Pre-elaborazione... ";
 
 	// Set the parameter for the slice optimization
 	setSliceParams(&slice_params, laser_origin_1, laser_origin_2, params, bounds);
@@ -65,7 +66,7 @@ int main(int argc, char** argv)
 	initializeOpenCL(&data, triangles_array, array_size, array_size_hits);
 
 	
-	cout << endl << "Ottimizzazione terminata, durata: " << returnTime(high_resolution_clock::now() - start) << endl;
+	cout << "terminata, durata: " << returnTime(high_resolution_clock::now() - start) << endl;
 
 	cout << endl << "Inizio elaborazione..." << endl;
 
