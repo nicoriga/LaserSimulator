@@ -47,6 +47,7 @@ int main(int argc, char** argv)
 	// Set initial position of camera - laser system
 	setInitialPosition(&pin_hole, &laser_origin_1, &laser_origin_2, params, bounds);
 
+
 	/********************** Start slicing optimization ************************/
 	cout << "Pre-elaborazione... ";
 
@@ -65,13 +66,14 @@ int main(int argc, char** argv)
 	uchar* output_hits = new uchar[array_size_hits];
 	initializeOpenCL(&data, triangles_array, array_size, array_size_hits);
 
-	
 	cout << "terminata, durata: " << returnTime(high_resolution_clock::now() - start) << endl;
-
+	
+	/********************** Start elaboration ************************/
 	cout << endl << "Inizio elaborazione..." << endl;
 
 	// Set current position, calculate final position and number of iterations
-	float increment, current_position, number_of_iterations, final_pos;
+	float increment, current_position, final_pos;
+	int number_of_iterations;
 	getScanCycleParams(params, camera, pin_hole, laser_origin_1, laser_origin_2, bounds, &increment, &current_position, &number_of_iterations, &final_pos);
 
 	PointCloud<PointXYZ>::Ptr cloud_out(new PointCloud<PointXYZ>);
@@ -84,11 +86,11 @@ int main(int argc, char** argv)
 	/******** In every iteration finds intersection with mesh, take a camera snapshot *******/
 	/******** and reconstruct the points in the 3D space ************************************/
 	/****************************************************************************************/
-	for (int z = 0; z <= (int)number_of_iterations; ++z)
+	for (int z = 0; z <= number_of_iterations; ++z)
 	{
 		// Print progression bar and number of iteration completed
-		cout << printProgBar((int) ((z / number_of_iterations) * 100 + 0.5));
-		cout << z << " di " << (int) (number_of_iterations);
+		cout << printProgBar((int)((z / number_of_iterations) * 100 + 0.5));
+		cout << z << " di " << number_of_iterations;
 
 		// Update position of pin hole and lasers
 		setLasersAndPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, params);

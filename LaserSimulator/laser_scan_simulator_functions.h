@@ -2,8 +2,6 @@
 
 #define __CL_ENABLE_EXCEPTIONS
 #define _CRT_SECURE_NO_DEPRECATE
-#define CL_HPP_MINIMUM_OPENCL_VERSION 120
-#define CL_HPP_TARGET_OPENCL_VERSION 120
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
 
 
@@ -13,20 +11,17 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/visualization/pcl_visualizer.h>
-#include <pcl/io/vtk_io.h>
 #include <pcl/io/vtk_lib_io.h>
+#include <pcl/visualization/pcl_visualizer.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/ros/conversions.h>
-#include <pcl/conversions.h>
 #include <pcl/common/angles.h>
-#include <pcl/exceptions.h>
 #include <pcl/registration/transformation_estimation_svd.h>
+#include <pcl/exceptions.h>
 #include <CL/cl.hpp>
 
 
-// OpenCL parameter
+// OpenCL parameters
 #define RUN 256
 #define LOCAL_SIZE 128
 #define HIT 1
@@ -34,11 +29,14 @@
 #define EPSILON 0.000001f
 #define EPSILON_OCCLUSION 0.1
 
+// System parameters
 #define DIRECTION_SCAN_AXIS_X 0
 #define DIRECTION_SCAN_AXIS_Y 1
+
 #define VERTICAL_LINE 0
 #define LASER_1 1
 #define LASER_2 -1
+
 #define INDEX_NOT_FOUND -1
 
 #define X 0
@@ -194,7 +192,7 @@ string printProgBar(int percent);
 string returnTime(duration<double> timer);
 
 void getScanCycleParams(const SimulationParams &params, const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2,
-	const MeshBounds &bounds, float *increment, float *current_position, float *number_of_iterations, float *final_pos);
+	const MeshBounds &bounds, float *increment, float *current_position, int *number_of_iterations, float *final_pos);
 
 string getMeshBoundsValues(const MeshBounds &bounds);
 

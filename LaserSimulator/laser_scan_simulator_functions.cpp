@@ -433,7 +433,7 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 		}
 	}
 
-	return -1;
+	return INDEX_NOT_FOUND;
 }
 
 void makeOptiziationSlice(PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle **triangles_array, int *array_size)
@@ -471,7 +471,7 @@ void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_len
 		cl::Platform::get(&data->platforms);
 		if (data->platforms.size() == 0)
 		{
-			cerr << "ERRORE OpenCL: dimensione platform 0" << endl;
+			cerr << endl << "ERRORE OpenCL: dimensione platform 0" << endl;
 			exit(1);
 		}
 		
@@ -505,7 +505,7 @@ void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_len
 		int j = fopen_s(&program_handle, "intersection_opencl.cl", "rb");
 		if (j != 0)
 		{
-			cerr << "File kernel OpenCL non trovato" << endl;
+			cerr << endl << "File kernel OpenCL non trovato" << endl;
 			exit(1);
 		}
 		 
@@ -558,7 +558,7 @@ void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_len
 
 		if (err != CL_SUCCESS)
 		{
-			cerr << "ERRORE OpenCL: passaggio argomenti kernel" << endl;
+			cerr << endl << "ERRORE OpenCL: passaggio argomenti kernel" << endl;
 			exit(1);
 		}
 
@@ -566,7 +566,7 @@ void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_len
 
 	catch (cl::Error er)
 	{
-		cerr << "ERRORE OpenCL: inizializzazione" << endl;
+		cerr << endl << "ERRORE OpenCL: inizializzazione" << endl;
 		exit(1);
 	}
 
@@ -583,7 +583,7 @@ void executeOpenCL(OpenCLDATA *data, Vec3 *output_points, uchar *output_hits, in
 
 	if (err != CL_SUCCESS)
 	{
-		cerr << "ERRORE OpenCL: passaggio argomenti kernel" << endl;
+		cerr << endl << "ERRORE OpenCL: passaggio argomenti kernel" << endl;
 		exit(1);
 	}
 
@@ -664,7 +664,7 @@ void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar *output_
 			// Start calculation of intersections with OpenCL
 			executeOpenCL(data, output_points, output_hits, lower_bound, diff, ray_origin, ray_direction);
 
-			// Find higher intersection point among all intersection points
+			// Look for intersection point with higher Z
 			int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 			for (int h = 0; h < n_max; ++h)
 			{
@@ -747,6 +747,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *
 
 		executeOpenCL(data, output_points, output_hits, lower_bound, diff, origin, direction);
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
+		
+		// Look for intersection point with higher Z
 		for (int h = 0; h < n_max; ++h)
 		{
 			if (output_hits[h] == HIT)
@@ -861,7 +863,6 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	// Origin of the sensor in the space
 	float x_sensor_origin = 0;
 	float y_sensor_origin = 0;	
-
 
 	// Sensor - pin hole offset
 	float delta_x = ((image->cols / 2) - camera.camera_matrix.at<double>(0, 2)) * camera.pixel_dimension;
@@ -1001,7 +1002,7 @@ void saveCloud(string cloud_name, PointCloud<PointXYZ>::Ptr cloud)
 		{
 			io::savePCDFileASCII(cloud_name, *cloud);
 		}
-		catch (pcl::IOException)
+		catch (IOException)
 		{
 			PCL_ERROR("Failed to save PCD file\n");
 		}
@@ -1044,7 +1045,7 @@ string returnTime(duration<double> timer)
 }
 
 void getScanCycleParams(const SimulationParams &params, const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2,
-	const MeshBounds &bounds, float *increment, float *current_position, float *number_of_iterations, float *final_pos)
+	const MeshBounds &bounds, float *increment, float *current_position, int *number_of_iterations, float *final_pos)
 {
 	// Step size (in mm) between two snapshots
 	*increment = params.scan_speed / camera.fps;
@@ -1053,13 +1054,13 @@ void getScanCycleParams(const SimulationParams &params, const Camera &camera, co
 	{
 		*current_position = pin_hole.x;
 		*final_pos = bounds.max_x + (bounds.min_x - laser_origin_2.x);
-		*number_of_iterations = (*final_pos - laser_origin_1.x) / *increment;
+		*number_of_iterations = (int) ((*final_pos - laser_origin_1.x) / *increment);
 	}
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		*current_position = pin_hole.y;
 		*final_pos = bounds.max_y + (bounds.min_y - laser_origin_2.y);
-		*number_of_iterations = (*final_pos - laser_origin_1.y) / *increment;
+		*number_of_iterations = (int) ((*final_pos - laser_origin_1.y) / *increment);
 	}
 }
 
