@@ -103,10 +103,10 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 
 	if(t > EPSILON) { //ray intersection
 		*hit_point = ADD(O, MUL(D, t));
-		return 1;
+		return HIT;
 	  }
 
-	return 0;
+	return MISS;
 }
 
 

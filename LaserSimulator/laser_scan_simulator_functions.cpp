@@ -369,27 +369,26 @@ void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<i
 	}
 }
 
-int createSliceBoundArray(int *slice_bound, vector<int> *triangles_index)
+void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *array_size)
 {
-	int total_triangle = 0;
+	*array_size = 0;
 	for (int i = 0; i < SLICE_NUMBER; ++i)
 	{
-		total_triangle += triangles_index[i].size();
-		slice_bound[i] = total_triangle;
+		*array_size += triangles_index[i].size();
+		slice_bound[i] = *array_size;
 	}
 
 	for (int i = SLICE_NUMBER; i < SLICE_NUMBER * 2; ++i)
 	{
-		total_triangle += triangles_index[i].size();
-		slice_bound[i] = total_triangle;
+		*array_size += triangles_index[i].size();
+		slice_bound[i] = *array_size;
 	}
 
 	for (int i = SLICE_NUMBER * 2; i < SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER; ++i)
 	{
-		total_triangle += triangles_index[i].size();
-		slice_bound[i] = total_triangle;
+		*array_size += triangles_index[i].size();
+		slice_bound[i] = *array_size;
 	}
-	return total_triangle;
 }
 
 int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
@@ -437,7 +436,7 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 	return -1;
 }
 
-int makeOptiziationSlice(const PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle** triangles_array)
+void makeOptiziationSlice(PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle **triangles_array, int *array_size)
 {
 	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 
@@ -451,21 +450,19 @@ int makeOptiziationSlice(const PolygonMesh &mesh, const SliceParams &slice_param
 	fillSliceWithTriangles(mesh, triangles_index, VERTICAL_LINE, slice_params, params);
 
 	// Create slice bound array
-	int array_size = createSliceBoundArray(slice_bound, triangles_index);
-
+	createSliceBoundArray(slice_bound, triangles_index, array_size);
 
 	// Create triangles array used by OpenCL
-	*triangles_array = new Triangle[array_size];
+	*triangles_array = new Triangle[*array_size];
 	createTrianglesArray(mesh, *triangles_array, triangles_index, SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER);
 
 	// Delete mesh and triangles index array from memory
 	mesh.~PolygonMesh();
 	delete[] triangles_index;
 
-	return array_size;
 }
 
-void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_lenght, int array_size_hits)
+void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_lenght, int array_size_hits)
 {
 	cl_int err = CL_SUCCESS;
 
@@ -500,31 +497,30 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 				break;
 		}
 		
-
-		FILE* programHandle;
-		size_t kernelSourceSize;
-		char *kernelSource;
+		FILE *program_handle;
+		size_t kernel_source_size;
+		char *kernel_source;
 
 		// Get size of kernel source
-		int j = fopen_s(&programHandle, "intersection_opencl.cl", "rb");
+		int j = fopen_s(&program_handle, "intersection_opencl.cl", "rb");
 		if (j != 0)
 		{
 			cerr << "File kernel OpenCL non trovato" << endl;
 			exit(1);
 		}
 		 
-		fseek(programHandle, 0, SEEK_END);
-		kernelSourceSize = ftell(programHandle);
-		rewind(programHandle);
+		fseek(program_handle, 0, SEEK_END);
+		kernel_source_size = ftell(program_handle);
+		rewind(program_handle);
 
 		// Read kernel source into buffer
-		kernelSource = (char*)malloc(kernelSourceSize + 1);
-		kernelSource[kernelSourceSize] = '\0';
-		fread(kernelSource, sizeof(char), kernelSourceSize, programHandle);
-		fclose(programHandle);
+		kernel_source = (char*)malloc(kernel_source_size + 1);
+		kernel_source[kernel_source_size] = '\0';
+		fread(kernel_source, sizeof(char), kernel_source_size, program_handle);
+		fclose(program_handle);
 
 		// Build kernel from source string
-		data->program_ = cl::Program(data->context, kernelSource);
+		data->program_ = cl::Program(data->context, kernel_source);
 		err = data->program_.build(data->devices);
 
 		if (err != CL_SUCCESS)
@@ -533,7 +529,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 			exit(1);
 		}
 		
-		free(kernelSource);
+		free(kernel_source);
 
 		// Size, in bytes, of each vector
 		data->triangles_array_size = array_lenght * sizeof(Triangle);
@@ -548,6 +544,9 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 		// Bind memory buffers
 		data->queue.enqueueWriteBuffer(data->device_triangles_array, CL_TRUE, 0, data->triangles_array_size, triangles_array);
 		data->queue.finish();
+
+		// Delete triangles array (the same written in OpenCL buffer)
+		delete[] triangles_array;
 
 		// Create kernel object
 		data->kernel = cl::Kernel(data->program_, "kernelTriangleIntersection", &err);
@@ -573,7 +572,7 @@ void initializeOpenCL(OpenCLDATA* data, Triangle* triangles_array, int array_len
 
 }
 
-void executeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction) 
+void executeOpenCL(OpenCLDATA *data, Vec3 *output_points, uchar *output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction) 
 {
 	cl_int err = CL_SUCCESS;
 
@@ -607,7 +606,7 @@ void executeOpenCL(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, in
 	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
 }
 
-void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
+void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar *output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const int laser_number, const int *slice_bound)
 {
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
@@ -685,11 +684,12 @@ void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar* output_
 		}
 
 		if (higher_intersection.z > VTK_FLOAT_MIN)
+
 			cloud_intersection->push_back(higher_intersection);
 	}
 }
 
-bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SliceParams &slice_params, const SimulationParams &params, 
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *data, const SliceParams &slice_params, const SimulationParams &params, 
 	const int *slice_bound, Vec3* output_points, uchar* output_hits)
 {
 	int slice_of_point, slice_of_pinhole;
@@ -745,7 +745,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 		PointXYZ higher_intersection;
 		higher_intersection.z = VTK_FLOAT_MIN;
 
-		executeOpenCL(openCLData, output_points, output_hits, lower_bound, diff, origin, direction);
+		executeOpenCL(data, output_points, output_hits, lower_bound, diff, origin, direction);
 		int n_max = (int)(ceil((diff / (float)RUN) / LOCAL_SIZE) * LOCAL_SIZE);
 		for (int h = 0; h < n_max; ++h)
 		{
@@ -769,8 +769,8 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* 
 	return FALSE;
 }
 
-void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat* img, 
-	const SimulationParams &params, OpenCLDATA* openCLData, Vec3* output_points, const SliceParams &slice_params, const int *slice_bound, uchar* output_hits)
+void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat *img, 
+	const SimulationParams &params, OpenCLDATA *data, Vec3 *output_points, const SliceParams &slice_params, const int *slice_bound, uchar *output_hits)
 {
 	// Initialize a white image
 	*img = Mat::zeros(camera.image_height, camera.image_width, CV_8UC3);
@@ -838,7 +838,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 			if ((pixel.y >= 0) && (pixel.y < img->rows) && (pixel.x >= 0) && (pixel.x < img->cols))
 			{
 				// Check if point is occluded
-				if ( !(isOccluded(cloud_intersection->at(i), pin_hole, openCLData, slice_params, params,
+				if ( !(isOccluded(cloud_intersection->at(i), pin_hole, data, slice_params, params,
 					slice_bound, output_points, output_hits)) )
 				{
 					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;

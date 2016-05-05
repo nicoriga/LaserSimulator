@@ -54,7 +54,8 @@ int main(int argc, char** argv)
 
 	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
 	Triangle *triangles_array;
-	int array_size = makeOptiziationSlice(mesh, slice_params, params, slice_bound, &triangles_array);
+	int array_size;
+	makeOptiziationSlice(mesh, slice_params, params, slice_bound, &triangles_array, &array_size);
 
 
 	/********************** Inititialize OpenCL ********************************/
@@ -63,9 +64,7 @@ int main(int argc, char** argv)
 	uchar* output_hits = new uchar[array_size_hits];
 	initializeOpenCL(&data, triangles_array, array_size, array_size_hits);
 
-	// Delete triangles array (the same written in OpenCL buffer)
-	delete[] triangles_array;
-
+	
 	cout << endl << "Ottimizzazione terminata, durata: " << returnTime(high_resolution_clock::now() - start) << endl;
 
 	cout << endl << "Inizio elaborazione..." << endl;
@@ -84,7 +83,7 @@ int main(int argc, char** argv)
 	/******** In every iteration finds intersection with mesh, take a camera snapshot *******/
 	/******** and reconstruct the points in the 3D space ************************************/
 	/****************************************************************************************/
-	for (int z = 0; z <= number_of_iterations; ++z)
+	for (int z = 0; z <= (int)number_of_iterations; ++z)
 	{
 		// Print progression bar and number of iteration completed
 		cout << printProgBar((int) ((z / number_of_iterations) * 100 + 0.5));
