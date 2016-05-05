@@ -97,13 +97,11 @@ int main(int argc, char** argv)
 		current_position += increment;
 
 
-		/******************************* Look for intersection with mesh **************************************/
+		/******************************* Look for intersections with mesh **************************************/
 		// For laser 1
-		getIntersectionPoints(&data, output_points, output_hits, laser_origin_1, params, slice_params, cloud_intersection,
-			LASER_1, slice_bound);
+		getIntersectionPoints(&data, output_points, output_hits, laser_origin_1, params, slice_params, cloud_intersection, LASER_1, slice_bound);
 		// For laser 2
-		getIntersectionPoints(&data, output_points, output_hits, laser_origin_2, params, slice_params, cloud_intersection,
-			LASER_2, slice_bound);
+		getIntersectionPoints(&data, output_points, output_hits, laser_origin_2, params, slice_params, cloud_intersection, LASER_2, slice_bound);
 
 
 		/************************************ Take snapshot  **************************************************/
