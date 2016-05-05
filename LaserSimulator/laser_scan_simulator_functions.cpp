@@ -705,7 +705,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *
 	slice_of_pinhole = getSliceIndex(pin_hole, VERTICAL_LINE, slice_params, params);
 
 	if (slice_of_point == INDEX_NOT_FOUND || slice_of_pinhole == INDEX_NOT_FOUND)
-		return TRUE;
+		return true;
 	
 	// Set lower and upper bound due to slices found
 	if (slice_of_point < slice_of_pinhole)
@@ -763,10 +763,10 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *
 		// else are different points. In this case the point to check is really occluded.
 		if (higher_intersection.z > VTK_FLOAT_MIN)
 			if (pointsDistance(higher_intersection, point_to_check) > EPSILON_OCCLUSION)
-				return TRUE;
+				return true;
 	}
 
-	return FALSE;
+	return false;
 }
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat *img, 
@@ -1072,7 +1072,6 @@ string getMeshBoundsValues(const MeshBounds &bounds)
 
 	return stream.str();
 }
-
 
 void visualizeCloud(PointCloud<PointXYZ>::Ptr cloud)
 {
