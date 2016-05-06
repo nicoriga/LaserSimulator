@@ -649,13 +649,13 @@ void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar *output_
 	ray_origin.points[Y] = laser_point.y;
 	ray_origin.points[Z] = laser_point.z;
 	
-	// Cycle that examines the lines of the same laser beam
-	for (int j = 0; j < params.number_of_line; ++j)
+	if (diff > 0)
 	{
-		higher_intersection.z = VTK_FLOAT_MIN;
-
-		if (diff > 0)
+		// Cycle that examines the lines of the same laser beam
+		for (int j = 0; j < params.number_of_line; ++j)
 		{
+			higher_intersection.z = VTK_FLOAT_MIN;
+
 			// Set line direction
 			ray_direction.points[d_1] = -params.aperture_coefficient + j * ray_density;
 			ray_direction.points[d_2] = laser_number * params.inclination_coefficient;
@@ -681,11 +681,9 @@ void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar *output_
 					}
 				}
 			}
+			if (higher_intersection.z > VTK_FLOAT_MIN)
+				cloud_intersection->push_back(higher_intersection);
 		}
-
-		if (higher_intersection.z > VTK_FLOAT_MIN)
-
-			cloud_intersection->push_back(higher_intersection);
 	}
 }
 
