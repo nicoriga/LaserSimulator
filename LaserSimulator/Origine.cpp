@@ -89,8 +89,7 @@ int main(int argc, char** argv)
 	for (int z = 0; z <= number_of_iterations; ++z)
 	{
 		// Print progression bar and number of iteration completed
-		cout << printProgBar((int)((z / number_of_iterations) * 100 + 0.5));
-		cout << z << " di " << number_of_iterations;
+		cout << printProgBar((int)(z / (float)number_of_iterations * 100)) << z << " di " << number_of_iterations;
 
 		// Update position of pin hole and lasers
 		setLasersAndPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, params);
