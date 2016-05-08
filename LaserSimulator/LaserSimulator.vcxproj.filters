@@ -19,10 +19,10 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Origine.cpp">
+    <ClCompile Include="laser_scan_simulator_functions.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
-    <ClCompile Include="laser_scan_simulator_functions.cpp">
+    <ClCompile Include="main.cpp">
       <Filter>File di origine</Filter>
     </ClCompile>
   </ItemGroup>

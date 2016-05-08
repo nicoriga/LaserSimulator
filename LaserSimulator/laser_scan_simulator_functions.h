@@ -1,3 +1,11 @@
+/*
+* Laser scan simulator
+* Created on: 18/02/2016
+* Last Update: 09/05/2016
+* Authors: Mauro Bagatella  1110345
+*          Loris Del Monaco 1106940
+*/
+
 #pragma once
 
 #define __CL_ENABLE_EXCEPTIONS
@@ -54,7 +62,10 @@ using boost::chrono::duration;
 
 Eigen::Matrix<double, 3, 1> typedef Vector3d;
 
+
+
 /*************************** STRUCTS needed by program *************************/
+
 struct Camera
 {
 	Mat camera_matrix;
@@ -142,6 +153,7 @@ struct SliceParams
 };
 
 
+
 /************************* FUNCTIONS for the program **************************/
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file);
@@ -150,11 +162,11 @@ void updateMinMax(PointXYZRGB point, MeshBounds *bounds);
 
 void calculateBoundaries(const PolygonMesh &mesh, MeshBounds *bounds);
 
-void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, const SimulationParams &params, const MeshBounds &bounds);
+void setInitialPosition(PointXYZ *pin_hole, PointXYZ *laser_origin_1, PointXYZ *laser_origin_2, const SimulationParams &params, const MeshBounds &bounds);
 
-void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float current_position, const SimulationParams &params);
+void setLasersAndPinHole(PointXYZ *pin_hole, PointXYZ *laser_origin_1, PointXYZ *laser_origin_2, float current_position, const SimulationParams &params);
 
-void setSliceParams(SliceParams* slice_params, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2, const SimulationParams &params, const MeshBounds &bounds);
+void setSliceParams(SliceParams *slice_params, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2, const SimulationParams &params, const MeshBounds &bounds);
 
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params);
 
@@ -172,16 +184,16 @@ void initializeOpenCL(OpenCLDATA *data, Triangle *array_laser, int array_lenght,
 
 void executeOpenCL(OpenCLDATA *data, Vec3 *output_points, uchar *output_hits, int start_index, int array_lenght, const Vec3 &ray_origin, const Vec3 &ray_direction);
 
-void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar* output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
+void getIntersectionPoints(OpenCLDATA *data, Vec3 *output_points, uchar *output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const int laser_number, const int *slice_bound);
 
-bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA* openCLData, const SliceParams &slice_params, const SimulationParams &params,
+bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *data, const SliceParams &slice_params, const SimulationParams &params,
 	const int *slice_bound, Vec3 *output_points, uchar *output_hits);
 
 void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat *img,
 	const SimulationParams &params, OpenCLDATA *data, Vec3 *output_points, const SliceParams &slice_params, const int *slice_bound, uchar *output_hits);
 
-void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ &laser_1, const PointXYZ &laser_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out);
+void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ &laser_1, const PointXYZ &laser_2, const PointXYZ &pin_hole, Mat *image, PointCloud<PointXYZ>::Ptr cloud_out);
 
 void loadMesh(string path_file, PolygonMesh *mesh);
 

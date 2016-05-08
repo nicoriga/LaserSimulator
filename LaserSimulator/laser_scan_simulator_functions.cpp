@@ -1,7 +1,7 @@
 /*
-* LaserSimulator
-* Created on: 02/02/2016
-* Last Update: 21/04/2016
+* Laser scan simulator
+* Created on: 18/02/2016
+* Last Update: 09/05/2016
 * Authors: Mauro Bagatella  1110345
 *          Loris Del Monaco 1106940
 */
@@ -159,7 +159,7 @@ void calculateBoundaries(const PolygonMesh &mesh, MeshBounds *bounds)
 	}
 }
 
-void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, const SimulationParams &params, const MeshBounds &bounds) 
+void setInitialPosition(PointXYZ *pin_hole, PointXYZ *laser_origin_1, PointXYZ *laser_origin_2, const SimulationParams &params, const MeshBounds &bounds) 
 {
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
@@ -192,7 +192,7 @@ void setInitialPosition(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* 
 	}
 }
 
-void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ* laser_origin_2, float current_position, const SimulationParams &params) 
+void setLasersAndPinHole(PointXYZ *pin_hole, PointXYZ *laser_origin_1, PointXYZ *laser_origin_2, float current_position, const SimulationParams &params) 
 {
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
@@ -215,7 +215,7 @@ void setLasersAndPinHole(PointXYZ* pin_hole, PointXYZ* laser_origin_1, PointXYZ*
 	pin_hole->z = laser_origin_1->z;
 }
 
-void setSliceParams(SliceParams* slice_params, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2, const SimulationParams &params, const MeshBounds &bounds)
+void setSliceParams(SliceParams *slice_params, const PointXYZ &laser_origin_1, const PointXYZ &laser_origin_2, const SimulationParams &params, const MeshBounds &bounds)
 {
 	float total_length = 0;
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
@@ -335,7 +335,7 @@ void fillSliceWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_inde
 	}
 }
 
-void createTrianglesArray(const PolygonMesh &mesh, Triangle* triangles, vector<int> *triangles_index, int num_triangles_index_array)
+void createTrianglesArray(const PolygonMesh &mesh, Triangle *triangles, vector<int> *triangles_index, int num_triangles_index_array)
 {
 	PointCloud<PointXYZ> mesh_vertices;
 
@@ -606,7 +606,7 @@ void executeOpenCL(OpenCLDATA *data, Vec3 *output_points, uchar *output_hits, in
 	data->queue.enqueueReadBuffer(data->device_output_hits, CL_TRUE, 0, data->hits_size, output_hits);
 }
 
-void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar *output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
+void getIntersectionPoints(OpenCLDATA *data, Vec3 *output_points, uchar *output_hits, const PointXYZ &laser_point, const SimulationParams &params, const SliceParams &slice_params,
 	PointCloud<PointXYZRGB>::Ptr cloud_intersection, const int laser_number, const int *slice_bound)
 {
 	float ray_density = (params.aperture_coefficient * 2) / params.number_of_line;
@@ -688,7 +688,7 @@ void getIntersectionPoints(OpenCLDATA* data, Vec3* output_points, uchar *output_
 }
 
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *data, const SliceParams &slice_params, const SimulationParams &params, 
-	const int *slice_bound, Vec3* output_points, uchar* output_hits)
+	const int *slice_bound, Vec3 *output_points, uchar *output_hits)
 {
 	int slice_of_point, slice_of_pinhole;
 	int lower_bound, upper_bound;
@@ -850,7 +850,7 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 	}
 }
 
-void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ &laser_1, const PointXYZ &laser_2, const PointXYZ &pin_hole, Mat* image, PointCloud<PointXYZ>::Ptr cloud_out)
+void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ &laser_1, const PointXYZ &laser_2, const PointXYZ &pin_hole, Mat *image, PointCloud<PointXYZ>::Ptr cloud_out)
 {
 	// The point to add at the cloud
 	PointXYZ point;	
