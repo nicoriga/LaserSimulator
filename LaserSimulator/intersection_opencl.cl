@@ -95,13 +95,13 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 	T = SUB(O, V1);
 	u = DOT(T, P);
 
-	if(u < 0.f || u > det)
+	if (u < 0.f || u > det)
 		return 0;
 
 	Q = CROSS(T, e1);
 	v = DOT(D, Q);
 
-	if(v < 0.f || u + v > det)
+	if (v < 0.f || u + v > det)
 		return 0;
 
 	t = DOT(e2, Q);
@@ -112,7 +112,7 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 	u *= inv_det;
 	v *= inv_det;
 
-	if(t > EPSILON) //ray intersection
+	if (t > EPSILON) //ray intersection
 	{ 
 		*hit_point = ADD(O, MUL(D, t));
 		return HIT;
