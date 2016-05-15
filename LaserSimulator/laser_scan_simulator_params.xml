@@ -2,7 +2,7 @@
 <opencv_storage>
 
 <!-- Path di lettura della mesh -->
-<path_read_file>"../dataset/bin1.stl"</path_read_file>
+<path_read_file>"../dataset/bin3.stl"</path_read_file>
 
 <!-- Path di salvataggio della cloud -->
 <path_save_file>"../result/final_cloud.pcd"</path_save_file>

@@ -7,6 +7,7 @@
 #define HIT 1
 #define MISS 0
 
+#define TEST_CULL
 
 typedef struct 
 {
@@ -86,8 +87,40 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 
 	//if determinant is near zero, ray lies in plane of triangle
 	det = DOT(e1, P);
+
+#ifdef TEST_CULL
+	if (det < EPSILON)
+		return 0;
+
+	T = SUB(O, V1);
+	u = DOT(T, P);
+
+	if(u < 0.f || u > det)
+		return 0;
+
+	Q = CROSS(T, e1);
+	v = DOT(D, Q);
+
+	if(v < 0.f || u + v > det)
+		return 0;
+
+	t = DOT(e2, Q);
+
+	inv_det = 1.f / det;
+
+	t *= inv_det;
+	u *= inv_det;
+	v *= inv_det;
+
+	if(t > EPSILON) //ray intersection
+	{ 
+		*hit_point = ADD(O, MUL(D, t));
+		return HIT;
+	}
+
+#else
 	//NOT CULLING
-	if(det > -EPSILON && det < EPSILON)
+	if (det > -EPSILON && det < EPSILON)
 		return 0;
 	
 	inv_det = 1.f / det;
@@ -99,7 +132,8 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 	u = DOT(T, P) * inv_det;
 
 	//The intersection lies outside of the triangle
-	if(u < 0.f || u > 1.f) return 0;
+	if (u < 0.f || u > 1.f)
+		return 0;
 
 	//Prepare to test v parameter
 	Q = CROSS(T, e1);
@@ -108,15 +142,18 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 	v = DOT(D, Q) * inv_det;
 
 	//The intersection lies outside of the triangle
-	if(v < 0.f || u + v  > 1.f)
+	if (v < 0.f || u + v > 1.f)
 		return 0;
 
 	t = DOT(e2, Q) * inv_det;
 
-	if(t > EPSILON) { //ray intersection
+	if (t > EPSILON) //ray intersection
+	{ 
 		*hit_point = ADD(O, MUL(D, t));
 		return HIT;
-	  }
+	}
+
+#endif
 
 	return MISS;
 }
@@ -134,11 +171,11 @@ __kernel void kernelTriangleIntersection(__global Triangle *input, __global Vec3
 	int l = k * RUN + start_index;
 	int final_index = num_triangles + start_index;
 
-	for(j = 0; j < RUN && (l + j) < final_index; ++j)
+	for (j = 0; j < RUN && (l + j) < final_index; ++j)
 	{
 		t = l + j;
 
-		if(triangleIntersection(input[t].vertex_1, input[t].vertex_2, input[t].vertex_3, ray_origin, ray_direction, &local_hit_point))
+		if (triangleIntersection(input[t].vertex_1, input[t].vertex_2, input[t].vertex_3, ray_origin, ray_direction, &local_hit_point))
 		{
 			if (local_hit == MISS || local_hit_point.points[Z] >= hight_hit_point.points[Z])
 			{
