@@ -108,9 +108,9 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 
 	inv_det = 1.f / det;
 
-	t *= inv_det;
-	u *= inv_det;
-	v *= inv_det;
+	t = t * inv_det;
+	u = u * inv_det;
+	v = v * inv_det;
 
 	if (t > EPSILON) //ray intersection
 	{ 
