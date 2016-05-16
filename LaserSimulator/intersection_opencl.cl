@@ -90,19 +90,19 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 
 #ifdef TEST_CULL
 	if (det < EPSILON)
-		return 0;
+		return MISS;
 
 	T = SUB(O, V1);
 	u = DOT(T, P);
 
 	if (u < 0.f || u > det)
-		return 0;
+		return MISS;
 
 	Q = CROSS(T, e1);
 	v = DOT(D, Q);
 
 	if (v < 0.f || u + v > det)
-		return 0;
+		return MISS;
 
 	t = DOT(e2, Q);
 
@@ -121,7 +121,7 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 #else
 	//NOT CULLING
 	if (det > -EPSILON && det < EPSILON)
-		return 0;
+		return MISS;
 	
 	inv_det = 1.f / det;
 
@@ -133,7 +133,7 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 
 	//The intersection lies outside of the triangle
 	if (u < 0.f || u > 1.f)
-		return 0;
+		return MISS;
 
 	//Prepare to test v parameter
 	Q = CROSS(T, e1);
@@ -143,7 +143,7 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3*
 
 	//The intersection lies outside of the triangle
 	if (v < 0.f || u + v > 1.f)
-		return 0;
+		return MISS;
 
 	t = DOT(e2, Q) * inv_det;
 
