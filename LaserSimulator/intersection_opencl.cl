@@ -7,7 +7,7 @@
 #define HIT 1
 #define MISS 0
 
-#define TEST_CULL
+//#define TEST_CULL
 
 typedef struct 
 {
@@ -71,7 +71,7 @@ Vec3 MUL(Vec3 a, float f)
 
 
 // Moller-Trumbore intersection algorithm
-inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3 *hit_point)
+inline int triangleIntersection(Vec3 V0, Vec3 V1, Vec3 V2, Vec3 O, Vec3 D, Vec3 *hit_point)
 {
 	Vec3 e1, e2;  //Edge1, Edge2
 	Vec3 P, Q, T;
@@ -79,8 +79,8 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3 
 	float t;
 
 	//Find vectors for two edges sharing V1
-	e1 = SUB(V2, V1);
-	e2 = SUB(V3, V1);
+	e1 = SUB(V1, V0);
+	e2 = SUB(V2, V0);
 
 	//Begin calculating determinant - also used to calculate u parameter
 	P = CROSS(D, e2);
@@ -92,7 +92,7 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3 
 	if (det < EPSILON)
 		return MISS;
 
-	T = SUB(O, V1);
+	T = SUB(O, V0);
 	u = DOT(T, P);
 
 	if (u < 0.f || u > det)
@@ -126,7 +126,7 @@ inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3 
 	inv_det = 1.f / det;
 
 	//calculate distance from V1 to ray origin
-	T = SUB(O, V1);
+	T = SUB(O, V0);
 
 	//Calculate u parameter and test bound
 	u = DOT(T, P) * inv_det;
