@@ -71,7 +71,7 @@ Vec3 MUL(Vec3 a, float f)
 
 
 // Moller-Trumbore intersection algorithm
-inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3* hit_point)
+inline int triangleIntersection(Vec3 V1, Vec3 V2, Vec3 V3, Vec3 O, Vec3 D, Vec3 *hit_point)
 {
 	Vec3 e1, e2;  //Edge1, Edge2
 	Vec3 P, Q, T;
