@@ -983,8 +983,10 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	}
 }
 
-void loadMesh(string path_file, PolygonMesh *mesh)
+void loadMesh(const string path_file, PolygonMesh *mesh)
 {
+	// As reported in "vtk_lib_io.cpp" this fuction doesn't let
+	// manage exception thrown by vtk readers.
 	if (io::loadPolygonFile(path_file, *mesh) == 0)
 	{
 		PCL_ERROR("Failed to load mesh file\n");

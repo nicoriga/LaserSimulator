@@ -32,13 +32,13 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <none Include="intersection_opencl.cl">
-      <Filter>OpenCL Files</Filter>
-    </none>
-  </ItemGroup>
-  <ItemGroup>
     <Xml Include="laser_scan_simulator_params.xml">
       <Filter>File di risorse</Filter>
     </Xml>
+  </ItemGroup>
+  <ItemGroup>
+    <none Include="intersection_opencl.cl">
+      <Filter>OpenCL Files</Filter>
+    </none>
   </ItemGroup>
 </Project>
