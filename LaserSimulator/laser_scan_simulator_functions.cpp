@@ -986,10 +986,16 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 void loadMesh(const string path_file, PolygonMesh *mesh)
 {
 	// As reported in "vtk_lib_io.cpp" this fuction doesn't let
-	// manage exception thrown by vtk readers.
+	// manage exception thrown by vtk readers. (Eg: file exist but is not a mesh)
+	if(!boost::filesystem::exists(path_file) || boost::filesystem::is_directory(path_file))
+	{
+		PCL_ERROR("Lettura file mesh fallita\n");
+		exit(1);
+	}
+
 	if (io::loadPolygonFile(path_file, *mesh) == 0)
 	{
-		PCL_ERROR("Failed to load mesh file\n");
+		PCL_ERROR("Lettura file mesh fallita\n");
 		exit(1);
 	}
 }
@@ -1004,7 +1010,7 @@ void saveCloud(string cloud_name, PointCloud<PointXYZ>::Ptr cloud)
 		}
 		catch (IOException)
 		{
-			PCL_ERROR("Failed to save PCD file\n");
+			PCL_ERROR("Scrittura file PCD fallita\n");
 		}
 
 	}
