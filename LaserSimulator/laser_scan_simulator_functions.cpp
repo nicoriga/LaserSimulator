@@ -992,7 +992,7 @@ void loadMesh(const string path_file, PolygonMesh *mesh)
 		PCL_ERROR("Lettura file mesh fallita\n");
 		exit(1);
 	}
-
+	
 	if (io::loadPolygonFile(path_file, *mesh) == 0)
 	{
 		PCL_ERROR("Lettura file mesh fallita\n");

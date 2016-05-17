@@ -26,7 +26,6 @@
 #include <pcl/common/angles.h>
 #include <pcl/registration/transformation_estimation_svd.h>
 #include <pcl/exceptions.h>
-#include <boost/filesystem.hpp>
 #include <CL/cl.hpp>
 
 
