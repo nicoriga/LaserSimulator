@@ -27,11 +27,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="laser_scan_simulator_functions.h">
-      <Filter>File di intestazione</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
     <Xml Include="laser_scan_simulator_params.xml">
       <Filter>File di risorse</Filter>
     </Xml>
@@ -40,5 +35,10 @@
     <none Include="intersection_opencl.cl">
       <Filter>OpenCL Files</Filter>
     </none>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="laser_scan_simulator_functions.hpp">
+      <Filter>File di intestazione</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

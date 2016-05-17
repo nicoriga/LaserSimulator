@@ -169,7 +169,7 @@
     <Xml Include="laser_scan_simulator_params.xml" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="laser_scan_simulator_functions.h" />
+    <ClInclude Include="laser_scan_simulator_functions.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

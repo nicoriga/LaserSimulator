@@ -7,7 +7,7 @@
 */
 
 
-#include "laser_scan_simulator_functions.h"
+#include "laser_scan_simulator_functions.hpp"
 #include <iostream>
 
 

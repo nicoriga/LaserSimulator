@@ -6,7 +6,7 @@
 *          Loris Del Monaco 1106940
 */
 
-#include "laser_scan_simulator_functions.h"
+#include "laser_scan_simulator_functions.hpp"
 
 
 void readParamsFromXML(Camera *camera, SimulationParams *params, bool *snapshot_save_flag, string *path_read_file, string *path_save_file)
