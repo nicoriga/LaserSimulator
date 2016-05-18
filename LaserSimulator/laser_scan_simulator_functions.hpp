@@ -1,7 +1,7 @@
 /*
 * Laser scan simulator
 * Created on: 18/02/2016
-* Last Update: 09/05/2016
+* Last Update: 19/05/2016
 * Authors: Mauro Bagatella  1110345
 *          Loris Del Monaco 1106940
 */
