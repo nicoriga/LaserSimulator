@@ -25,6 +25,11 @@ int main(int argc, char** argv)
 	PointXYZ laser_origin_1, laser_origin_2, pin_hole;
 
 
+	cout << "******************************************************************************" << endl;
+	cout << "                          LASER SCAN SIMULATOR" << endl;
+	cout << "******************************************************************************" << endl << endl;
+
+
 	/********* Read data from parameters XML file ****************************************/
 	readParamsFromXML(&camera, &params, &snapshot_save_flag, &path_read_file, &path_save_file);
 
