@@ -986,7 +986,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 void loadMesh(const string path_file, PolygonMesh *mesh)
 {
 	// As reported in "vtk_lib_io.cpp" this fuction doesn't let
-	// manage exception thrown by vtk readers. (Eg: file exist but is not a mesh)
+	// manage exception thrown by vtk readers. (Eg: file exists but is not a mesh)
 	if(!boost::filesystem::exists(path_file) || boost::filesystem::is_directory(path_file))
 	{
 		PCL_ERROR("Lettura file mesh fallita\n");
