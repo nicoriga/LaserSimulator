@@ -7,7 +7,7 @@
 #define HIT 1
 #define MISS 0
 
-//#define TEST_CULL
+//#define TEST_CULL // Used to activate first branch of intersection algorithm
 
 typedef struct 
 {
@@ -78,7 +78,7 @@ inline int triangleIntersection(Vec3 V0, Vec3 V1, Vec3 V2, Vec3 O, Vec3 D, Vec3 
 	float det, inv_det, u, v;
 	float t;
 
-	// Find vectors for two edges sharing V1
+	// Find vectors for two edges sharing V0
 	e1 = SUB(V1, V0);
 	e2 = SUB(V2, V0);
 
@@ -93,15 +93,23 @@ inline int triangleIntersection(Vec3 V0, Vec3 V1, Vec3 V2, Vec3 O, Vec3 D, Vec3 
 	if (det < EPSILON)
 		return MISS;
 
+	// Calculate distance from V0 to ray origin
 	T = SUB(O, V0);
+
+	// Calculate u parameter and test bound
 	u = DOT(T, P);
 
+	// The intersection lies outside of the triangle
 	if (u < 0.f || u > det)
 		return MISS;
 
+	// Prepare to test v parameter
 	Q = CROSS(T, e1);
+
+	// Calculate v parameter and test bound
 	v = DOT(D, Q);
 
+	// The intersection lies outside of the triangle
 	if (v < 0.f || u + v > det)
 		return MISS;
 
@@ -126,7 +134,7 @@ inline int triangleIntersection(Vec3 V0, Vec3 V1, Vec3 V2, Vec3 O, Vec3 D, Vec3 
 	
 	inv_det = 1.f / det;
 
-	// Calculate distance from V1 to ray origin
+	// Calculate distance from V0 to ray origin
 	T = SUB(O, V0);
 
 	// Calculate u parameter and test bound
