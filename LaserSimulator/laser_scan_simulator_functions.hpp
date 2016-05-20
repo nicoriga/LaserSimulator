@@ -64,8 +64,7 @@ using namespace pcl;
 using boost::chrono::high_resolution_clock;
 using boost::chrono::duration;
 
-Eigen::Matrix<double, 3, 1> typedef Vector3d;
-
+typedef Eigen::Matrix<double, 3, 1> Vector3d;
 
 
 /*************************** STRUCTS needed by program *************************/
