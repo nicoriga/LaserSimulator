@@ -239,45 +239,45 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 	{
 		if (laser_number == LASER_1)
 		{
-			plane->A = params.compl_inclination_coeff;
-			plane->B = 0;
-			plane->C = 1;
+			plane->a = params.compl_inclination_coeff;
+			plane->b = 0;
+			plane->c = 1;
 		}
 		if (laser_number == LASER_2)
 		{
-			plane->A = -params.compl_inclination_coeff;
-			plane->B = 0;
-			plane->C = 1;
+			plane->a = -params.compl_inclination_coeff;
+			plane->b = 0;
+			plane->c = 1;
 		}
 		if (laser_number == VERTICAL_LINE)
 		{
-			plane->A = 1;
-			plane->B = 0;
-			plane->C = 0;
+			plane->a = 1;
+			plane->b = 0;
+			plane->c = 0;
 		}
 	}
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		if (laser_number == LASER_1)
 		{
-			plane->A = 0;
-			plane->B = params.compl_inclination_coeff;
-			plane->C = 1;
+			plane->a = 0;
+			plane->b = params.compl_inclination_coeff;
+			plane->c = 1;
 		}
 		if (laser_number == LASER_2)
 		{
-			plane->A = 0;
-			plane->B = -params.compl_inclination_coeff;
-			plane->C = 1;
+			plane->a = 0;
+			plane->b = -params.compl_inclination_coeff;
+			plane->c = 1;
 		}
 		if (laser_number == VERTICAL_LINE)
 		{
-			plane->A = 0;
-			plane->B = 1;
-			plane->C = 0;
+			plane->a = 0;
+			plane->b = 1;
+			plane->c = 0;
 		}
 	}
-	plane->D = -plane->A * laser.x - plane->B * laser.y - plane->C * laser.z;
+	plane->d = -plane->a * laser.x - plane->b * laser.y - plane->c * laser.z;
 }
 
 void fillSliceWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
@@ -401,8 +401,8 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 		const Plane &origin_plane = slice_params.origin_plane_laser1;
 		for (int i = 0; i < SLICE_NUMBER; ++i)
 		{
-			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - slice_length < slice_length * i &&
-				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= slice_length * i)
+			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d - slice_length < slice_length * i &&
+				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d >= slice_length * i)
 			
 				return i;
 			
@@ -413,8 +413,8 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 		const Plane &origin_plane = slice_params.origin_plane_laser2;
 		for (int i = 0; i < SLICE_NUMBER; ++i)
 		{
-			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D <= -slice_length * i &&
-				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D + slice_length > -slice_length * i)
+			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d <= -slice_length * i &&
+				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d + slice_length > -slice_length * i)
 			
 				return i + SLICE_NUMBER;
 			
@@ -425,8 +425,8 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 		for (int i = 0; i < VERTICAL_SLICE_NUMBER; ++i)
 		{
 			const Plane &origin_plane = slice_params.origin_vertical_plane;
-			if (origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D - vertical_slice_length < vertical_slice_length * i &&
-				origin_plane.A * laser_point.x + origin_plane.B * laser_point.y + origin_plane.C * laser_point.z + origin_plane.D >= vertical_slice_length * i)
+			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d - vertical_slice_length < vertical_slice_length * i &&
+				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d >= vertical_slice_length * i)
 		
 				return i + SLICE_NUMBER * 2;
 			
@@ -841,9 +841,9 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 				if ( !(isOccluded(cloud_intersection->at(i), pin_hole, data, slice_params, params,
 					slice_bound, output_points, output_hits)) )
 				{
-					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[0] = 0;
-					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[1] = 0;
-					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[2] = 255;
+					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[B] = 0;
+					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[G] = 0;
+					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[R] = 255;
 				}
 			}
 		}
@@ -908,7 +908,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 			Vec3b &color = image->at<Vec3b>(i, j);
 
 			// Check the color of the pixels
-			if (color[2] != 0)
+			if (color[R] != 0)
 			{
 
 				// Put the points of the image in the virtual sensor in the space
@@ -931,7 +931,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 				dz = pin_hole.z - point.z;
 
 				// Project the point in the sensor on the laser plane passing by the pin hole
-				float t = -(plane_1.A * point.x + plane_1.B * point.y + plane_1.C * point.z + plane_1.D) / (plane_1.A * dx + plane_1.B * dy + plane_1.C * dz);
+				float t = -(plane_1.a * point.x + plane_1.b * point.y + plane_1.c * point.z + plane_1.d) / (plane_1.a * dx + plane_1.b * dy + plane_1.c * dz);
 				point.x = dx * t + point.x;
 				point.y = dy * t + point.y;
 				point.z = dz * t + point.z;
@@ -949,7 +949,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 		{
 			Vec3b & color = image->at<Vec3b>(i, j);
 			// Check the color of the pixels
-			if (color[2] != 0)
+			if (color[R] != 0)
 			{
 				// Put the points of the image on the virtual sensor in the space
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
@@ -971,7 +971,7 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 				dz = pin_hole.z - point.z;
 
 				// Project the point in the sensor on the laser plane passing by the pin hole
-				float t = -(plane_2.A * point.x + plane_2.B * point.y + plane_2.C * point.z + plane_2.D) / (plane_2.A * dx + plane_2.B * dy + plane_2.C * dz);
+				float t = -(plane_2.a * point.x + plane_2.b * point.y + plane_2.c * point.z + plane_2.d) / (plane_2.a * dx + plane_2.b * dy + plane_2.c * dz);
 				point.x = dx * t + point.x;
 				point.y = dy * t + point.y;
 				point.z = dz * t + point.z;
