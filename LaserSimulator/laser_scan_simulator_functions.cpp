@@ -769,11 +769,11 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *
 	return false;
 }
 
-void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat *img, 
+void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointXYZ &laser_1, const PointXYZ &laser_2, PointCloud<PointXYZRGB>::Ptr cloud_intersection, Mat *image, 
 	const SimulationParams &params, OpenCLDATA *data, Vec3 *output_points, const SliceParams &slice_params, const int *slice_bound, uchar *output_hits)
 {
 	// Initialize a white image
-	*img = Mat::zeros(camera.image_height, camera.image_width, CV_8UC3);
+	*image = Mat::zeros(camera.image_height, camera.image_width, CV_8UC1);
 
 	PointCloud<PointXYZ>::Ptr cloud_source(new PointCloud<PointXYZ>);
 	PointCloud<PointXYZ>::Ptr cloud_target(new PointCloud<PointXYZ>);
@@ -835,15 +835,13 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 			pixel.x += 0.5;
 			pixel.y += 0.5;
 
-			if ((pixel.y >= 0) && (pixel.y < img->rows) && (pixel.x >= 0) && (pixel.x < img->cols))
+			if ((pixel.y >= 0) && (pixel.y < image->rows) && (pixel.x >= 0) && (pixel.x < image->cols))
 			{
 				// Check if point is occluded
 				if ( !(isOccluded(cloud_intersection->at(i), pin_hole, data, slice_params, params,
 					slice_bound, output_points, output_hits)) )
 				{
-					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[B] = 0;
-					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[G] = 0;
-					img->at<Vec3b>((int)(pixel.y), (int)(pixel.x))[R] = 255;
+					image->at<uchar>((int)(pixel.y), (int)(pixel.x)) = 255;
 				}
 			}
 		}
@@ -905,10 +903,8 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	{
 		for (int i = params.roi_1_start; i < params.roi_1_start + params.roi_dimension; ++i)
 		{
-			Vec3b &color = image->at<Vec3b>(i, j);
-
 			// Check the color of the pixels
-			if (color[R] != 0)
+			if (image->at<uchar>(i, j) != 0)
 			{
 
 				// Put the points of the image in the virtual sensor in the space
@@ -947,9 +943,8 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	{
 		for (int i = params.roi_2_start; i < params.roi_2_start + params.roi_dimension; ++i)
 		{
-			Vec3b & color = image->at<Vec3b>(i, j);
 			// Check the color of the pixels
-			if (color[R] != 0)
+			if (image->at<uchar>(i, j) != 0)
 			{
 				// Put the points of the image on the virtual sensor in the space
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
