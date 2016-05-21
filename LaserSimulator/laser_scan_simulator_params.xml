@@ -10,21 +10,21 @@
 <opencv_storage>
 
 <!-- Path di lettura della mesh -->
-<path_read_file>"../dataset/prodotto.stl"</path_read_file>
+<path_read_file>"../dataset/bin1.stl"</path_read_file>
 
 <!-- Path di salvataggio della cloud -->
 <path_save_file>"../result/final_cloud.pcd"</path_save_file>
 
 <!-- Parametri di simulazione -->
-<baseline>600.</baseline>                       <!-- [500, 800] mm (consigliato: 500) -->
-<height_from_mesh>1100.</height_from_mesh>      <!-- Altezza dalla mesh (consigliato: 1500) --> 
-<laser_aperture>45.</laser_aperture>            <!-- [30, 45] gradi (consigliato: 45) -->
-<laser_inclination>60.</laser_inclination>      <!-- [60, 70] gradi (consigliato: 70) -->
+<baseline>500.</baseline>                       <!-- [500, 800] mm (consigliato: 500) -->
+<height_from_mesh>1500.</height_from_mesh>      <!-- Altezza dalla mesh (consigliato: 1500) --> 
+<laser_aperture>40.</laser_aperture>            <!-- [30, 45] gradi (consigliato: 45) -->
+<laser_inclination>70.</laser_inclination>      <!-- [60, 70] gradi (consigliato: 70) -->
 <number_of_line>550</number_of_line>            <!-- Sparse: 250, Dense: 550 -->
 <scan_speed>100.</scan_speed>                   <!-- [100, 1000] mm/s -->
 <scan_direction>1</scan_direction>              <!-- Asse Y = 1, Asse X = 0 -->
 <undistortion_flag>0</undistortion_flag>        <!-- Rimozione distorsione attiva = 1 -->
-<snapshot_save_flag>0</snapshot_save_flag>      <!-- Salvataggio foto attivo = 1 -->
+<snapshot_save_flag>1</snapshot_save_flag>      <!-- Salvataggio foto attivo = 1 -->
 <roi_1_start>0</roi_1_start>                    <!-- Inizio ROI 1 -->
 <roi_2_start>544</roi_2_start>                  <!-- Inizio ROI 2 -->
 <roi_dimension>544</roi_dimension>              <!-- Dimensione ROI -->

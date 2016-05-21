@@ -51,10 +51,6 @@
 #define Y 1
 #define Z 2
 
-#define B 0
-#define G 1
-#define R 2
-
 #define SLICE_NUMBER 1000
 #define VERTICAL_SLICE_NUMBER 75
 
