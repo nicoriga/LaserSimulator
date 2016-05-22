@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 	int *slice_bound = new int[SLICES_NUMBER * 2 + VERTICAL_SLICES_NUMBER];
 	Triangle *triangles_array;
 	int array_size;
-	makeOptiziationSlice(mesh, slice_params, params, slice_bound, &triangles_array, &array_size);
+	makeOptimizationSlices(mesh, slice_params, params, slice_bound, &triangles_array, &array_size);
 
 
 

@@ -438,7 +438,7 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 	return INDEX_NOT_FOUND;
 }
 
-void makeOptiziationSlice(PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle **triangles_array, int *array_size)
+void makeOptimizationSlices(PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle **triangles_array, int *array_size)
 {
 	vector<int> *triangles_index = new vector<int>[SLICES_NUMBER * 2 + VERTICAL_SLICES_NUMBER];
 

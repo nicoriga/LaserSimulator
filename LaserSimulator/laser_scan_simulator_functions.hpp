@@ -180,7 +180,7 @@ void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *
 
 int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
 
-void makeOptiziationSlice(PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle **triangles_array, int *array_size);
+void makeOptimizationSlices(PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle **triangles_array, int *array_size);
 
 void initializeOpenCL(OpenCLDATA *data, Triangle *array_laser, int array_lenght, int array_size_hits);
 
