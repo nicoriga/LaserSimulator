@@ -1,3 +1,12 @@
+/*
+* Title: Laser scan simulator
+* Created on: 18/02/2016
+* Last Update: 22/05/2016
+*
+* Authors: Mauro Bagatella  1110345
+*          Loris Del Monaco 1106940
+*/
+
 #define EPSILON 0.000001f
 #define X 0
 #define Y 1

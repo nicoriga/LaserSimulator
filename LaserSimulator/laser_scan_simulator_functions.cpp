@@ -1,10 +1,12 @@
 /*
-* Laser scan simulator
+* Title: Laser scan simulator
 * Created on: 18/02/2016
-* Last Update: 19/05/2016
+* Last Update: 22/05/2016
+*
 * Authors: Mauro Bagatella  1110345
 *          Loris Del Monaco 1106940
 */
+
 
 #include "laser_scan_simulator_functions.hpp"
 
@@ -224,8 +226,8 @@ void setSliceParams(SliceParams *slice_params, const PointXYZ &laser_origin_1, c
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 		total_length = bounds.max_y + (bounds.min_y - laser_origin_1.x) - laser_origin_1.x;
 
-	slice_params->slice_length = total_length / SLICE_NUMBER;
-	slice_params->vertical_slice_length = total_length / VERTICAL_SLICE_NUMBER;
+	slice_params->slice_length = total_length / SLICES_NUMBER;
+	slice_params->vertical_slice_length = total_length / VERTICAL_SLICES_NUMBER;
 
 
 	getPlaneCoefficents(laser_origin_1, &slice_params->origin_plane_laser1, LASER_1, params);
@@ -280,7 +282,7 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 	plane->d = -plane->a * laser.x - plane->b * laser.y - plane->c * laser.z;
 }
 
-void fillSliceWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
+void fillSlicesWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
 	PointCloud<PointXYZ> mesh_vertices;
 	PointXYZ point_1, point_2, point_3;
@@ -372,19 +374,19 @@ void createTrianglesArray(const PolygonMesh &mesh, Triangle *triangles, vector<i
 void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *array_size)
 {
 	*array_size = 0;
-	for (int i = 0; i < SLICE_NUMBER; ++i)
+	for (int i = 0; i < SLICES_NUMBER; ++i)
 	{
 		*array_size += triangles_index[i].size();
 		slice_bound[i] = *array_size;
 	}
 
-	for (int i = SLICE_NUMBER; i < SLICE_NUMBER * 2; ++i)
+	for (int i = SLICES_NUMBER; i < SLICES_NUMBER * 2; ++i)
 	{
 		*array_size += triangles_index[i].size();
 		slice_bound[i] = *array_size;
 	}
 
-	for (int i = SLICE_NUMBER * 2; i < SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER; ++i)
+	for (int i = SLICES_NUMBER * 2; i < SLICES_NUMBER * 2 + VERTICAL_SLICES_NUMBER; ++i)
 	{
 		*array_size += triangles_index[i].size();
 		slice_bound[i] = *array_size;
@@ -399,7 +401,7 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 	if (laser_number == LASER_1)
 	{
 		const Plane &origin_plane = slice_params.origin_plane_laser1;
-		for (int i = 0; i < SLICE_NUMBER; ++i)
+		for (int i = 0; i < SLICES_NUMBER; ++i)
 		{
 			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d - slice_length < slice_length * i &&
 				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d >= slice_length * i)
@@ -411,24 +413,24 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 	if (laser_number == LASER_2)
 	{
 		const Plane &origin_plane = slice_params.origin_plane_laser2;
-		for (int i = 0; i < SLICE_NUMBER; ++i)
+		for (int i = 0; i < SLICES_NUMBER; ++i)
 		{
 			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d <= -slice_length * i &&
 				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d + slice_length > -slice_length * i)
 			
-				return i + SLICE_NUMBER;
+				return i + SLICES_NUMBER;
 			
 		}
 	}
 	if (laser_number == VERTICAL_LINE)
 	{
-		for (int i = 0; i < VERTICAL_SLICE_NUMBER; ++i)
+		for (int i = 0; i < VERTICAL_SLICES_NUMBER; ++i)
 		{
 			const Plane &origin_plane = slice_params.origin_vertical_plane;
 			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d - vertical_slice_length < vertical_slice_length * i &&
 				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d >= vertical_slice_length * i)
 		
-				return i + SLICE_NUMBER * 2;
+				return i + SLICES_NUMBER * 2;
 			
 		}
 	}
@@ -438,23 +440,23 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 
 void makeOptiziationSlice(PolygonMesh &mesh, const SliceParams &slice_params, const SimulationParams &params, int *slice_bound, Triangle **triangles_array, int *array_size)
 {
-	vector<int> *triangles_index = new vector<int>[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
+	vector<int> *triangles_index = new vector<int>[SLICES_NUMBER * 2 + VERTICAL_SLICES_NUMBER];
 
-	// Slice for LASER 1
-	fillSliceWithTriangles(mesh, triangles_index, LASER_1, slice_params, params);
+	// Slices for LASER 1
+	fillSlicesWithTriangles(mesh, triangles_index, LASER_1, slice_params, params);
 
-	// Slice for LASER 2
-	fillSliceWithTriangles(mesh, triangles_index, LASER_2, slice_params, params);
+	// Slices for LASER 2
+	fillSlicesWithTriangles(mesh, triangles_index, LASER_2, slice_params, params);
 
-	// Vertical slice for occlusion optimization
-	fillSliceWithTriangles(mesh, triangles_index, VERTICAL_LINE, slice_params, params);
+	// Vertical slices for occlusion optimization
+	fillSlicesWithTriangles(mesh, triangles_index, VERTICAL_LINE, slice_params, params);
 
 	// Create slice bound array
 	createSliceBoundArray(slice_bound, triangles_index, array_size);
 
 	// Create triangles array used by OpenCL
 	*triangles_array = new Triangle[*array_size];
-	createTrianglesArray(mesh, *triangles_array, triangles_index, SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER);
+	createTrianglesArray(mesh, *triangles_array, triangles_index, SLICES_NUMBER * 2 + VERTICAL_SLICES_NUMBER);
 
 	// Delete mesh and triangles index array from memory
 	mesh.~PolygonMesh();
@@ -690,7 +692,7 @@ void getIntersectionPoints(OpenCLDATA *data, Vec3 *output_points, uchar *output_
 bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *data, const SliceParams &slice_params, const SimulationParams &params, 
 	const int *slice_bound, Vec3 *output_points, uchar *output_hits)
 {
-	int slice_of_point, slice_of_pinhole;
+	int point_slice, pinhole_slice;
 	int lower_bound, upper_bound;
 	PointXYZ point_to_check;
 
@@ -699,30 +701,30 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *
 	point_to_check.z = point.z;
 
 	// Get slices of point to check and pin hole
-	slice_of_point = getSliceIndex(point_to_check, VERTICAL_LINE, slice_params, params);
-	slice_of_pinhole = getSliceIndex(pin_hole, VERTICAL_LINE, slice_params, params);
+	point_slice = getSliceIndex(point_to_check, VERTICAL_LINE, slice_params, params);
+	pinhole_slice = getSliceIndex(pin_hole, VERTICAL_LINE, slice_params, params);
 
-	if (slice_of_point == INDEX_NOT_FOUND || slice_of_pinhole == INDEX_NOT_FOUND)
+	if (point_slice == INDEX_NOT_FOUND || pinhole_slice == INDEX_NOT_FOUND)
 		return true;
 	
 	// Set lower and upper bound due to slices found
-	if (slice_of_point < slice_of_pinhole)
+	if (point_slice < pinhole_slice)
 	{
-		if (slice_of_point == 0)
+		if (point_slice == 0)
 			lower_bound = 0;
 		else
-			lower_bound = slice_bound[slice_of_point - 1];
+			lower_bound = slice_bound[point_slice - 1];
 
-		upper_bound = slice_bound[slice_of_pinhole];
+		upper_bound = slice_bound[pinhole_slice];
 	}
 	else
 	{
-		if (slice_of_pinhole == 0)
+		if (pinhole_slice == 0)
 			lower_bound = 0;
 		else
-			lower_bound = slice_bound[slice_of_pinhole - 1];
+			lower_bound = slice_bound[pinhole_slice - 1];
 
-		upper_bound = slice_bound[slice_of_point];
+		upper_bound = slice_bound[point_slice];
 	}
 
 	// Amount of triangles to find intersection with
@@ -760,7 +762,7 @@ bool isOccluded(const PointXYZRGB &point, const PointXYZ &pin_hole, OpenCLDATA *
 			}
 		}
 		// If point obtained is very close to the point to check, then they are the same point,
-		// else are different points. In this case the point to check is really occluded.
+		// else are different points. In the last case the point to check is really occluded.
 		if (higher_intersection.z > VTK_FLOAT_MIN)
 			if (pointsDistance(higher_intersection, point_to_check) > EPSILON_OCCLUSION)
 				return true;

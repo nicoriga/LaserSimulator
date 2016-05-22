@@ -1,13 +1,16 @@
 /*
-* Laser scan simulator
+* Title: Laser scan simulator
 * Created on: 18/02/2016
-* Last Update: 19/05/2016
+* Last Update: 22/05/2016
+*
 * Authors: Mauro Bagatella  1110345
 *          Loris Del Monaco 1106940
 */
 
+
 #pragma once
 
+// Used by OpenCL
 #define __CL_ENABLE_EXCEPTIONS
 #define _CRT_SECURE_NO_DEPRECATE
 #define CL_USE_DEPRECATED_OPENCL_1_2_APIS
@@ -51,8 +54,8 @@
 #define Y 1
 #define Z 2
 
-#define SLICE_NUMBER 1000
-#define VERTICAL_SLICE_NUMBER 75
+#define SLICES_NUMBER 1000
+#define VERTICAL_SLICES_NUMBER 75
 
 using namespace cv;
 using namespace std;
@@ -169,7 +172,7 @@ void setSliceParams(SliceParams *slice_params, const PointXYZ &laser_origin_1, c
 
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params);
 
-void fillSliceWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
+void fillSlicesWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_index, int laser_number, const SliceParams &slice_params, const SimulationParams &params);
 
 void createTrianglesArray(const PolygonMesh &mesh, Triangle *triangles, vector<int> *triangles_index, int num_triangles_index_array);
 

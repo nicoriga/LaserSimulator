@@ -1,7 +1,8 @@
 /*
-* Laser scan simulator
+* Title: Laser scan simulator
 * Created on: 18/02/2016
-* Last Update: 19/05/2016
+* Last Update: 22/05/2016
+*
 * Authors: Mauro Bagatella  1110345
 *          Loris Del Monaco 1106940
 */
@@ -61,7 +62,7 @@ int main(int argc, char** argv)
 	// Set the parameter for the slice optimization
 	setSliceParams(&slice_params, laser_origin_1, laser_origin_2, params, bounds);
 
-	int *slice_bound = new int[SLICE_NUMBER * 2 + VERTICAL_SLICE_NUMBER];
+	int *slice_bound = new int[SLICES_NUMBER * 2 + VERTICAL_SLICES_NUMBER];
 	Triangle *triangles_array;
 	int array_size;
 	makeOptiziationSlice(mesh, slice_params, params, slice_bound, &triangles_array, &array_size);
@@ -78,11 +79,10 @@ int main(int argc, char** argv)
 	
 
 
-
 	/********************** Start elaboration ********************************************/
 	cout << endl << "Inizio elaborazione..." << endl;
 
-	// Set current position, calculate final position and number of iterations
+	// Set current position (of pin hole), calculate final position and number of iterations
 	float increment, current_position, final_pos;
 	int number_of_iterations;
 	getScanCycleParams(params, camera, pin_hole, laser_origin_1, laser_origin_2, bounds, &increment, &current_position, &number_of_iterations, &final_pos);
@@ -121,9 +121,9 @@ int main(int argc, char** argv)
 		cameraSnapshot(camera, pin_hole, laser_origin_1, laser_origin_2, cloud_intersection, &image, params, &data, output_points,
 			slice_params, slice_bound, output_hits);
 
-		// Save snapshot (only for debug) 
+		// Save snapshot (for debug only) 
 		if (snapshot_save_flag)
-			imwrite("../imgOut/out_" + to_string(z) + ".png", image);
+			imwrite("../images/out_" + to_string(z) + ".png", image);
 
 
 
