@@ -1,7 +1,7 @@
 /*
 * Title: Laser scan simulator
 * Created on: 18/02/2016
-* Last Update: 22/05/2016
+* Last Update: 09/06/2016
 *
 * Authors: Mauro Bagatella  1110345
 *          Loris Del Monaco 1106940
@@ -237,27 +237,6 @@ void setSliceParams(SliceParams *slice_params, const PointXYZ &laser_origin_1, c
 
 void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, const SimulationParams &params)
 {
-	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
-	{
-		if (laser_number == LASER_1)
-		{
-			plane->a = params.compl_inclination_coeff;
-			plane->b = 0;
-			plane->c = 1;
-		}
-		if (laser_number == LASER_2)
-		{
-			plane->a = -params.compl_inclination_coeff;
-			plane->b = 0;
-			plane->c = 1;
-		}
-		if (laser_number == VERTICAL_LINE)
-		{
-			plane->a = 1;
-			plane->b = 0;
-			plane->c = 0;
-		}
-	}
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		if (laser_number == LASER_1)
@@ -279,6 +258,29 @@ void getPlaneCoefficents(const PointXYZ &laser, Plane *plane, int laser_number, 
 			plane->c = 0;
 		}
 	}
+
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+	{
+		if (laser_number == LASER_1)
+		{
+			plane->a = params.compl_inclination_coeff;
+			plane->b = 0;
+			plane->c = 1;
+		}
+		if (laser_number == LASER_2)
+		{
+			plane->a = -params.compl_inclination_coeff;
+			plane->b = 0;
+			plane->c = 1;
+		}
+		if (laser_number == VERTICAL_LINE)
+		{
+			plane->a = 1;
+			plane->b = 0;
+			plane->c = 0;
+		}
+	}
+
 	plane->d = -plane->a * laser.x - plane->b * laser.y - plane->c * laser.z;
 }
 
@@ -331,8 +333,8 @@ void fillSlicesWithTriangles(const PolygonMesh &mesh, vector<int> *triangles_ind
 		// Assign triangle to the correct slices
 		if (min_slice != INDEX_NOT_FOUND && max_slice != INDEX_NOT_FOUND)
 		{
-			for (int z = min_slice; z <= max_slice; ++z)
-				triangles_index[z].push_back(i);
+			for (int current_slice = min_slice; current_slice <= max_slice; ++current_slice)
+				triangles_index[current_slice].push_back(i);
 		}
 	}
 }
@@ -393,7 +395,7 @@ void createSliceBoundArray(int *slice_bound, vector<int> *triangles_index, int *
 	}
 }
 
-int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
+int getSliceIndex(const PointXYZ &point, int laser_number, const SliceParams &slice_params, const SimulationParams &params)
 {
 	float slice_length = slice_params.slice_length * params.compl_inclination_coeff;
 	float vertical_slice_length = slice_params.vertical_slice_length;
@@ -403,8 +405,8 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 		const Plane &origin_plane = slice_params.origin_plane_laser1;
 		for (int i = 0; i < SLICES_NUMBER; ++i)
 		{
-			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d - slice_length < slice_length * i &&
-				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d >= slice_length * i)
+			if (origin_plane.a * point.x + origin_plane.b * point.y + origin_plane.c * point.z + origin_plane.d - slice_length < slice_length * i &&
+				origin_plane.a * point.x + origin_plane.b * point.y + origin_plane.c * point.z + origin_plane.d >= slice_length * i)
 			
 				return i;
 			
@@ -415,8 +417,8 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 		const Plane &origin_plane = slice_params.origin_plane_laser2;
 		for (int i = 0; i < SLICES_NUMBER; ++i)
 		{
-			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d <= -slice_length * i &&
-				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d + slice_length > -slice_length * i)
+			if (origin_plane.a * point.x + origin_plane.b * point.y + origin_plane.c * point.z + origin_plane.d <= -slice_length * i &&
+				origin_plane.a * point.x + origin_plane.b * point.y + origin_plane.c * point.z + origin_plane.d + slice_length > -slice_length * i)
 			
 				return i + SLICES_NUMBER;
 			
@@ -427,8 +429,8 @@ int getSliceIndex(const PointXYZ &laser_point, int laser_number, const SlicePara
 		for (int i = 0; i < VERTICAL_SLICES_NUMBER; ++i)
 		{
 			const Plane &origin_plane = slice_params.origin_vertical_plane;
-			if (origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d - vertical_slice_length < vertical_slice_length * i &&
-				origin_plane.a * laser_point.x + origin_plane.b * laser_point.y + origin_plane.c * laser_point.z + origin_plane.d >= vertical_slice_length * i)
+			if (origin_plane.a * point.x + origin_plane.b * point.y + origin_plane.c * point.z + origin_plane.d - vertical_slice_length < vertical_slice_length * i &&
+				origin_plane.a * point.x + origin_plane.b * point.y + origin_plane.c * point.z + origin_plane.d >= vertical_slice_length * i)
 		
 				return i + SLICES_NUMBER * 2;
 			
@@ -442,10 +444,10 @@ void makeOptimizationSlices(PolygonMesh &mesh, const SliceParams &slice_params, 
 {
 	vector<int> *triangles_index = new vector<int>[SLICES_NUMBER * 2 + VERTICAL_SLICES_NUMBER];
 
-	// Slices for LASER 1
+	// Slices for laser 1
 	fillSlicesWithTriangles(mesh, triangles_index, LASER_1, slice_params, params);
 
-	// Slices for LASER 2
+	// Slices for laser 2
 	fillSlicesWithTriangles(mesh, triangles_index, LASER_2, slice_params, params);
 
 	// Vertical slices for occlusion optimization
@@ -464,7 +466,7 @@ void makeOptimizationSlices(PolygonMesh &mesh, const SliceParams &slice_params, 
 
 }
 
-void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_lenght, int array_size_hits)
+void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_size, int array_size_hits)
 {
 	cl_int err = CL_SUCCESS;
 
@@ -534,7 +536,7 @@ void initializeOpenCL(OpenCLDATA *data, Triangle *triangles_array, int array_len
 		free(kernel_source);
 
 		// Size, in bytes, of each vector
-		data->triangles_array_size = array_lenght * sizeof(Triangle);
+		data->triangles_array_size = array_size * sizeof(Triangle);
 		data->points_size = array_size_hits * sizeof(Vec3);
 		data->hits_size = array_size_hits * sizeof(uchar);
 
@@ -615,6 +617,7 @@ void getIntersectionPoints(OpenCLDATA *data, Vec3 *output_points, uchar *output_
 
 	char d_1 = 0;
 	char d_2 = 0;
+
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		d_1 = 0;
@@ -631,6 +634,7 @@ void getIntersectionPoints(OpenCLDATA *data, Vec3 *output_points, uchar *output_
 	int lower_bound, upper_bound;
 
 	int k = getSliceIndex(laser_point, laser_number, slice_params, params);
+	
 	if (k < 0)
 		return;
 
@@ -813,7 +817,6 @@ void cameraSnapshot(const Camera &camera, const PointXYZ &pin_hole, const PointX
 
 	for (int i = 0; i < cloud_intersection->size(); ++i)
 	{
-		
 		v_point[0] = cloud_intersection->points[i].x;
 		v_point[1] = cloud_intersection->points[i].y;
 		v_point[2] = cloud_intersection->points[i].z;
@@ -872,16 +875,18 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 	float focal_length = (focal_length_x + focal_length_y) / 2;
 
 	// Sensor translation
-	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
-	{
-		x_sensor_origin = pin_hole.x - (image->rows * camera.pixel_dimension) / 2 - delta_y;
-		y_sensor_origin = pin_hole.y - (image->cols * camera.pixel_dimension) / 2 + delta_x;
-	}
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
 	{
 		x_sensor_origin = pin_hole.x + (image->cols * camera.pixel_dimension) / 2 - delta_x;
 		y_sensor_origin = pin_hole.y - (image->rows * camera.pixel_dimension) / 2 - delta_y;
 	}
+
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
+	{
+		x_sensor_origin = pin_hole.x - (image->rows * camera.pixel_dimension) / 2 - delta_y;
+		y_sensor_origin = pin_hole.y - (image->cols * camera.pixel_dimension) / 2 + delta_x;
+	}
+
 
 	// Undistort the image accord with the camera disortion parameters
 	if (params.undistortion_flag)
@@ -908,18 +913,17 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 			// Check the color of the pixels
 			if (image->at<uchar>(i, j) != 0)
 			{
-
 				// Put the points of the image in the virtual sensor in the space
+				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+				{
+					point.x = -j * camera.pixel_dimension + x_sensor_origin;
+					point.y = i * camera.pixel_dimension + y_sensor_origin;
+				}
+				
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 				{
 					point.x = i * camera.pixel_dimension + x_sensor_origin;
 					point.y = j * camera.pixel_dimension + y_sensor_origin;
-				}
-
-				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
-				{
-					point.x = x_sensor_origin - j * camera.pixel_dimension;
-					point.y = i * camera.pixel_dimension + y_sensor_origin;
 				}
 
 				point.z = pin_hole.z + focal_length;
@@ -949,16 +953,16 @@ void imageToCloud(Camera &camera, const SimulationParams &params, const PointXYZ
 			if (image->at<uchar>(i, j) != 0)
 			{
 				// Put the points of the image on the virtual sensor in the space
+				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+				{
+					point.x = -j * camera.pixel_dimension + x_sensor_origin;
+					point.y = i * camera.pixel_dimension + y_sensor_origin;
+				}
+
 				if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 				{
 					point.x = i * camera.pixel_dimension + x_sensor_origin;
 					point.y = j * camera.pixel_dimension + y_sensor_origin;
-				}
-
-				if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
-				{
-					point.x = x_sensor_origin - j * camera.pixel_dimension;
-					point.y = i * camera.pixel_dimension + y_sensor_origin;
 				}
 				
 				point.z = pin_hole.z + focal_length;
@@ -1053,17 +1057,18 @@ void getScanCycleParams(const SimulationParams &params, const Camera &camera, co
 	// Step size (in mm) between two snapshots
 	*increment = params.scan_speed / camera.fps;
 
+	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
+	{
+		*current_position = pin_hole.y;
+		*final_pos = bounds.max_y + (bounds.min_y - laser_origin_2.y);
+		*number_of_iterations = (int)((*final_pos - laser_origin_1.y) / *increment);
+	}
+
 	if (params.scan_direction == DIRECTION_SCAN_AXIS_X)
 	{
 		*current_position = pin_hole.x;
 		*final_pos = bounds.max_x + (bounds.min_x - laser_origin_2.x);
 		*number_of_iterations = (int) ((*final_pos - laser_origin_1.x) / *increment);
-	}
-	if (params.scan_direction == DIRECTION_SCAN_AXIS_Y)
-	{
-		*current_position = pin_hole.y;
-		*final_pos = bounds.max_y + (bounds.min_y - laser_origin_2.y);
-		*number_of_iterations = (int) ((*final_pos - laser_origin_1.y) / *increment);
 	}
 }
 

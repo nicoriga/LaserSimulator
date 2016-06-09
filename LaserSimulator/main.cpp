@@ -1,7 +1,7 @@
 /*
 * Title: Laser scan simulator
 * Created on: 18/02/2016
-* Last Update: 22/05/2016
+* Last Update: 09/06/2016
 *
 * Authors: Mauro Bagatella  1110345
 *          Loris Del Monaco 1106940
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
 
 
 	/********************** Start elaboration ********************************************/
-	cout << endl << "Inizio elaborazione..." << endl;
+	cout << endl << "Elaborazione in corso..." << endl;
 
 	// Set current position (of pin hole), calculate final position and number of iterations
 	float increment, current_position, final_pos;
@@ -96,10 +96,10 @@ int main(int argc, char** argv)
 	/******** In every iteration finds intersection with mesh, take a camera snapshot ****/
 	/******** and reconstruct the points in the 3D space *********************************/
 	/*************************************************************************************/
-	for (int z = 0; z <= number_of_iterations; ++z)
+	for (int i = 0; i <= number_of_iterations; ++i)
 	{
 		// Print progression bar and number of iteration completed
-		cout << printProgBar((int)(z / (float)number_of_iterations * 100)) << z << " di " << number_of_iterations;
+		cout << printProgBar((int)(i / (float)number_of_iterations * 100)) << i << " di " << number_of_iterations;
 
 		// Set position of pin hole and lasers
 		setLasersAndPinHole(&pin_hole, &laser_origin_1, &laser_origin_2, current_position, params);
@@ -123,7 +123,7 @@ int main(int argc, char** argv)
 
 		// Save snapshot (for debug only) 
 		if (snapshot_save_flag)
-			imwrite("../images/out_" + to_string(z) + ".png", image);
+			imwrite("../images/out_" + to_string(i) + ".png", image);
 
 
 
